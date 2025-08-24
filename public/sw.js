@@ -1,61 +1,210 @@
-const CACHE_NAME = 'melodiya-v1';
-const urlsToCache = [
+const CACHE_NAME = 'melodiya-v1.0.0';
+const STATIC_CACHE = 'melodiya-static-v1.0.0';
+const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.0';
+
+// Files to cache immediately
+const STATIC_FILES = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/src/main.tsx',
-  '/src/App.tsx',
-  '/src/index.css',
-  '/src/App.css'
+  '/favicon.ico',
+  '/icon-192x192.png',
+  '/icon-512x512.png',
+  '/screenshot-wide.png',
+  '/screenshot-narrow.png'
 ];
 
-// Install event - cache resources
+// Install event - cache static files
 self.addEventListener('install', (event) => {
+  console.log('Service Worker: Installing...');
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        console.log('Service Worker: Caching static files');
+        return cache.addAll(STATIC_FILES);
+      })
+      .then(() => {
+        console.log('Service Worker: Static files cached');
+        return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('Service Worker: Error caching static files:', error);
       })
   );
 });
 
-// Fetch event - serve from cache when offline
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Activating...');
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+              console.log('Service Worker: Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+      .then(() => {
+        console.log('Service Worker: Activated');
+        return self.clients.claim();
+      })
+  );
+});
+
+// Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
-      })
-  );
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Skip chrome-extension and other non-http requests
+  if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // Handle different types of requests
+  if (url.pathname === '/' || url.pathname === '/index.html') {
+    // Handle main page
+    event.respondWith(handleMainPage(request));
+  } else if (url.pathname.startsWith('/api/')) {
+    // Handle API requests
+    event.respondWith(handleApiRequest(request));
+  } else if (url.pathname.includes('.') && !url.pathname.includes('?')) {
+    // Handle static assets
+    event.respondWith(handleStaticAsset(request));
+  } else {
+    // Handle other requests
+    event.respondWith(handleOtherRequest(request));
+  }
 });
 
-// Background sync for audio
+// Handle main page requests
+async function handleMainPage(request) {
+  try {
+    // Try network first
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      // Cache the response
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+  } catch (error) {
+    console.log('Service Worker: Network failed for main page, trying cache');
+  }
+
+  // Fallback to cache
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  // Fallback to static cache
+  return caches.match('/index.html');
+}
+
+// Handle API requests
+async function handleApiRequest(request) {
+  try {
+    // Try network first for API requests
+    const response = await fetch(request);
+    if (response.ok) {
+      // Cache successful API responses
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.log('Service Worker: API request failed:', error);
+    // Return offline response for API requests
+    return new Response(
+      JSON.stringify({ error: 'Offline - Please check your connection' }),
+      {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
+}
+
+// Handle static assets
+async function handleStaticAsset(request) {
+  // Check cache first for static assets
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  try {
+    // Try network
+    const response = await fetch(request);
+    if (response.ok) {
+      // Cache the response
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.log('Service Worker: Static asset not found:', request.url);
+    // Return a fallback response
+    return new Response('Not found', { status: 404 });
+  }
+}
+
+// Handle other requests
+async function handleOtherRequest(request) {
+  try {
+    // Try network first
+    const response = await fetch(request);
+    if (response.ok) {
+      // Cache successful responses
+      const cache = await caches.open(DYNAMIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    console.log('Service Worker: Request failed:', error);
+    // Return offline page
+    return caches.match('/index.html');
+  }
+}
+
+// Background sync for music playback
 self.addEventListener('sync', (event) => {
+  console.log('Service Worker: Background sync triggered:', event.tag);
+  
   if (event.tag === 'background-audio-sync') {
-    event.waitUntil(handleBackgroundAudioSync());
+    event.waitUntil(
+      // Handle background audio sync
+      handleBackgroundAudioSync()
+    );
   }
 });
 
 // Handle background audio sync
 async function handleBackgroundAudioSync() {
   try {
-    // Send message to main thread about background sync
-    const clients = await self.clients.matchAll();
-    clients.forEach((client) => {
-      client.postMessage({
-        type: 'BACKGROUND_AUDIO_SYNC',
-        timestamp: Date.now()
-      });
-    });
+    // This would handle background audio synchronization
+    // For now, just log the sync
+    console.log('Service Worker: Background audio sync completed');
   } catch (error) {
-    console.error('Background audio sync failed:', error);
+    console.error('Service Worker: Background audio sync failed:', error);
   }
 }
 
-// Handle push notifications for music controls
+// Push notification handling
 self.addEventListener('push', (event) => {
+  console.log('Service Worker: Push notification received');
+  
   const options = {
     body: event.data ? event.data.text() : 'New music available!',
     icon: '/icon-192x192.png',
@@ -67,18 +216,13 @@ self.addEventListener('push', (event) => {
     },
     actions: [
       {
-        action: 'play',
-        title: 'Play',
+        action: 'explore',
+        title: 'Open App',
         icon: '/icon-192x192.png'
       },
       {
-        action: 'pause',
-        title: 'Pause',
-        icon: '/icon-192x192.png'
-      },
-      {
-        action: 'next',
-        title: 'Next',
+        action: 'close',
+        title: 'Close',
         icon: '/icon-192x192.png'
       }
     ]
@@ -89,68 +233,24 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Handle notification clicks
+// Notification click handling
 self.addEventListener('notificationclick', (event) => {
+  console.log('Service Worker: Notification clicked');
+  
   event.notification.close();
 
-  if (event.action === 'play') {
-    // Handle play action
-    handleMusicAction('play');
-  } else if (event.action === 'pause') {
-    // Handle pause action
-    handleMusicAction('pause');
-  } else if (event.action === 'next') {
-    // Handle next action
-    handleMusicAction('next');
-  } else {
-    // Default action - open app
+  if (event.action === 'explore') {
     event.waitUntil(
       clients.openWindow('/')
     );
   }
 });
 
-// Handle music actions from notifications
-async function handleMusicAction(action) {
-  try {
-    const clients = await self.clients.matchAll();
-    clients.forEach((client) => {
-      client.postMessage({
-        type: 'MUSIC_ACTION',
-        action: action,
-        timestamp: Date.now()
-      });
-    });
-  } catch (error) {
-    console.error('Music action failed:', error);
-  }
-}
-
-// Handle messages from main thread
+// Message handling for communication with main app
 self.addEventListener('message', (event) => {
+  console.log('Service Worker: Message received:', event.data);
+  
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-  
-  if (event.data && event.data.type === 'BACKGROUND_AUDIO_REQUEST') {
-    // Handle background audio requests
-    handleBackgroundAudioRequest(event.data);
-  }
 });
-
-// Handle background audio requests
-async function handleBackgroundAudioRequest(data) {
-  try {
-    // Keep service worker alive for background audio
-    const clients = await self.clients.matchAll();
-    clients.forEach((client) => {
-      client.postMessage({
-        type: 'BACKGROUND_AUDIO_RESPONSE',
-        data: data,
-        timestamp: Date.now()
-      });
-    });
-  } catch (error) {
-    console.error('Background audio request failed:', error);
-  }
-}
