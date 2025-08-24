@@ -11,7 +11,8 @@ import {
   Settings, 
   LogOut,
   Crown,
-  Library
+  Library,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -31,7 +32,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) =>
 
   const libraryItems = [
     { id: 'liked', label: 'Liked Songs', icon: Heart },
-    { id: 'playlists', label: 'Recently Played', icon: Music },
+    { id: 'playlists', label: 'Your Playlists', icon: Music },
+    { id: 'recently-played', label: 'Recently Played', icon: Clock },
   ];
 
   const handleSignOut = async () => {

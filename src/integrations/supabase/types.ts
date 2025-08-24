@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      liked_songs: {
+        Row: {
+          artist: string | null
+          id: string
+          liked_at: string
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+          youtube_video_id: string
+        }
+        Insert: {
+          artist?: string | null
+          id?: string
+          liked_at?: string
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+          youtube_video_id: string
+        }
+        Update: {
+          artist?: string | null
+          id?: string
+          liked_at?: string
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+          youtube_video_id?: string
+        }
+        Relationships: []
+      }
       playlist_songs: {
         Row: {
           added_at: string

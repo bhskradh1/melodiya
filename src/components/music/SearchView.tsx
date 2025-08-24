@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Play, Plus, Clock, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Search, Play, Plus, Clock, Loader2, Heart, MoreVertical, ListPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface Track {
   id: string;
@@ -23,7 +26,10 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+  const [likedSongs, setLikedSongs] = useState<Set<string>>(new Set());
+  const [playlists, setPlaylists] = useState<Array<{id: string, name: string}>>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,11 +63,100 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     }
   };
 
-  const addToRecentlyPlayed = async (track: Track) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  const handlePlayTrack = (track: Track) => {
+    onPlayTrack(track);
+    addToRecentlyPlayed(track);
+  };
 
+  const toggleLike = async (track: Track) => {
+    if (!user) return;
+
+    try {
+      const isLiked = likedSongs.has(track.videoId);
+      
+      if (isLiked) {
+        // Remove from liked songs
+        const { error } = await supabase
+          .from('liked_songs')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('youtube_video_id', track.videoId);
+
+        if (error) throw error;
+
+        setLikedSongs(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(track.videoId);
+          return newSet;
+        });
+
+        toast({
+          title: "Removed from liked songs",
+          description: `"${track.title}" removed from your liked songs`
+        });
+      } else {
+        // Add to liked songs
+        const { error } = await supabase
+          .from('liked_songs')
+          .insert({
+            user_id: user.id,
+            youtube_video_id: track.videoId,
+            title: track.title,
+            artist: track.artist,
+            thumbnail_url: track.thumbnail
+          });
+
+        if (error) throw error;
+
+        setLikedSongs(prev => new Set([...prev, track.videoId]));
+
+        toast({
+          title: "Added to liked songs",
+          description: `"${track.title}" added to your liked songs`
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update liked songs",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addToPlaylist = async (track: Track, playlistId: string) => {
+    try {
+      const { error } = await supabase
+        .from('playlist_songs')
+        .insert({
+          playlist_id: playlistId,
+          youtube_video_id: track.videoId,
+          title: track.title,
+          artist: track.artist,
+          thumbnail_url: track.thumbnail
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Added to playlist",
+        description: `"${track.title}" added to playlist`
+      });
+    } catch (error) {
+      console.error('Error adding to playlist:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add song to playlist",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addToRecentlyPlayed = async (track: Track) => {
+    if (!user) return;
+    
+    try {
       await supabase
         .from('recently_played')
         .insert({
@@ -76,10 +171,38 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     }
   };
 
-  const handlePlayTrack = (track: Track) => {
-    onPlayTrack(track);
-    addToRecentlyPlayed(track);
+  const loadUserData = async () => {
+    try {
+      // Load liked songs
+      const { data: likedData } = await supabase
+        .from('liked_songs')
+        .select('youtube_video_id')
+        .eq('user_id', user?.id);
+
+      if (likedData) {
+        setLikedSongs(new Set(likedData.map(item => item.youtube_video_id)));
+      }
+
+      // Load playlists
+      const { data: playlistData } = await supabase
+        .from('playlists')
+        .select('id, name')
+        .eq('user_id', user?.id);
+
+      if (playlistData) {
+        setPlaylists(playlistData);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
   };
+
+  // Load user's liked songs and playlists on mount
+  React.useEffect(() => {
+    if (user) {
+      loadUserData();
+    }
+  }, [user]);
 
   return (
     <div className="p-6 space-y-6">
@@ -146,18 +269,39 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handlePlayTrack(track)}
+                        className={`h-8 w-8 p-0 ${likedSongs.has(track.videoId) ? 'text-red-500' : 'text-muted-foreground'}`}
+                        onClick={() => toggleLike(track)}
                       >
-                        <Play className="w-4 h-4" />
+                        <Heart className={`w-4 h-4 ${likedSongs.has(track.videoId) ? 'fill-current' : ''}`} />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {playlists.map(playlist => (
+                            <DropdownMenuItem
+                              key={playlist.id}
+                              onClick={() => addToPlaylist(track, playlist.id)}
+                            >
+                              <ListPlus className="w-4 h-4 mr-2" />
+                              Add to {playlist.name}
+                            </DropdownMenuItem>
+                          ))}
+                          {playlists.length === 0 && (
+                            <DropdownMenuItem disabled>
+                              No playlists found
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </CardContent>

@@ -3,6 +3,9 @@ import { Sidebar } from './Sidebar';
 import { MusicPlayer } from './MusicPlayer';
 import { HomeView } from './HomeView';
 import { SearchView } from './SearchView';
+import { LikedSongsView } from './LikedSongsView';
+import { PlaylistsView } from './PlaylistsView';
+import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { AdminView } from '../admin/AdminView';
 
 interface Track {
@@ -63,29 +66,16 @@ export const MelodiyaApp: React.FC = () => {
         return <HomeView onPlayTrack={handlePlayTrack} />;
       case 'search':
         return <SearchView onPlayTrack={handlePlayTrack} />;
+      case 'liked':
+        return <LikedSongsView onPlayTrack={handlePlayTrack} />;
+      case 'playlists':
+        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={(id) => console.log('View playlist:', id)} />;
+      case 'recently-played':
+        return <RecentlyPlayedView onPlayTrack={handlePlayTrack} />;
       case 'admin':
         return <AdminView />;
       case 'library':
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold mb-4">Your Library</h1>
-            <p className="text-muted-foreground">Your saved music and playlists will appear here.</p>
-          </div>
-        );
-      case 'liked':
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold mb-4">Liked Songs</h1>
-            <p className="text-muted-foreground">Songs you've liked will appear here.</p>
-          </div>
-        );
-      case 'playlists':
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold mb-4">Recently Played</h1>
-            <p className="text-muted-foreground">Your recently played songs will appear here.</p>
-          </div>
-        );
+        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={(id) => console.log('View playlist:', id)} />;
       case 'settings':
         return (
           <div className="p-6">
