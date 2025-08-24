@@ -59,6 +59,60 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Progressive Web App (PWA) with Service Workers
+- Background Audio Support
+- Mobile-First Design
+
+## PWA Features
+
+This app is now a Progressive Web App (PWA) with the following features:
+
+### 🎵 Background Audio
+- Music continues playing when the app is in the background
+- Media controls in notification center
+- Lock screen controls support
+
+### 📱 Mobile Installation
+- Install as a native app on mobile devices
+- App icon on home screen
+- Full-screen experience
+- Offline functionality
+
+### 🔔 Smart Notifications
+- Now playing notifications
+- Music control actions (play, pause, next)
+- Background sync for audio
+
+### 🎯 Enhanced Mobile Experience
+- Larger touch targets for music controls
+- Optimized mobile layout
+- Better spacing and accessibility
+
+### 📱 How to Install on Mobile
+
+1. **iOS (Safari)**:
+   - Open the app in Safari
+   - Tap the Share button (square with arrow)
+   - Select "Add to Home Screen"
+   - Tap "Add"
+
+2. **Android (Chrome)**:
+   - Open the app in Chrome
+   - Tap the menu (three dots)
+   - Select "Add to Home screen"
+   - Tap "Add"
+
+3. **Automatic Prompt**:
+   - The app will show an install prompt after a few seconds
+   - Tap "Install" to add to home screen
+
+### 🎵 Background Music Controls
+
+Once installed, you can:
+- Control music from notification center
+- Use lock screen controls
+- Continue listening while using other apps
+- Receive track information in notifications
 
 ## How can I deploy this project?
 

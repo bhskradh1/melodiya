@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
+import { usePWA } from '@/hooks/use-pwa';
 import { 
   Play, 
   Pause, 
@@ -11,7 +12,8 @@ import {
   VolumeX,
   Heart,
   Repeat,
-  Shuffle
+  Shuffle,
+  Download
 } from 'lucide-react';
 
 interface Track {
@@ -45,7 +47,19 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isRepeat, setIsRepeat] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const playerRef = useRef<any>(null);
+  
+  // PWA functionality
+  const { 
+    canInstall, 
+    installPWA, 
+    isInstalled, 
+    isOnline, 
+    requestNotificationPermission,
+    showNotification,
+    requestBackgroundSync 
+  } = usePWA();
 
   const handlePlayerReady = () => {
     console.log('Player is ready');
@@ -72,6 +86,62 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       // Go to next track
       onNext();
     }
+  };
+
+  // Handle music actions from service worker
+  useEffect(() => {
+    const handleMusicAction = (event: CustomEvent) => {
+      const { action } = event.detail;
+      switch (action) {
+        case 'play':
+          if (!isPlaying) onPlayPause();
+          break;
+        case 'pause':
+          if (isPlaying) onPlayPause();
+          break;
+        case 'next':
+          onNext();
+          break;
+        case 'previous':
+          onPrevious();
+          break;
+      }
+    };
+
+    window.addEventListener('music-action', handleMusicAction as EventListener);
+    return () => {
+      window.removeEventListener('music-action', handleMusicAction as EventListener);
+    };
+  }, [isPlaying, onPlayPause, onNext, onPrevious]);
+
+  // Handle background audio and notifications
+  useEffect(() => {
+    if (currentTrack && isPlaying) {
+      // Request background sync for audio
+      requestBackgroundSync('background-audio-sync');
+      
+      // Show notification for current track
+      if (Notification.permission === 'granted') {
+        showNotification(`Now Playing: ${currentTrack.title}`, {
+          body: `by ${currentTrack.artist}`,
+          icon: currentTrack.thumbnail,
+          tag: 'music-player',
+          requireInteraction: false,
+          silent: true
+        });
+      }
+    }
+  }, [currentTrack, isPlaying, requestBackgroundSync, showNotification]);
+
+  // Request notification permission on first play
+  const handleFirstPlay = async () => {
+    if (Notification.permission === 'default') {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        console.log('Notification permission granted');
+      }
+    }
+    onPlayPause();
   };
 
   const handleProgressChange = (value: number[]) => {
@@ -133,14 +203,29 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
             <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-10 w-10 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-            onClick={() => setIsLiked(!isLiked)}
-          >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-10 w-10 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+              onClick={() => setIsLiked(!isLiked)}
+            >
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+            </Button>
+            
+            {/* Install PWA Button */}
+            {canInstall && !isInstalled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 p-0 text-primary hover:text-primary/80"
+                onClick={installPWA}
+                title="Install App"
+              >
+                <Download className="w-5 h-5" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Controls - Larger touch targets */}
@@ -157,7 +242,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           <Button
             size="sm"
             className="h-14 w-14 p-0 bg-primary hover:bg-primary/90 rounded-full shadow-lg"
-            onClick={onPlayPause}
+            onClick={handleFirstPlay}
           >
             {isPlaying ? (
               <Pause className="w-7 h-7 text-primary-foreground" />
