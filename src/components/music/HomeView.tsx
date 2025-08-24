@@ -16,9 +16,10 @@ interface Track {
 
 interface HomeViewProps {
   onPlayTrack: (track: Track) => void;
+  onViewChange?: (view: string) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -80,52 +81,70 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
   ];
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-4 md:p-6 space-y-6 md:space-y-8">
       {/* Welcome Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Sparkles className="w-8 h-8 text-primary" />
+        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+          <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-primary" />
           Welcome back!
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground">
           Discover new music and continue where you left off
         </p>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glass-card hover-lift cursor-pointer bg-gradient-primary text-primary-foreground">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <Music className="w-6 h-6" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <Card 
+          className="glass-card hover-lift cursor-pointer bg-gradient-primary text-primary-foreground"
+          onClick={() => {
+            console.log('Navigate to Your Library');
+            onViewChange?.('library');
+          }}
+        >
+          <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <Music className="w-5 h-5 md:w-6 md:h-6" />
             </div>
             <div>
-              <h3 className="font-semibold">Your Library</h3>
-              <p className="text-primary-foreground/80 text-sm">Browse your saved music</p>
+              <h3 className="font-semibold text-sm md:text-base">Your Library</h3>
+              <p className="text-primary-foreground/80 text-xs md:text-sm">Browse your saved music</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card hover-lift cursor-pointer bg-gradient-secondary text-accent-foreground">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6" />
+        <Card 
+          className="glass-card hover-lift cursor-pointer bg-gradient-secondary text-accent-foreground"
+          onClick={() => {
+            console.log('Navigate to Trending Now');
+            onViewChange?.('search');
+          }}
+        >
+          <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
             </div>
             <div>
-              <h3 className="font-semibold">Trending Now</h3>
-              <p className="text-accent-foreground/80 text-sm">Popular songs today</p>
+              <h3 className="font-semibold text-sm md:text-base">Trending Now</h3>
+              <p className="text-accent-foreground/80 text-xs md:text-sm">Popular songs today</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card hover-lift cursor-pointer">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-primary" />
+        <Card 
+          className="glass-card hover-lift cursor-pointer"
+          onClick={() => {
+            console.log('Navigate to Recently Played');
+            onViewChange?.('recently-played');
+          }}
+        >
+          <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/20 rounded-lg flex items-center justify-center">
+              <Clock className="w-5 h-5 md:w-6 md:h-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold">Recently Played</h3>
-              <p className="text-muted-foreground text-sm">Continue listening</p>
+              <h3 className="font-semibold text-sm md:text-base">Recently Played</h3>
+              <p className="text-muted-foreground text-xs md:text-sm">Continue listening</p>
             </div>
           </CardContent>
         </Card>
@@ -133,17 +152,24 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
 
       {/* Recently Played */}
       {recentlyPlayed.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Recently Played</h2>
-            <Button variant="ghost" size="sm">View All</Button>
+            <h2 className="text-xl md:text-2xl font-bold">Recently Played</h2>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onViewChange?.('recently-played')}
+              className="text-xs md:text-sm"
+            >
+              View All
+            </Button>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {recentlyPlayed.map((track) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+            {recentlyPlayed.slice(0, 6).map((track) => (
               <Card key={track.id} className="glass-card hover-lift group cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="relative mb-3">
+                <CardContent className="p-3 md:p-4">
+                  <div className="relative mb-2 md:mb-3">
                     <img
                       src={track.thumbnail}
                       alt={track.title}
@@ -152,15 +178,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
                     <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button
                         size="sm"
-                        className="h-10 w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
+                        className="h-8 w-8 md:h-10 md:w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
                         onClick={() => onPlayTrack(track)}
                       >
-                        <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                        <Play className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground ml-0.5" />
                       </Button>
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-medium text-sm mb-1 truncate">{track.title}</h3>
+                    <h3 className="font-medium text-xs md:text-sm mb-1 truncate">{track.title}</h3>
                     <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
                   </div>
                 </CardContent>
@@ -171,17 +197,23 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
       )}
 
       {/* Popular This Week */}
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Popular This Week</h2>
-          <Button variant="ghost" size="sm">View All</Button>
+          <h2 className="text-xl md:text-2xl font-bold">Popular This Week</h2>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className="text-xs md:text-sm"
+          >
+            View All
+          </Button>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {popularTracks.map((track) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          {popularTracks.slice(0, 6).map((track) => (
             <Card key={track.id} className="glass-card hover-lift group cursor-pointer">
-              <CardContent className="p-4">
-                <div className="relative mb-3">
+              <CardContent className="p-3 md:p-4">
+                <div className="relative mb-2 md:mb-3">
                   <img
                     src={track.thumbnail}
                     alt={track.title}
@@ -190,15 +222,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
                   <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Button
                       size="sm"
-                      className="h-10 w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
+                      className="h-8 w-8 md:h-10 md:w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
                       onClick={() => onPlayTrack(track)}
                     >
-                      <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                      <Play className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground ml-0.5" />
                     </Button>
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm mb-1 truncate">{track.title}</h3>
+                  <h3 className="font-medium text-xs md:text-sm mb-1 truncate">{track.title}</h3>
                   <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
                 </div>
               </CardContent>
@@ -208,10 +240,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
       </div>
 
       {/* Music Categories */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold">Browse by Genre</h2>
+      <div className="space-y-3 md:space-y-4">
+        <h2 className="text-xl md:text-2xl font-bold">Browse by Genre</h2>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {[
             { name: 'Pop', color: 'bg-gradient-to-br from-pink-500 to-rose-500' },
             { name: 'Rock', color: 'bg-gradient-to-br from-red-500 to-orange-500' },
@@ -221,10 +253,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack }) => {
             { name: 'Classical', color: 'bg-gradient-to-br from-emerald-500 to-green-500' },
             { name: 'Country', color: 'bg-gradient-to-br from-orange-500 to-red-500' },
             { name: 'R&B', color: 'bg-gradient-to-br from-violet-500 to-purple-500' }
-          ].map((genre) => (
+          ].slice(0, 8).map((genre) => (
             <Card key={genre.name} className={`${genre.color} hover-lift cursor-pointer text-white`}>
-              <CardContent className="p-6 h-24 flex items-end">
-                <h3 className="font-bold text-lg">{genre.name}</h3>
+              <CardContent className="p-4 md:p-6 h-20 md:h-24 flex items-end">
+                <h3 className="font-bold text-sm md:text-lg">{genre.name}</h3>
               </CardContent>
             </Card>
           ))}

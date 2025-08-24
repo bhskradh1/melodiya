@@ -81,7 +81,7 @@ export const MelodiyaApp: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'home':
-        return <HomeView onPlayTrack={handlePlayTrack} />;
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
       case 'search':
         return <SearchView onPlayTrack={handlePlayTrack} />;
       case 'liked':
@@ -102,7 +102,7 @@ export const MelodiyaApp: React.FC = () => {
           </div>
         );
       default:
-        return <HomeView onPlayTrack={handlePlayTrack} />;
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
     }
   };
 
