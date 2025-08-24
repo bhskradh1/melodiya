@@ -12,16 +12,19 @@ import {
   LogOut,
   Crown,
   Library,
-  Clock
+  Clock,
+  X
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 interface SidebarProps {
   activeView: string;
   onViewChange: (view: string) => void;
+  onClose?: () => void;
+  isMobile?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onClose, isMobile }) => {
   const { signOut, isAdmin } = useAuth();
 
   const navItems = [
@@ -44,13 +47,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) =>
     <div className="glass-sidebar w-64 h-full flex flex-col">
       {/* Brand */}
       <div className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-            <Music className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+              <Music className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Melodiya
+            </span>
           </div>
-          <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Melodiya
-          </span>
+          {isMobile && onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={onClose}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          )}
         </div>
       </div>
 

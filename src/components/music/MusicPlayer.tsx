@@ -109,47 +109,38 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onTimeUpdate={handleTimeUpdate}
       />
       
-      <div className="glass-player h-20 px-4 flex items-center justify-between">
+    <div className="glass-player h-20 px-2 md:px-4 flex items-center justify-between">
         {/* Track Info */}
-      <div className="flex items-center gap-4 flex-1 min-w-0">
+      <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
         <img
           src={currentTrack.thumbnail}
           alt={currentTrack.title}
-          className="w-12 h-12 rounded-lg object-cover shadow-md"
+          className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-cover shadow-md"
         />
         <div className="min-w-0 flex-1">
-          <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
+          <h4 className="font-medium text-xs md:text-sm truncate">{currentTrack.title}</h4>
           <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+          className={`h-6 w-6 md:h-8 md:w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
           onClick={() => setIsLiked(!isLiked)}
         >
-          <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+          <Heart className={`w-3 h-3 md:w-4 md:h-4 ${isLiked ? 'fill-current' : ''}`} />
         </Button>
       </div>
 
-      {/* Player Controls */}
+      {/* Player Controls - Mobile Optimized */}
       <div className="flex flex-col items-center gap-2 flex-1 max-w-md">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <Button
             variant="ghost"
             size="sm"
-            className={`h-8 w-8 p-0 ${isShuffle ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`h-8 w-8 p-0 ${isShuffle ? 'text-primary' : 'text-muted-foreground'} hidden md:flex`}
             onClick={() => setIsShuffle(!isShuffle)}
           >
             <Shuffle className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-foreground hover:text-primary"
-            onClick={onPrevious}
-          >
-            <SkipBack className="w-4 h-4" />
           </Button>
           
           <Button
@@ -167,16 +158,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-foreground hover:text-primary"
-            onClick={onNext}
-          >
-            <SkipForward className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-8 w-8 p-0 ${isRepeat ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`h-8 w-8 p-0 ${isRepeat ? 'text-primary' : 'text-muted-foreground'} hidden md:flex`}
             onClick={() => setIsRepeat(!isRepeat)}
           >
             <Repeat className="w-4 h-4" />
@@ -201,8 +183,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         </div>
       </div>
 
-      {/* Volume Control */}
-      <div className="flex items-center gap-2 flex-1 justify-end">
+      {/* Volume Control - Hidden on mobile */}
+      <div className="hidden md:flex items-center gap-2 flex-1 justify-end">
         <Button
           variant="ghost"
           size="sm"

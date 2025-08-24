@@ -205,10 +205,10 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   }, [user]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Search Header */}
       <div className="space-y-4">
-        <h1 className="text-3xl font-bold">Search</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Search</h1>
         
         <form onSubmit={handleSearch} className="relative max-w-lg">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
@@ -217,7 +217,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
             placeholder="Search for songs, artists, or albums..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-3 text-lg bg-muted/50 border-border/50 focus:border-primary"
+            className="pl-10 pr-20 py-3 text-base md:text-lg bg-muted/50 border-border/50 focus:border-primary"
           />
           <Button
             type="submit"
@@ -233,25 +233,25 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Search Results</h2>
+          <h2 className="text-lg md:text-xl font-semibold">Search Results</h2>
           <div className="space-y-2">
             {searchResults.map((track, index) => (
               <Card key={track.id} className="glass-card hover-lift">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-center gap-3 md:gap-4">
                     <div className="relative group">
                       <img
                         src={track.thumbnail}
                         alt={track.title}
-                        className="w-16 h-16 rounded-lg object-cover"
+                        className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover"
                       />
                       <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Button
                           size="sm"
-                          className="h-8 w-8 p-0 rounded-full bg-primary hover:bg-primary/90"
+                          className="h-6 w-6 md:h-8 md:w-8 p-0 rounded-full bg-primary hover:bg-primary/90"
                           onClick={() => handlePlayTrack(track)}
                         >
-                          <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+                          <Play className="w-3 h-3 md:w-4 md:h-4 text-primary-foreground ml-0.5" />
                         </Button>
                       </div>
                     </div>
@@ -259,20 +259,20 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm mb-1 truncate">{track.title}</h3>
                       <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-1 md:mt-2">
                         <Clock className="w-3 h-3 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">{track.duration}</span>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 md:gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         className={`h-8 w-8 p-0 ${likedSongs.has(track.videoId) ? 'text-red-500' : 'text-muted-foreground'}`}
                         onClick={() => toggleLike(track)}
                       >
-                        <Heart className={`w-4 h-4 ${likedSongs.has(track.videoId) ? 'fill-current' : ''}`} />
+                        <Heart className={`w-3 h-3 md:w-4 md:h-4 ${likedSongs.has(track.videoId) ? 'fill-current' : ''}`} />
                       </Button>
                       
                       <DropdownMenu>
@@ -282,7 +282,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
                             size="sm"
                             className="h-8 w-8 p-0"
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <MoreVertical className="w-3 h-3 md:w-4 md:h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -312,30 +312,30 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       )}
 
       {loading && (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-8 md:py-12">
           <div className="flex items-center gap-3">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <span className="text-muted-foreground">Searching for music...</span>
+            <span className="text-muted-foreground text-sm md:text-base">Searching for music...</span>
           </div>
         </div>
       )}
 
       {!loading && searchResults.length === 0 && searchQuery && (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <Search className="w-16 h-16 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-8 md:py-12 space-y-4">
+          <Search className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground" />
           <div className="text-center">
-            <h3 className="text-lg font-medium">No results found</h3>
-            <p className="text-muted-foreground">Try searching with different keywords</p>
+            <h3 className="text-base md:text-lg font-medium">No results found</h3>
+            <p className="text-sm md:text-base text-muted-foreground">Try searching with different keywords</p>
           </div>
         </div>
       )}
 
       {!loading && !searchQuery && (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <Search className="w-16 h-16 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-8 md:py-12 space-y-4">
+          <Search className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground" />
           <div className="text-center">
-            <h3 className="text-lg font-medium">Search for music</h3>
-            <p className="text-muted-foreground">Find songs, artists, and albums</p>
+            <h3 className="text-base md:text-lg font-medium">Search for music</h3>
+            <p className="text-sm md:text-base text-muted-foreground">Find songs, artists, and albums</p>
           </div>
         </div>
       )}

@@ -7,6 +7,9 @@ import { LikedSongsView } from './LikedSongsView';
 import { PlaylistsView } from './PlaylistsView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { AdminView } from '../admin/AdminView';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Button } from '@/components/ui/button';
+import { Menu, X } from 'lucide-react';
 
 interface Track {
   id: string;
@@ -23,6 +26,8 @@ export const MelodiyaApp: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const handlePlayTrack = (track: Track) => {
     setCurrentTrack(track);
@@ -91,11 +96,51 @@ export const MelodiyaApp: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex flex-1 overflow-hidden">
+        {/* Mobile Header */}
+        {isMobile && (
+          <div className="absolute top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border/30 flex items-center px-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-2 ml-4">
+              <div className="w-6 h-6 bg-gradient-primary rounded-lg flex items-center justify-center">
+                <span className="text-xs font-bold text-white">M</span>
+              </div>
+              <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
+                Melodiya
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Sidebar */}
-        <Sidebar activeView={activeView} onViewChange={setActiveView} />
+        <div className={`${isMobile ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden') : 'relative w-64'}`}>
+          <Sidebar 
+            activeView={activeView} 
+            onViewChange={(view) => {
+              setActiveView(view);
+              if (isMobile) setIsMobileSidebarOpen(false);
+            }}
+            onClose={() => setIsMobileSidebarOpen(false)}
+            isMobile={isMobile}
+          />
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {isMobile && isMobileSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
         
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14' : ''}`}>
           {renderView()}
         </div>
       </div>
