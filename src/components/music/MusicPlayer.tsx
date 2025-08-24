@@ -120,120 +120,200 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onTimeUpdate={handleTimeUpdate}
       />
       
-    <div className="glass-player h-20 px-2 md:px-4 flex items-center justify-between">
-        {/* Track Info */}
-      <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-        <img
-          src={currentTrack.thumbnail}
-          alt={currentTrack.title}
-          className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-cover shadow-md"
-        />
-        <div className="min-w-0 flex-1">
-          <h4 className="font-medium text-xs md:text-sm truncate">{currentTrack.title}</h4>
-          <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`h-6 w-6 md:h-8 md:w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-          onClick={() => setIsLiked(!isLiked)}
-        >
-          <Heart className={`w-3 h-3 md:w-4 md:h-4 ${isLiked ? 'fill-current' : ''}`} />
-        </Button>
-      </div>
+    <div className="glass-player h-20 px-2 md:px-4 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-0">
+        {/* Mobile Layout - Stack vertically */}
+        <div className="md:hidden w-full flex items-center justify-between px-2">
+          {/* Track Info - Mobile */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <img
+              src={currentTrack.thumbnail}
+              alt={currentTrack.title}
+              className="w-8 h-8 rounded-md object-cover shadow-md"
+            />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-medium text-xs truncate">{currentTrack.title}</h4>
+              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
+            </div>
+          </div>
 
-      {/* Player Controls */}
-      <div className="flex flex-col items-center gap-2 flex-1 max-w-md">
-        <div className="flex items-center gap-2 md:gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-8 w-8 p-0 ${isShuffle ? 'text-primary' : 'text-muted-foreground'} hidden md:flex`}
-            onClick={() => setIsShuffle(!isShuffle)}
-          >
-            <Shuffle className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-foreground hover:text-primary"
-            onClick={onPrevious}
-          >
-            <SkipBack className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            size="sm"
-            className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
-            onClick={onPlayPause}
-          >
-            {isPlaying ? (
-              <Pause className="w-5 h-5 text-primary-foreground" />
-            ) : (
-              <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
-            )}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-foreground hover:text-primary"
-            onClick={onNext}
-          >
-            <SkipForward className="w-4 h-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-8 w-8 p-0 ${isRepeat ? 'text-primary' : 'text-muted-foreground'} hidden md:flex`}
-            onClick={() => setIsRepeat(!isRepeat)}
-          >
-            <Repeat className="w-4 h-4" />
-          </Button>
+          {/* Mobile Controls */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-foreground hover:text-primary"
+              onClick={onPrevious}
+            >
+              <SkipBack className="w-4 h-4" />
+            </Button>
+            
+            <Button
+              size="sm"
+              className="h-9 w-9 p-0 bg-primary hover:bg-primary/90 rounded-full"
+              onClick={onPlayPause}
+            >
+              {isPlaying ? (
+                <Pause className="w-4 h-4 text-primary-foreground" />
+              ) : (
+                <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+              )}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-foreground hover:text-primary"
+              onClick={onNext}
+            >
+              <SkipForward className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-6 w-6 p-0 ml-1 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+              onClick={() => setIsLiked(!isLiked)}
+            >
+              <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
+            </Button>
+          </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="flex items-center gap-2 w-full">
-          <span className="text-xs text-muted-foreground">
-            {formatTime(currentTime)}
-          </span>
-          <Slider
-            value={[progressPercentage]}
-            onValueChange={handleProgressChange}
-            max={100}
-            step={0.1}
-            className="flex-1"
-          />
-          <span className="text-xs text-muted-foreground">
-            {formatTime(duration)}
-          </span>
-        </div>
-      </div>
+        {/* Desktop Layout - Original horizontal layout */}
+        <div className="hidden md:flex items-center justify-between w-full">
+          {/* Track Info - Desktop */}
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <img
+              src={currentTrack.thumbnail}
+              alt={currentTrack.title}
+              className="w-12 h-12 rounded-lg object-cover shadow-md"
+            />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
+              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+              onClick={() => setIsLiked(!isLiked)}
+            >
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+            </Button>
+          </div>
 
-      {/* Volume Control - Hidden on mobile */}
-      <div className="hidden md:flex items-center gap-2 flex-1 justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-          onClick={() => setIsMuted(!isMuted)}
-        >
-          {isMuted || volume[0] === 0 ? (
-            <VolumeX className="w-4 h-4" />
-          ) : (
-            <Volume2 className="w-4 h-4" />
-          )}
-        </Button>
-        <Slider
-          value={isMuted ? [0] : volume}
-          onValueChange={setVolume}
-          max={100}
-          step={1}
-          className="w-24"
-        />
-      </div>
+          {/* Player Controls - Desktop */}
+          <div className="flex flex-col items-center gap-2 flex-1 max-w-md">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 ${isShuffle ? 'text-primary' : 'text-muted-foreground'}`}
+                onClick={() => setIsShuffle(!isShuffle)}
+              >
+                <Shuffle className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-foreground hover:text-primary"
+                onClick={onPrevious}
+              >
+                <SkipBack className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                size="sm"
+                className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
+                onClick={onPlayPause}
+              >
+                {isPlaying ? (
+                  <Pause className="w-5 h-5 text-primary-foreground" />
+                ) : (
+                  <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                )}
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-foreground hover:text-primary"
+                onClick={onNext}
+              >
+                <SkipForward className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 ${isRepeat ? 'text-primary' : 'text-muted-foreground'}`}
+                onClick={() => setIsRepeat(!isRepeat)}
+              >
+                <Repeat className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Progress Bar - Desktop */}
+            <div className="flex items-center gap-2 w-full">
+              <span className="text-xs text-muted-foreground">
+                {formatTime(currentTime)}
+              </span>
+              <Slider
+                value={[progressPercentage]}
+                onValueChange={handleProgressChange}
+                max={100}
+                step={0.1}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground">
+                {formatTime(duration)}
+              </span>
+            </div>
+          </div>
+
+          {/* Volume Control - Desktop */}
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => setIsMuted(!isMuted)}
+            >
+              {isMuted || volume[0] === 0 ? (
+                <VolumeX className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </Button>
+            <Slider
+              value={isMuted ? [0] : volume}
+              onValueChange={setVolume}
+              max={100}
+              step={1}
+              className="w-24"
+            />
+          </div>
+        </div>
+
+        {/* Mobile Progress Bar - Bottom */}
+        <div className="md:hidden w-full px-2">
+          <div className="flex items-center gap-2 w-full">
+            <span className="text-xs text-muted-foreground min-w-[32px]">
+              {formatTime(currentTime)}
+            </span>
+            <Slider
+              value={[progressPercentage]}
+              onValueChange={handleProgressChange}
+              max={100}
+              step={0.1}
+              className="flex-1"
+            />
+            <span className="text-xs text-muted-foreground min-w-[32px]">
+              {formatTime(duration)}
+            </span>
+          </div>
+        </div>
     </div>
     </>
   );
