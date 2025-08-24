@@ -120,24 +120,117 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onTimeUpdate={handleTimeUpdate}
       />
       
-    <div className="glass-player h-20 px-2 md:px-4 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-0">
-        {/* Mobile Layout - Stack vertically */}
-        <div className="md:hidden w-full flex items-center justify-between px-2">
-          {/* Track Info - Mobile */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <img
-              src={currentTrack.thumbnail}
-              alt={currentTrack.title}
-              className="w-8 h-8 rounded-md object-cover shadow-md"
-            />
-            <div className="min-w-0 flex-1">
-              <h4 className="font-medium text-xs truncate">{currentTrack.title}</h4>
-              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
-            </div>
+      {/* Mobile Layout - Improved for better touch targets */}
+      <div className="md:hidden glass-player min-h-[100px] px-4 py-3 flex flex-col gap-3">
+        {/* Track Info - Mobile */}
+        <div className="flex items-center gap-3">
+          <img
+            src={currentTrack.thumbnail}
+            alt={currentTrack.title}
+            className="w-12 h-12 rounded-lg object-cover shadow-md flex-shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
+            <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-10 w-10 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+            onClick={() => setIsLiked(!isLiked)}
+          >
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+          </Button>
+        </div>
 
-          {/* Mobile Controls */}
-          <div className="flex items-center gap-1">
+        {/* Mobile Controls - Larger touch targets */}
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-12 w-12 p-0 text-foreground hover:text-primary rounded-full"
+            onClick={onPrevious}
+          >
+            <SkipBack className="w-6 h-6" />
+          </Button>
+          
+          <Button
+            size="sm"
+            className="h-14 w-14 p-0 bg-primary hover:bg-primary/90 rounded-full shadow-lg"
+            onClick={onPlayPause}
+          >
+            {isPlaying ? (
+              <Pause className="w-7 h-7 text-primary-foreground" />
+            ) : (
+              <Play className="w-7 h-7 text-primary-foreground ml-1" />
+            )}
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-12 w-12 p-0 text-foreground hover:text-primary rounded-full"
+            onClick={onNext}
+          >
+            <SkipForward className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Mobile Progress Bar - Improved */}
+        <div className="w-full">
+          <div className="flex items-center gap-3 w-full">
+            <span className="text-xs text-muted-foreground min-w-[40px] font-mono">
+              {formatTime(currentTime)}
+            </span>
+            <Slider
+              value={[progressPercentage]}
+              onValueChange={handleProgressChange}
+              max={100}
+              step={0.1}
+              className="flex-1"
+            />
+            <span className="text-xs text-muted-foreground min-w-[40px] font-mono">
+              {formatTime(duration)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Layout - Original horizontal layout */}
+      <div className="hidden md:block glass-player h-20 px-4 flex items-center justify-between">
+        {/* Track Info - Desktop */}
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <img
+            src={currentTrack.thumbnail}
+            alt={currentTrack.title}
+            className="w-12 h-12 rounded-lg object-cover shadow-md"
+          />
+          <div className="min-w-0 flex-1">
+            <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
+            <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
+            onClick={() => setIsLiked(!isLiked)}
+          >
+            <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Player Controls - Desktop */}
+        <div className="flex flex-col items-center gap-2 flex-1 max-w-md">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-8 w-8 p-0 ${isShuffle ? 'text-primary' : 'text-muted-foreground'}`}
+              onClick={() => setIsShuffle(!isShuffle)}
+            >
+              <Shuffle className="w-4 h-4" />
+            </Button>
+            
             <Button
               variant="ghost"
               size="sm"
@@ -149,13 +242,13 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             
             <Button
               size="sm"
-              className="h-9 w-9 p-0 bg-primary hover:bg-primary/90 rounded-full"
+              className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
               onClick={onPlayPause}
             >
               {isPlaying ? (
-                <Pause className="w-4 h-4 text-primary-foreground" />
+                <Pause className="w-5 h-5 text-primary-foreground" />
               ) : (
-                <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
+                <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
               )}
             </Button>
             
@@ -167,139 +260,20 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             >
               <SkipForward className="w-4 h-4" />
             </Button>
-
+            
             <Button
               variant="ghost"
               size="sm"
-              className={`h-6 w-6 p-0 ml-1 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-              onClick={() => setIsLiked(!isLiked)}
+              className={`h-8 w-8 p-0 ${isRepeat ? 'text-primary' : 'text-muted-foreground'}`}
+              onClick={() => setIsRepeat(!isRepeat)}
             >
-              <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
-            </Button>
-          </div>
-        </div>
-
-        {/* Desktop Layout - Original horizontal layout */}
-        <div className="hidden md:flex items-center justify-between w-full">
-          {/* Track Info - Desktop */}
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <img
-              src={currentTrack.thumbnail}
-              alt={currentTrack.title}
-              className="w-12 h-12 rounded-lg object-cover shadow-md"
-            />
-            <div className="min-w-0 flex-1">
-              <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
-              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-              onClick={() => setIsLiked(!isLiked)}
-            >
-              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+              <Repeat className="w-4 h-4" />
             </Button>
           </div>
 
-          {/* Player Controls - Desktop */}
-          <div className="flex flex-col items-center gap-2 flex-1 max-w-md">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`h-8 w-8 p-0 ${isShuffle ? 'text-primary' : 'text-muted-foreground'}`}
-                onClick={() => setIsShuffle(!isShuffle)}
-              >
-                <Shuffle className="w-4 h-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-foreground hover:text-primary"
-                onClick={onPrevious}
-              >
-                <SkipBack className="w-4 h-4" />
-              </Button>
-              
-              <Button
-                size="sm"
-                className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
-                onClick={onPlayPause}
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5 text-primary-foreground" />
-                ) : (
-                  <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
-                )}
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-foreground hover:text-primary"
-                onClick={onNext}
-              >
-                <SkipForward className="w-4 h-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`h-8 w-8 p-0 ${isRepeat ? 'text-primary' : 'text-muted-foreground'}`}
-                onClick={() => setIsRepeat(!isRepeat)}
-              >
-                <Repeat className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Progress Bar - Desktop */}
-            <div className="flex items-center gap-2 w-full">
-              <span className="text-xs text-muted-foreground">
-                {formatTime(currentTime)}
-              </span>
-              <Slider
-                value={[progressPercentage]}
-                onValueChange={handleProgressChange}
-                max={100}
-                step={0.1}
-                className="flex-1"
-              />
-              <span className="text-xs text-muted-foreground">
-                {formatTime(duration)}
-              </span>
-            </div>
-          </div>
-
-          {/* Volume Control - Desktop */}
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-              onClick={() => setIsMuted(!isMuted)}
-            >
-              {isMuted || volume[0] === 0 ? (
-                <VolumeX className="w-4 h-4" />
-              ) : (
-                <Volume2 className="w-4 h-4" />
-              )}
-            </Button>
-            <Slider
-              value={isMuted ? [0] : volume}
-              onValueChange={setVolume}
-              max={100}
-              step={1}
-              className="w-24"
-            />
-          </div>
-        </div>
-
-        {/* Mobile Progress Bar - Bottom */}
-        <div className="md:hidden w-full px-2">
+          {/* Progress Bar - Desktop */}
           <div className="flex items-center gap-2 w-full">
-            <span className="text-xs text-muted-foreground min-w-[32px]">
+            <span className="text-xs text-muted-foreground">
               {formatTime(currentTime)}
             </span>
             <Slider
@@ -309,12 +283,35 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               step={0.1}
               className="flex-1"
             />
-            <span className="text-xs text-muted-foreground min-w-[32px]">
+            <span className="text-xs text-muted-foreground">
               {formatTime(duration)}
             </span>
           </div>
         </div>
-    </div>
+
+        {/* Volume Control - Desktop */}
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsMuted(!isMuted)}
+          >
+            {isMuted || volume[0] === 0 ? (
+              <VolumeX className="w-4 h-4" />
+            ) : (
+              <Volume2 className="w-4 h-4" />
+            )}
+          </Button>
+          <Slider
+            value={isMuted ? [0] : volume}
+            onValueChange={setVolume}
+            max={100}
+            step={1}
+            className="w-24"
+          />
+        </div>
+      </div>
     </>
   );
 };
