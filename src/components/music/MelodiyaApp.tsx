@@ -36,6 +36,7 @@ export const MelodiyaApp: React.FC = () => {
   const { user } = useAuth();
 
   const handlePlayTrack = async (track: Track) => {
+    console.log('handlePlayTrack called with:', track);
     setCurrentTrack(track);
     setIsPlaying(true);
     
@@ -50,21 +51,29 @@ export const MelodiyaApp: React.FC = () => {
 
     // Save to recently played
     try {
+      // First, delete any existing entry for this song to avoid duplicates
+      await supabase
+        .from('recently_played')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('youtube_video_id', track.videoId);
+
+      // Then insert the new entry
       const { error } = await supabase
         .from('recently_played')
-        .upsert({
+        .insert({
           user_id: user?.id,
           youtube_video_id: track.videoId,
           title: track.title,
           artist: track.artist,
           thumbnail_url: track.thumbnail,
           played_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,youtube_video_id'
         });
 
       if (error) {
         console.error('Error saving to recently played:', error);
+      } else {
+        console.log('Successfully saved to recently played:', track.title);
       }
     } catch (error) {
       console.error('Error saving to recently played:', error);

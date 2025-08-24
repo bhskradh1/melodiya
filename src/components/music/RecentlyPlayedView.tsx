@@ -42,6 +42,7 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
 
   const fetchRecentlyPlayed = async () => {
     try {
+      console.log('Fetching recently played for user:', user?.id);
       const { data, error } = await supabase
         .from('recently_played')
         .select('*')
@@ -50,6 +51,7 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
         .limit(50);
 
       if (error) throw error;
+      console.log('Recently played data:', data);
       setRecentSongs(data || []);
     } catch (error) {
       console.error('Error fetching recently played:', error);
@@ -96,6 +98,7 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
       videoId: song.youtube_video_id
     };
     console.log('Playing recent song:', track);
+    console.log('Original song data:', song);
     onPlayTrack(track);
   };
 

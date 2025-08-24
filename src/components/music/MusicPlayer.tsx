@@ -71,6 +71,12 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     console.log('Player state:', state);
   };
 
+  // Debug current track
+  useEffect(() => {
+    console.log('MusicPlayer - Current track:', currentTrack);
+    console.log('MusicPlayer - Is playing:', isPlaying);
+  }, [currentTrack, isPlaying]);
+
   const handleTimeUpdate = (current: number, total: number) => {
     setCurrentTime(current);
     setDuration(total);
