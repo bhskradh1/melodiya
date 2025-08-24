@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { YouTubePlayer } from './YouTubePlayer';
 import { 
   Play, 
   Pause, 
@@ -43,6 +44,29 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isLiked, setIsLiked] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
+
+  const handlePlayerReady = () => {
+    console.log('Player is ready');
+    setPlayerReady(true);
+  };
+
+  const handleStateChange = (state: number) => {
+    // YouTube Player States: 1 = playing, 2 = paused, 0 = ended
+    console.log('Player state:', state);
+  };
+
+  const handleVideoEnd = () => {
+    console.log('Video ended');
+    if (isRepeat) {
+      // Restart current track
+      onPlayPause();
+      setTimeout(() => onPlayPause(), 100);
+    } else {
+      // Go to next track
+      onNext();
+    }
+  };
 
   // Simulate progress updates
   useEffect(() => {
@@ -73,8 +97,18 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   }
 
   return (
-    <div className="glass-player h-20 px-4 flex items-center justify-between">
-      {/* Track Info */}
+    <>
+      {/* Hidden YouTube Player */}
+      <YouTubePlayer
+        videoId={currentTrack?.videoId || null}
+        isPlaying={isPlaying}
+        onReady={handlePlayerReady}
+        onStateChange={handleStateChange}
+        onEnd={handleVideoEnd}
+      />
+      
+      <div className="glass-player h-20 px-4 flex items-center justify-between">
+        {/* Track Info */}
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <img
           src={currentTrack.thumbnail}
@@ -186,5 +220,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         />
       </div>
     </div>
+    </>
   );
 };
