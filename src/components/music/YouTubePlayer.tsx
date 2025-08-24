@@ -128,7 +128,12 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   useEffect(() => {
     if (playerRef.current && videoId) {
       console.log('Loading video:', videoId);
-      playerRef.current.loadVideoById(videoId);
+      try {
+        playerRef.current.loadVideoById(videoId);
+        console.log('Video load command sent for:', videoId);
+      } catch (error) {
+        console.error('Error loading video:', error);
+      }
     }
   }, [videoId]);
 
@@ -136,10 +141,20 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
     if (playerRef.current) {
       if (isPlaying) {
         console.log('Playing video');
-        playerRef.current.playVideo();
+        try {
+          playerRef.current.playVideo();
+          console.log('Play command sent');
+        } catch (error) {
+          console.error('Error playing video:', error);
+        }
       } else {
         console.log('Pausing video');
-        playerRef.current.pauseVideo();
+        try {
+          playerRef.current.pauseVideo();
+          console.log('Pause command sent');
+        } catch (error) {
+          console.error('Error pausing video:', error);
+        }
       }
     }
   }, [isPlaying]);

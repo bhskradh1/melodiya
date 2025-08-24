@@ -36,14 +36,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Check if user is admin
+          // Check if user is admin and update last login
           setTimeout(async () => {
-            const { data: roles } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id);
+            const [rolesResult] = await Promise.all([
+              supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', session.user.id),
+              // Update last login
+              supabase
+                .from('profiles')
+                .update({ last_login: new Date().toISOString() })
+                .eq('user_id', session.user.id)
+            ]);
             
-            setIsAdmin(roles?.some(r => r.role === 'admin') || false);
+            setIsAdmin(rolesResult.data?.some(r => r.role === 'admin') || false);
           }, 0);
         } else {
           setIsAdmin(false);

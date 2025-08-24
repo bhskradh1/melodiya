@@ -48,6 +48,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isShuffle, setIsShuffle] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const playerRef = useRef<any>(null);
   
   // PWA functionality
@@ -64,18 +65,48 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const handlePlayerReady = () => {
     console.log('Player is ready');
     setPlayerReady(true);
+    
+    // If we have a track and should be playing, start playing
+    if (currentTrack && isPlaying) {
+      console.log('Player ready, starting playback for:', currentTrack.title);
+      setTimeout(() => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo();
+        }
+      }, 100);
+    }
   };
 
   const handleStateChange = (state: number) => {
     // YouTube Player States: 1 = playing, 2 = paused, 0 = ended
     console.log('Player state:', state);
+    
+    if (state === 1) { // playing
+      setIsLoading(false);
+    } else if (state === 3) { // buffering
+      setIsLoading(true);
+    }
   };
 
-  // Debug current track
+  // Handle track changes and ensure proper playback
   useEffect(() => {
     console.log('MusicPlayer - Current track:', currentTrack);
     console.log('MusicPlayer - Is playing:', isPlaying);
-  }, [currentTrack, isPlaying]);
+    console.log('MusicPlayer - Player ready:', playerReady);
+    
+    if (currentTrack && isPlaying && playerReady) {
+      console.log('Track changed, ensuring playback for:', currentTrack.title);
+      setIsLoading(true);
+      
+      // Give the player a moment to load the new video
+      setTimeout(() => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          console.log('Attempting to play video for:', currentTrack.title);
+          playerRef.current.playVideo();
+        }
+      }, 500);
+    }
+  }, [currentTrack, isPlaying, playerReady]);
 
   const handleTimeUpdate = (current: number, total: number) => {
     setCurrentTime(current);
@@ -245,17 +276,20 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <SkipBack className="w-6 h-6" />
           </Button>
           
-          <Button
-            size="sm"
-            className="h-14 w-14 p-0 bg-primary hover:bg-primary/90 rounded-full shadow-lg"
-            onClick={handleFirstPlay}
-          >
-            {isPlaying ? (
-              <Pause className="w-7 h-7 text-primary-foreground" />
-            ) : (
-              <Play className="w-7 h-7 text-primary-foreground ml-1" />
-            )}
-          </Button>
+                     <Button
+             size="sm"
+             className="h-14 w-14 p-0 bg-primary hover:bg-primary/90 rounded-full shadow-lg"
+             onClick={handleFirstPlay}
+             disabled={isLoading}
+           >
+             {isLoading ? (
+               <div className="w-7 h-7 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+             ) : isPlaying ? (
+               <Pause className="w-7 h-7 text-primary-foreground" />
+             ) : (
+               <Play className="w-7 h-7 text-primary-foreground ml-1" />
+             )}
+           </Button>
           
           <Button
             variant="ghost"
@@ -331,17 +365,20 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               <SkipBack className="w-4 h-4" />
             </Button>
             
-            <Button
-              size="sm"
-              className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
-              onClick={onPlayPause}
-            >
-              {isPlaying ? (
-                <Pause className="w-5 h-5 text-primary-foreground" />
-              ) : (
-                <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
-              )}
-            </Button>
+                         <Button
+               size="sm"
+               className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
+               onClick={onPlayPause}
+               disabled={isLoading}
+             >
+               {isLoading ? (
+                 <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+               ) : isPlaying ? (
+                 <Pause className="w-5 h-5 text-primary-foreground" />
+               ) : (
+                 <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+               )}
+             </Button>
             
             <Button
               variant="ghost"
