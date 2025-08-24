@@ -5,9 +5,13 @@ import { HomeView } from './HomeView';
 import { SearchView } from './SearchView';
 import { LikedSongsView } from './LikedSongsView';
 import { PlaylistsView } from './PlaylistsView';
+import { PlaylistDetailView } from './PlaylistDetailView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
+import { TrendingView } from './TrendingView';
 import { AdminView } from '../admin/AdminView';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 
@@ -27,9 +31,11 @@ export const MelodiyaApp: React.FC = () => {
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
-  const handlePlayTrack = (track: Track) => {
+  const handlePlayTrack = async (track: Track) => {
     setCurrentTrack(track);
     setIsPlaying(true);
     
@@ -40,6 +46,28 @@ export const MelodiyaApp: React.FC = () => {
     } else {
       const index = playlist.findIndex(t => t.id === track.id);
       setCurrentIndex(index);
+    }
+
+    // Save to recently played
+    try {
+      const { error } = await supabase
+        .from('recently_played')
+        .upsert({
+          user_id: user?.id,
+          youtube_video_id: track.videoId,
+          title: track.title,
+          artist: track.artist,
+          thumbnail_url: track.thumbnail,
+          played_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,youtube_video_id'
+        });
+
+      if (error) {
+        console.error('Error saving to recently played:', error);
+      }
+    } catch (error) {
+      console.error('Error saving to recently played:', error);
     }
   };
 
@@ -78,22 +106,42 @@ export const MelodiyaApp: React.FC = () => {
     }
   };
 
+  const handleViewPlaylist = (playlistId: string) => {
+    setSelectedPlaylistId(playlistId);
+    setActiveView('playlist-detail');
+  };
+
+  const handleBackFromPlaylist = () => {
+    setSelectedPlaylistId(null);
+    setActiveView('playlists');
+  };
+
   const renderView = () => {
     switch (activeView) {
       case 'home':
         return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
       case 'search':
         return <SearchView onPlayTrack={handlePlayTrack} />;
+      case 'trending':
+        return <TrendingView onPlayTrack={handlePlayTrack} />;
       case 'liked':
         return <LikedSongsView onPlayTrack={handlePlayTrack} />;
       case 'playlists':
-        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={(id) => console.log('View playlist:', id)} />;
+        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
+      case 'playlist-detail':
+        return selectedPlaylistId ? (
+          <PlaylistDetailView 
+            playlistId={selectedPlaylistId} 
+            onPlayTrack={handlePlayTrack} 
+            onBack={handleBackFromPlaylist} 
+          />
+        ) : <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'recently-played':
         return <RecentlyPlayedView onPlayTrack={handlePlayTrack} />;
       case 'admin':
         return <AdminView />;
       case 'library':
-        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={(id) => console.log('View playlist:', id)} />;
+        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'settings':
         return (
           <div className="p-6">

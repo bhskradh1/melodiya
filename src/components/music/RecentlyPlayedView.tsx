@@ -45,6 +45,7 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
       const { data, error } = await supabase
         .from('recently_played')
         .select('*')
+        .eq('user_id', user?.id)
         .order('played_at', { ascending: false })
         .limit(50);
 
@@ -94,6 +95,7 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
       thumbnail: song.thumbnail_url || '/placeholder.svg',
       videoId: song.youtube_video_id
     };
+    console.log('Playing recent song:', track);
     onPlayTrack(track);
   };
 

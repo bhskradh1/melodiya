@@ -35,6 +35,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
       const { data, error } = await supabase
         .from('recently_played')
         .select('*')
+        .eq('user_id', user?.id)
         .order('played_at', { ascending: false })
         .limit(6);
 
@@ -117,7 +118,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
           className="glass-card hover-lift cursor-pointer bg-gradient-secondary text-accent-foreground"
           onClick={() => {
             console.log('Navigate to Trending Now');
-            onViewChange?.('search');
+            onViewChange?.('trending');
           }}
         >
           <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
