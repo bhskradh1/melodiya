@@ -44,6 +44,7 @@ export const MelodiyaApp: React.FC = () => {
   };
 
   const handlePlayPause = () => {
+    console.log(`${isPlaying ? 'Pausing' : 'Playing'} track: ${currentTrack?.title}`);
     setIsPlaying(!isPlaying);
   };
 
@@ -53,6 +54,12 @@ export const MelodiyaApp: React.FC = () => {
       setCurrentIndex(nextIndex);
       setCurrentTrack(playlist[nextIndex]);
       setIsPlaying(true);
+      
+      console.log(`Skipping to next track: ${playlist[nextIndex]?.title}`);
+    } else if (currentTrack) {
+      // If no playlist, just restart current track
+      console.log('No playlist available, restarting current track');
+      setIsPlaying(true);
     }
   };
 
@@ -61,6 +68,12 @@ export const MelodiyaApp: React.FC = () => {
       const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1;
       setCurrentIndex(prevIndex);
       setCurrentTrack(playlist[prevIndex]);
+      setIsPlaying(true);
+      
+      console.log(`Skipping to previous track: ${playlist[prevIndex]?.title}`);
+    } else if (currentTrack) {
+      // If no playlist, just restart current track
+      console.log('No playlist available, restarting current track');
       setIsPlaying(true);
     }
   };

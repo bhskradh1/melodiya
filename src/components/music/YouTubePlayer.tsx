@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 declare global {
   interface Window {
@@ -16,17 +16,19 @@ interface YouTubePlayerProps {
   onTimeUpdate?: (currentTime: number, duration: number) => void;
 }
 
-export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
+export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   videoId,
   isPlaying,
   onReady,
   onStateChange,
   onEnd,
   onTimeUpdate
-}) => {
+}, ref) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useImperativeHandle(ref, () => playerRef.current);
 
   useEffect(() => {
     // Load YouTube IFrame API
@@ -154,4 +156,6 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       }}
     />
   );
-};
+});
+
+YouTubePlayer.displayName = 'YouTubePlayer';

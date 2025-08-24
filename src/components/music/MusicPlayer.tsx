@@ -45,6 +45,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isRepeat, setIsRepeat] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const playerRef = useRef<any>(null);
 
   const handlePlayerReady = () => {
     console.log('Player is ready');
@@ -74,10 +75,19 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   const handleProgressChange = (value: number[]) => {
-    // This would need YouTube player seek functionality
-    // For now, we'll just update the visual progress
-    const newTime = (value[0] / 100) * duration;
-    setCurrentTime(newTime);
+    if (playerRef.current && duration > 0) {
+      const newTime = (value[0] / 100) * duration;
+      console.log(`Seeking to: ${formatTime(newTime)}`);
+      
+      try {
+        playerRef.current.seekTo(newTime, true);
+        setCurrentTime(newTime);
+      } catch (error) {
+        console.error('Error seeking video:', error);
+        // Fallback: just update visual progress
+        setCurrentTime(newTime);
+      }
+    }
   };
 
   // Calculate progress percentage
@@ -101,6 +111,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     <>
       {/* Hidden YouTube Player */}
       <YouTubePlayer
+        ref={playerRef}
         videoId={currentTrack?.videoId || null}
         isPlaying={isPlaying}
         onReady={handlePlayerReady}
@@ -131,7 +142,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         </Button>
       </div>
 
-      {/* Player Controls - Mobile Optimized */}
+      {/* Player Controls */}
       <div className="flex flex-col items-center gap-2 flex-1 max-w-md">
         <div className="flex items-center gap-2 md:gap-4">
           <Button
@@ -144,6 +155,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </Button>
           
           <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-foreground hover:text-primary"
+            onClick={onPrevious}
+          >
+            <SkipBack className="w-4 h-4" />
+          </Button>
+          
+          <Button
             size="sm"
             className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
             onClick={onPlayPause}
@@ -153,6 +173,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             ) : (
               <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
             )}
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-foreground hover:text-primary"
+            onClick={onNext}
+          >
+            <SkipForward className="w-4 h-4" />
           </Button>
           
           <Button
