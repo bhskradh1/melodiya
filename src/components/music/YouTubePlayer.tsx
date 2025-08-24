@@ -13,6 +13,7 @@ interface YouTubePlayerProps {
   onReady?: () => void;
   onStateChange?: (state: number) => void;
   onEnd?: () => void;
+  onTimeUpdate?: (currentTime: number, duration: number) => void;
 }
 
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
@@ -20,10 +21,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   isPlaying,
   onReady,
   onStateChange,
-  onEnd
+  onEnd,
+  onTimeUpdate
 }) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Load YouTube IFrame API
@@ -74,6 +77,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             // 3 (buffering)
             // 5 (video cued)
             
+            if (event.data === 1) { // playing
+              startTimeTracking();
+            } else if (event.data === 2 || event.data === 0) { // paused or ended
+              stopTimeTracking();
+            }
+            
             if (event.data === 0) { // ended
               onEnd?.();
             }
@@ -85,6 +94,34 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       });
     }
   };
+
+  const startTimeTracking = () => {
+    stopTimeTracking(); // Clear any existing interval
+    
+    intervalRef.current = setInterval(() => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function' && typeof playerRef.current.getDuration === 'function') {
+        const currentTime = playerRef.current.getCurrentTime();
+        const duration = playerRef.current.getDuration();
+        
+        if (duration > 0) {
+          onTimeUpdate?.(currentTime, duration);
+        }
+      }
+    }, 1000);
+  };
+
+  const stopTimeTracking = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopTimeTracking();
+    };
+  }, []);
 
   useEffect(() => {
     if (playerRef.current && videoId) {

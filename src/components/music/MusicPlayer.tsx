@@ -39,7 +39,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 }) => {
   const [volume, setVolume] = useState([75]);
   const [isMuted, setIsMuted] = useState(false);
-  const [progress, setProgress] = useState([0]);
+  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
@@ -56,6 +56,11 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     console.log('Player state:', state);
   };
 
+  const handleTimeUpdate = (current: number, total: number) => {
+    setCurrentTime(current);
+    setDuration(total);
+  };
+
   const handleVideoEnd = () => {
     console.log('Video ended');
     if (isRepeat) {
@@ -68,19 +73,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   };
 
-  // Simulate progress updates
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && currentTrack) {
-      interval = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = prev[0] + 1;
-          return newProgress >= 100 ? [0] : [newProgress];
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, currentTrack]);
+  const handleProgressChange = (value: number[]) => {
+    // This would need YouTube player seek functionality
+    // For now, we'll just update the visual progress
+    const newTime = (value[0] / 100) * duration;
+    setCurrentTime(newTime);
+  };
+
+  // Calculate progress percentage
+  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -105,6 +106,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onReady={handlePlayerReady}
         onStateChange={handleStateChange}
         onEnd={handleVideoEnd}
+        onTimeUpdate={handleTimeUpdate}
       />
       
       <div className="glass-player h-20 px-4 flex items-center justify-between">
@@ -184,16 +186,18 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         {/* Progress Bar */}
         <div className="flex items-center gap-2 w-full">
           <span className="text-xs text-muted-foreground">
-            {formatTime((progress[0] / 100) * 180)}
+            {formatTime(currentTime)}
           </span>
           <Slider
-            value={progress}
-            onValueChange={setProgress}
+            value={[progressPercentage]}
+            onValueChange={handleProgressChange}
             max={100}
-            step={1}
+            step={0.1}
             className="flex-1"
           />
-          <span className="text-xs text-muted-foreground">3:00</span>
+          <span className="text-xs text-muted-foreground">
+            {formatTime(duration)}
+          </span>
         </div>
       </div>
 
