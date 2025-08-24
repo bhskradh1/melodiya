@@ -69,22 +69,31 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     // If we have a track and should be playing, start playing
     if (currentTrack && isPlaying) {
       console.log('Player ready, starting playback for:', currentTrack.title);
+      // Give more time for the player to fully initialize
       setTimeout(() => {
         if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          console.log('Attempting to play video after player ready');
           playerRef.current.playVideo();
         }
-      }, 100);
+      }, 500);
     }
   };
 
   const handleStateChange = (state: number) => {
-    // YouTube Player States: 1 = playing, 2 = paused, 0 = ended
+    // YouTube Player States: 1 = playing, 2 = paused, 0 = ended, -1 = unstarted, 3 = buffering, 5 = cued
     console.log('Player state:', state);
     
     if (state === 1) { // playing
       setIsLoading(false);
     } else if (state === 3) { // buffering
       setIsLoading(true);
+    } else if (state === -1 && currentTrack && isPlaying) { // unstarted but should be playing
+      console.log('Player is unstarted but should be playing, retrying...');
+      setTimeout(() => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo();
+        }
+      }, 1000);
     }
   };
 
@@ -94,17 +103,28 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     console.log('MusicPlayer - Is playing:', isPlaying);
     console.log('MusicPlayer - Player ready:', playerReady);
     
-    if (currentTrack && isPlaying && playerReady) {
+    if (currentTrack && isPlaying) {
       console.log('Track changed, ensuring playback for:', currentTrack.title);
       setIsLoading(true);
       
-      // Give the player a moment to load the new video
-      setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-          console.log('Attempting to play video for:', currentTrack.title);
-          playerRef.current.playVideo();
-        }
-      }, 500);
+      if (playerReady) {
+        // Player is ready, load and play immediately
+        console.log('Player ready, loading and playing video for:', currentTrack.title);
+        setTimeout(() => {
+          if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+            playerRef.current.loadVideoById(currentTrack.videoId);
+            setTimeout(() => {
+              if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                console.log('Playing video for:', currentTrack.title);
+                playerRef.current.playVideo();
+              }
+            }, 1000);
+          }
+        }, 100);
+      } else {
+        // Player not ready yet, wait for it
+        console.log('Player not ready yet, waiting for initialization');
+      }
     }
   }, [currentTrack, isPlaying, playerReady]);
 

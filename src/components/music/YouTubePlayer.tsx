@@ -46,6 +46,7 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
 
   const initializePlayer = () => {
     if (containerRef.current && window.YT && window.YT.Player) {
+      console.log('Initializing YouTube player...');
       playerRef.current = new window.YT.Player(containerRef.current, {
         height: '0',
         width: '0',
@@ -65,7 +66,10 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
         events: {
           onReady: (event: any) => {
             console.log('YouTube player ready');
-            onReady?.();
+            // Ensure the player is fully initialized
+            setTimeout(() => {
+              onReady?.();
+            }, 100);
           },
           onStateChange: (event: any) => {
             console.log('YouTube player state changed:', event.data);
@@ -129,8 +133,17 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
     if (playerRef.current && videoId) {
       console.log('Loading video:', videoId);
       try {
-        playerRef.current.loadVideoById(videoId);
-        console.log('Video load command sent for:', videoId);
+        // First cue the video to ensure it's loaded
+        playerRef.current.cueVideoById(videoId);
+        console.log('Video cue command sent for:', videoId);
+        
+        // Then load it for immediate playback if needed
+        setTimeout(() => {
+          if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+            playerRef.current.loadVideoById(videoId);
+            console.log('Video load command sent for:', videoId);
+          }
+        }, 100);
       } catch (error) {
         console.error('Error loading video:', error);
       }
