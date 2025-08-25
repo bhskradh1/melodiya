@@ -32,11 +32,16 @@ export const MelodiyaApp: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [playerError, setPlayerError] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
 
   const handlePlayTrack = async (track: Track) => {
     console.log('handlePlayTrack called with:', track);
+    
+    // Clear any previous errors
+    setPlayerError(null);
+    
     setCurrentTrack(track);
     setIsPlaying(true);
     
@@ -82,6 +87,12 @@ export const MelodiyaApp: React.FC = () => {
 
   const handlePlayPause = () => {
     console.log(`${isPlaying ? 'Pausing' : 'Playing'} track: ${currentTrack?.title}`);
+    
+    if (!currentTrack) {
+      setPlayerError('No track selected');
+      return;
+    }
+    
     setIsPlaying(!isPlaying);
   };
 
@@ -91,12 +102,14 @@ export const MelodiyaApp: React.FC = () => {
       setCurrentIndex(nextIndex);
       setCurrentTrack(playlist[nextIndex]);
       setIsPlaying(true);
+      setPlayerError(null);
       
       console.log(`Skipping to next track: ${playlist[nextIndex]?.title}`);
     } else if (currentTrack) {
       // If no playlist, just restart current track
       console.log('No playlist available, restarting current track');
       setIsPlaying(true);
+      setPlayerError(null);
     }
   };
 
@@ -106,11 +119,28 @@ export const MelodiyaApp: React.FC = () => {
       setCurrentIndex(prevIndex);
       setCurrentTrack(playlist[prevIndex]);
       setIsPlaying(true);
+      setPlayerError(null);
       
       console.log(`Skipping to previous track: ${playlist[prevIndex]?.title}`);
     } else if (currentTrack) {
       // If no playlist, just restart current track
       console.log('No playlist available, restarting current track');
+      setIsPlaying(true);
+      setPlayerError(null);
+    }
+  };
+
+  // Handle player errors
+  const handlePlayerError = (error: string) => {
+    console.error('Player error:', error);
+    setPlayerError(error);
+    setIsPlaying(false);
+  };
+
+  // Retry playing current track
+  const handleRetryPlay = () => {
+    if (currentTrack) {
+      setPlayerError(null);
       setIsPlaying(true);
     }
   };
@@ -222,6 +252,8 @@ export const MelodiyaApp: React.FC = () => {
         onPlayPause={handlePlayPause}
         onNext={handleNext}
         onPrevious={handlePrevious}
+        onPlayerError={handlePlayerError}
+        onRetryPlay={handleRetryPlay}
       />
     </div>
   );

@@ -60,35 +60,57 @@ export const usePWA = () => {
   const registerServiceWorker = useCallback(async () => {
     if ('serviceWorker' in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        setSwRegistration(registration);
+        // Check if we're on mobile
+        const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(navigator.userAgent);
         
-        // Handle service worker updates
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New service worker available
-                console.log('New service worker available');
-              }
-            });
-          }
-        });
-
-        // Handle service worker messages
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data.type === 'MUSIC_ACTION') {
-            // Handle music actions from service worker
-            handleMusicAction(event.data.action);
-          }
-        });
-
-        console.log('Service Worker registered successfully');
+        if (isMobile) {
+          console.log('Registering service worker on mobile device');
+          // On mobile, delay service worker registration to prevent interference with media playback
+          setTimeout(async () => {
+            try {
+              const registration = await navigator.serviceWorker.register('/sw.js');
+              setSwRegistration(registration);
+              console.log('Service Worker registered successfully on mobile');
+              setupServiceWorkerHandlers(registration);
+            } catch (error) {
+              console.error('Service Worker registration failed on mobile:', error);
+            }
+          }, 1000); // 1 second delay on mobile
+        } else {
+          // On desktop, register immediately
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          setSwRegistration(registration);
+          console.log('Service Worker registered successfully on desktop');
+          setupServiceWorkerHandlers(registration);
+        }
       } catch (error) {
         console.error('Service Worker registration failed:', error);
       }
     }
+  }, []);
+
+  // Setup service worker event handlers
+  const setupServiceWorkerHandlers = useCallback((registration: ServiceWorkerRegistration) => {
+    // Handle service worker updates
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (newWorker) {
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New service worker available
+            console.log('New service worker available');
+          }
+        });
+      }
+    });
+
+    // Handle service worker messages
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data.type === 'MUSIC_ACTION') {
+        // Handle music actions from service worker
+        handleMusicAction(event.data.action);
+      }
+    });
   }, []);
 
   // Handle music actions from service worker
@@ -112,16 +134,55 @@ export const usePWA = () => {
   // Request notification permission
   const requestNotificationPermission = useCallback(async () => {
     if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+      try {
+        // Check if we're on mobile
+        const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          console.log('Requesting notification permission on mobile device');
+          // On mobile, we need to be more careful about when we request permissions
+          // to avoid interfering with media playback
+        }
+        
+        const permission = await Notification.requestPermission();
+        console.log('Notification permission result:', permission);
+        return permission === 'granted';
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
+        return false;
+      }
     }
     return false;
   }, []);
 
-  // Show notification
+  // Show notification with mobile-specific handling
   const showNotification = useCallback((title: string, options?: NotificationOptions) => {
     if ('Notification' in window && Notification.permission === 'granted') {
-      return new Notification(title, options);
+      try {
+        // Check if we're on mobile
+        const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // On mobile, ensure notification doesn't interfere with media playback
+          console.log('Showing notification on mobile device:', title);
+          
+          // Use more mobile-friendly notification options
+          const mobileOptions = {
+            ...options,
+            requireInteraction: false, // Don't require interaction on mobile
+            silent: true, // Always silent on mobile to avoid audio conflicts
+            tag: options?.tag || 'music-player', // Ensure proper tagging
+          };
+          
+          return new Notification(title, mobileOptions);
+        } else {
+          // Desktop notification handling
+          return new Notification(title, options);
+        }
+      } catch (error) {
+        console.error('Error showing notification:', error);
+        return null;
+      }
     }
     return null;
   }, []);

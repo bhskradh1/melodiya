@@ -30,6 +30,8 @@ interface MusicPlayerProps {
   onPlayPause: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  onPlayerError?: (error: string) => void;
+  onRetryPlay?: () => void;
 }
 
 export const MusicPlayer: React.FC<MusicPlayerProps> = ({
@@ -37,7 +39,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   isPlaying,
   onPlayPause,
   onNext,
-  onPrevious
+  onPrevious,
+  onPlayerError,
+  onRetryPlay
 }) => {
   const [volume, setVolume] = useState([75]);
   const [isMuted, setIsMuted] = useState(false);
@@ -49,6 +53,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [playerReady, setPlayerReady] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
   const playerRef = useRef<any>(null);
   
   // PWA functionality
@@ -65,6 +70,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const handlePlayerReady = () => {
     console.log('Player is ready');
     setPlayerReady(true);
+    setPlayerError(null);
     
     // If we have a track and should be playing, start playing
     if (currentTrack && isPlaying) {
@@ -73,7 +79,28 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       setTimeout(() => {
         if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
           console.log('Attempting to play video after player ready');
-          playerRef.current.playVideo();
+          try {
+            playerRef.current.playVideo();
+          } catch (error) {
+            console.error('Error playing video after ready:', error);
+            const errorMsg = 'Failed to start playback';
+            setPlayerError(errorMsg);
+            onPlayerError?.(errorMsg);
+            // Retry after a short delay
+            setTimeout(() => {
+              if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                try {
+                  playerRef.current.playVideo();
+                  setPlayerError(null);
+                } catch (retryError) {
+                  console.error('Retry failed:', retryError);
+                  const retryErrorMsg = 'Playback retry failed';
+                  setPlayerError(retryErrorMsg);
+                  onPlayerError?.(retryErrorMsg);
+                }
+              }
+            }, 1000);
+          }
         }
       }, 500);
     }
@@ -85,15 +112,55 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     
     if (state === 1) { // playing
       setIsLoading(false);
+      setPlayerError(null);
     } else if (state === 3) { // buffering
       setIsLoading(true);
     } else if (state === -1 && currentTrack && isPlaying) { // unstarted but should be playing
       console.log('Player is unstarted but should be playing, retrying...');
       setTimeout(() => {
         if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-          playerRef.current.playVideo();
+          try {
+            playerRef.current.playVideo();
+          } catch (error) {
+            console.error('Error retrying play:', error);
+            const errorMsg = 'Failed to start playback';
+            setPlayerError(errorMsg);
+            onPlayerError?.(errorMsg);
+          }
         }
       }, 1000);
+    } else if (state === 5) { // video cued
+      console.log('Video cued successfully');
+      // If we should be playing, start playback
+      if (currentTrack && isPlaying) {
+        setTimeout(() => {
+          if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+            try {
+              playerRef.current.playVideo();
+            } catch (error) {
+              console.error('Error playing cued video:', error);
+              const errorMsg = 'Failed to start playback';
+              setPlayerError(errorMsg);
+              onPlayerError?.(errorMsg);
+            }
+          }
+        }, 500);
+      }
+    }
+  };
+
+  // Handle player errors from YouTube player
+  const handlePlayerError = (error: string) => {
+    console.error('YouTube player error:', error);
+    setPlayerError(error);
+    onPlayerError?.(error);
+  };
+
+  // Retry playing current track
+  const handleRetryPlay = () => {
+    if (currentTrack && onRetryPlay) {
+      setPlayerError(null);
+      onRetryPlay();
     }
   };
 
@@ -174,30 +241,66 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   // Handle background audio and notifications
   useEffect(() => {
     if (currentTrack && isPlaying) {
-      // Request background sync for audio
-      requestBackgroundSync('background-audio-sync');
+      // Request background sync for audio - but be careful on mobile
+      const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(navigator.userAgent);
       
-      // Show notification for current track
+      if (!isMobile) {
+        // Only request background sync on desktop to avoid mobile conflicts
+        requestBackgroundSync('background-audio-sync');
+      }
+      
+      // Show notification for current track - but only after a delay on mobile
       if (Notification.permission === 'granted') {
-        showNotification(`Now Playing: ${currentTrack.title}`, {
-          body: `by ${currentTrack.artist}`,
-          icon: currentTrack.thumbnail,
-          tag: 'music-player',
-          requireInteraction: false,
-          silent: true
-        });
+        // On mobile, delay notification to prevent interference with player
+        const notificationDelay = isMobile ? 2000 : 500; // 2 seconds on mobile, 0.5 on desktop
+        
+        setTimeout(() => {
+          try {
+            showNotification(`Now Playing: ${currentTrack.title}`, {
+              body: `by ${currentTrack.artist}`,
+              icon: currentTrack.thumbnail,
+              tag: 'music-player',
+              requireInteraction: false,
+              silent: true
+            });
+          } catch (error) {
+            console.error('Error showing notification:', error);
+            // Don't let notification errors affect playback
+          }
+        }, notificationDelay);
       }
     }
   }, [currentTrack, isPlaying, requestBackgroundSync, showNotification]);
 
-  // Request notification permission on first play
+  // Request notification permission on first play - with mobile-specific handling
   const handleFirstPlay = async () => {
+    const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(navigator.userAgent);
+    
     if (Notification.permission === 'default') {
-      const granted = await requestNotificationPermission();
-      if (granted) {
-        console.log('Notification permission granted');
+      try {
+        // On mobile, delay permission request to prevent player interference
+        if (isMobile) {
+          // Wait for player to be ready before requesting notification permission
+          if (playerReady) {
+            const granted = await requestNotificationPermission();
+            if (granted) {
+              console.log('Notification permission granted on mobile');
+            }
+          }
+        } else {
+          // On desktop, request immediately
+          const granted = await requestNotificationPermission();
+          if (granted) {
+            console.log('Notification permission granted on desktop');
+          }
+        }
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
+        // Don't let notification permission errors affect playback
       }
     }
+    
+    // Always proceed with play/pause regardless of notification status
     onPlayPause();
   };
 
@@ -234,6 +337,50 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     );
   }
 
+  // Show loading state while player is initializing
+  if (!playerReady && !playerError) {
+    return (
+      <div className="glass-player h-20 px-4 flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Initializing player...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show fallback when player fails to initialize
+  if (playerError && !playerReady) {
+    return (
+      <div className="glass-player h-20 px-4 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <p className="text-destructive text-sm">{playerError}</p>
+          <div className="flex items-center gap-2 justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRetryPlay}
+              className="h-8 px-3 text-xs"
+            >
+              Retry
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="h-8 px-3 text-xs"
+            >
+              Reload Page
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            If the problem persists, try refreshing the page or check your internet connection.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Hidden YouTube Player */}
@@ -245,10 +392,28 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onStateChange={handleStateChange}
         onEnd={handleVideoEnd}
         onTimeUpdate={handleTimeUpdate}
+        onError={handlePlayerError}
       />
       
       {/* Mobile Layout - Improved for better touch targets */}
       <div className="md:hidden glass-player min-h-[100px] px-4 py-3 flex flex-col gap-3">
+        {/* Error Display - Mobile */}
+        {playerError && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-destructive">{playerError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetryPlay}
+                className="h-8 px-3 text-xs"
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Track Info - Mobile */}
         <div className="flex items-center gap-3">
           <img
@@ -340,6 +505,23 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Error Display - Desktop */}
+      {playerError && (
+        <div className="hidden md:block bg-destructive/10 border border-destructive/20 rounded-lg p-3 mx-4 mb-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-destructive">{playerError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRetryPlay}
+              className="h-8 px-3 text-xs"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Desktop Layout - Original horizontal layout */}
       <div className="hidden md:block glass-player h-20 px-4 flex items-center justify-between">

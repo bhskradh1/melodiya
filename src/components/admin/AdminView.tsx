@@ -87,6 +87,7 @@ export const AdminView: React.FC = () => {
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [hasSuspensionSupport, setHasSuspensionSupport] = useState(false);
   const { isAdmin } = useAuth();
   const { toast } = useToast();
 
@@ -102,6 +103,35 @@ export const AdminView: React.FC = () => {
 
   const fetchAdminData = async () => {
     try {
+      console.log('Fetching admin data...');
+      
+      // First, check if the required tables and columns exist
+      const { data: tableCheck, error: tableCheckError } = await supabase
+        .from('profiles')
+        .select('id, user_id, username, display_name, created_at')
+        .limit(1);
+
+      if (tableCheckError) {
+        console.error('Error checking profiles table:', tableCheckError);
+        throw new Error('Database connection failed');
+      }
+
+      // Check if suspension columns exist by trying to select them
+      let hasSuspensionSupport = false;
+      try {
+        const { data: suspensionCheck } = await supabase
+          .from('profiles')
+          .select('is_suspended, last_login')
+          .limit(1);
+        hasSuspensionSupport = true;
+        console.log('Suspension functionality available');
+      } catch (error) {
+        console.log('Suspension functionality not available - columns missing');
+        hasSuspensionSupport = false;
+      }
+
+      setHasSuspensionSupport(hasSuspensionSupport);
+
       // Fetch all users with their roles and additional data
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
@@ -111,29 +141,47 @@ export const AdminView: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+
+      console.log('Profiles fetched:', profiles?.length || 0);
 
       // Fetch additional user statistics
       const usersWithStats = await Promise.all(
         profiles?.map(async (profile) => {
-          const [playlistsResult, songsResult] = await Promise.all([
-            supabase
-              .from('playlists')
-              .select('*', { count: 'exact', head: true })
-              .eq('user_id', profile.user_id),
-            supabase
-              .from('recently_played')
-              .select('*', { count: 'exact', head: true })
-              .eq('user_id', profile.user_id)
-          ]);
+          try {
+            const [playlistsResult, songsResult] = await Promise.all([
+              supabase
+                .from('playlists')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', profile.user_id),
+              supabase
+                .from('recently_played')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', profile.user_id)
+            ]);
 
-          return {
-            ...profile,
-            role: profile.user_roles?.[0]?.role || 'user',
-            playlists_count: playlistsResult.count || 0,
-            songs_played: songsResult.count || 0,
-            is_suspended: profile.is_suspended || false
-          };
+            return {
+              ...profile,
+              role: profile.user_roles?.[0]?.role || 'user',
+              playlists_count: playlistsResult.count || 0,
+              songs_played: songsResult.count || 0,
+              is_suspended: hasSuspensionSupport ? (profile.is_suspended || false) : false,
+              last_login: hasSuspensionSupport ? profile.last_login : null
+            };
+          } catch (error) {
+            console.error('Error fetching stats for user:', profile.user_id, error);
+            return {
+              ...profile,
+              role: profile.user_roles?.[0]?.role || 'user',
+              playlists_count: 0,
+              songs_played: 0,
+              is_suspended: false,
+              last_login: null
+            };
+          }
         }) || []
       );
 
@@ -142,34 +190,50 @@ export const AdminView: React.FC = () => {
       // Calculate statistics
       const adminUsers = usersWithStats.filter(u => u.role === 'admin').length;
       const activeUsers = usersWithStats.length; // You can add logic for active users
-      const suspendedUsers = usersWithStats.filter(u => u.is_suspended).length;
+      const suspendedUsers = hasSuspensionSupport ? usersWithStats.filter(u => u.is_suspended).length : 0;
 
       // Fetch overall statistics
-      const [
-        { count: playlistCount },
-        { count: songCount },
-        { count: activityCount }
-      ] = await Promise.all([
-        supabase.from('playlists').select('*', { count: 'exact', head: true }),
-        supabase.from('playlist_songs').select('*', { count: 'exact', head: true }),
-        supabase.from('recently_played').select('*', { count: 'exact', head: true })
-      ]);
+      try {
+        const [
+          { count: playlistCount },
+          { count: songCount },
+          { count: activityCount }
+        ] = await Promise.all([
+          supabase.from('playlists').select('*', { count: 'exact', head: true }),
+          supabase.from('playlist_songs').select('*', { count: 'exact', head: true }),
+          supabase.from('recently_played').select('*', { count: 'exact', head: true })
+        ]);
 
-      setStats({
-        totalUsers: usersWithStats.length,
-        activeUsers,
-        suspendedUsers,
-        adminUsers,
-        totalPlaylists: playlistCount || 0,
-        totalSongs: songCount || 0,
-        recentActivity: activityCount || 0
-      });
+        setStats({
+          totalUsers: usersWithStats.length,
+          activeUsers,
+          suspendedUsers,
+          adminUsers,
+          totalPlaylists: playlistCount || 0,
+          totalSongs: songCount || 0,
+          recentActivity: activityCount || 0
+        });
+      } catch (error) {
+        console.error('Error fetching overall stats:', error);
+        // Set default stats if overall stats fail
+        setStats({
+          totalUsers: usersWithStats.length,
+          activeUsers,
+          suspendedUsers,
+          adminUsers,
+          totalPlaylists: 0,
+          totalSongs: 0,
+          recentActivity: 0
+        });
+      }
+
+      console.log('Admin data fetched successfully');
 
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
         title: "Error",
-        description: "Failed to load admin data",
+        description: error instanceof Error ? error.message : "Failed to load admin data",
         variant: "destructive"
       });
     } finally {
@@ -249,6 +313,21 @@ export const AdminView: React.FC = () => {
 
   const handleSuspendUser = async (userId: string, suspend: boolean) => {
     try {
+      // Check if suspension functionality is available
+      const { data: suspensionCheck } = await supabase
+        .from('profiles')
+        .select('is_suspended')
+        .limit(1);
+
+      if (!suspensionCheck) {
+        toast({
+          title: "Feature Not Available",
+          description: "User suspension functionality is not available. Please run the database migration first.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({ is_suspended: suspend })
@@ -361,6 +440,26 @@ export const AdminView: React.FC = () => {
           <p className="text-muted-foreground">Manage Melodiya users and content</p>
         </div>
       </div>
+
+      {/* Suspension Feature Notice */}
+      {!hasSuspensionSupport && (
+        <Card className="glass-card border-orange-200 bg-orange-50/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Shield className="w-5 h-5 text-orange-600" />
+              <div>
+                <p className="text-sm font-medium text-orange-800">
+                  User Suspension Feature Not Available
+                </p>
+                <p className="text-xs text-orange-700">
+                  The database migration for user suspension has not been applied yet. 
+                  Run the migration to enable user suspension functionality.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -481,7 +580,9 @@ export const AdminView: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
+                      {hasSuspensionSupport && (
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -560,41 +661,43 @@ export const AdminView: React.FC = () => {
                           </SelectContent>
                         </Select>
 
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              className={user.is_suspended ? "text-green-600" : "text-red-600"}
-                            >
-                              {user.is_suspended ? (
-                                <CheckCircle className="w-4 h-4" />
-                              ) : (
-                                <Ban className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {user.is_suspended ? "Reactivate User" : "Suspend User"}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to {user.is_suspended ? "reactivate" : "suspend"} {user.display_name || user.username}? 
-                                {user.is_suspended ? " They will be able to access the platform again." : " They will not be able to access the platform."}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleSuspendUser(user.user_id, !user.is_suspended)}
-                                className={user.is_suspended ? "bg-green-600" : "bg-red-600"}
+                        {hasSuspensionSupport && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className={user.is_suspended ? "text-green-600" : "text-red-600"}
                               >
-                                {user.is_suspended ? "Reactivate" : "Suspend"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                {user.is_suspended ? (
+                                  <CheckCircle className="w-4 h-4" />
+                                ) : (
+                                  <Ban className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  {user.is_suspended ? "Reactivate User" : "Suspend User"}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to {user.is_suspended ? "reactivate" : "suspend"} {user.display_name || user.username}? 
+                                  {user.is_suspended ? " They will be able to access the platform again." : " They will not be able to access the platform."}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleSuspendUser(user.user_id, !user.is_suspended)}
+                                  className={user.is_suspended ? "bg-green-600" : "bg-red-600"}
+                                >
+                                  {user.is_suspended ? "Reactivate" : "Suspend"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
 
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
