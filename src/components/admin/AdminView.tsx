@@ -105,18 +105,15 @@ export const AdminView: React.FC = () => {
       // Fetch all users with their roles and additional data
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_roles(role)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
 
-      // Fetch additional user statistics
+      // Fetch additional user statistics and roles
       const usersWithStats = await Promise.all(
         profiles?.map(async (profile) => {
-          const [playlistsResult, songsResult] = await Promise.all([
+          const [playlistsResult, songsResult, roleResult] = await Promise.all([
             supabase
               .from('playlists')
               .select('*', { count: 'exact', head: true })
@@ -124,12 +121,17 @@ export const AdminView: React.FC = () => {
             supabase
               .from('recently_played')
               .select('*', { count: 'exact', head: true })
+              .eq('user_id', profile.user_id),
+            supabase
+              .from('user_roles')
+              .select('role')
               .eq('user_id', profile.user_id)
+              .single()
           ]);
 
           return {
             ...profile,
-            role: profile.user_roles?.[0]?.role || 'user',
+            role: roleResult.data?.role || 'user',
             playlists_count: playlistsResult.count || 0,
             songs_played: songsResult.count || 0,
             is_suspended: profile.is_suspended || false
@@ -219,7 +221,7 @@ export const AdminView: React.FC = () => {
         .from('user_roles')
         .insert({
           user_id: userId,
-          role: newRole
+          role: newRole as 'admin' | 'user'
         });
 
       if (error) throw error;
@@ -251,7 +253,7 @@ export const AdminView: React.FC = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ is_suspended: suspend })
+        .update({ is_suspended: suspend } as any)
         .eq('user_id', userId);
 
       if (error) throw error;

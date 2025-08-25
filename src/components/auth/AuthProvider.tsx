@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Update last login
               supabase
                 .from('profiles')
-                .update({ last_login: new Date().toISOString() })
+                .update({ last_login: new Date().toISOString() } as any)
                 .eq('user_id', session.user.id)
             ]);
             
