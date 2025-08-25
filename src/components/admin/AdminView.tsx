@@ -8,232 +8,101 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { 
-  Users, 
-  Music, 
-  Activity, 
-  Crown, 
-  Shield, 
-  BarChart3,
-  UserCheck,
-  UserMinus,
-  UserX,
+import {
+  Users,
   UserPlus,
+  UserMinus,
+  UserCheck,
+  UserX,
   Search,
   Filter,
   MoreHorizontal,
-  Edit,
-  Trash2,
   Eye,
-  Ban,
-  CheckCircle,
-  XCircle,
+  Trash2,
+  Shield,
+  ShieldCheck,
+  ShieldX,
   Calendar,
-  Mail,
-  Phone,
-  MapPin,
-  Clock,
+  Activity,
   TrendingUp,
+  Music,
+  Heart,
   Play,
-  Heart
+  Clock
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { UserProfile } from '@/integrations/supabase/types';
 
-interface UserProfile {
-  id: string;
-  user_id: string;
-  username: string;
-  display_name: string;
-  created_at: string;
-  email?: string;
-  role?: string;
-  user_roles?: Array<{ role: string }>;
-  avatar_url?: string;
-  is_suspended?: boolean;
-  last_login?: string;
-  playlists_count?: number;
-  songs_played?: number;
-}
-
-interface UserStats {
+interface AdminStats {
   totalUsers: number;
   activeUsers: number;
   suspendedUsers: number;
-  adminUsers: number;
   totalPlaylists: number;
-  totalSongs: number;
-  recentActivity: number;
+  totalLikedSongs: number;
+  totalRecentlyPlayed: number;
 }
 
-export const AdminView: React.FC = () => {
+export default function AdminView() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
-  const [stats, setStats] = useState<UserStats>({
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     activeUsers: 0,
     suspendedUsers: 0,
-    adminUsers: 0,
     totalPlaylists: 0,
-    totalSongs: 0,
-    recentActivity: 0
+    totalLikedSongs: 0,
+    totalRecentlyPlayed: 0
   });
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [hasSuspensionSupport, setHasSuspensionSupport] = useState(false);
-  const { isAdmin } = useAuth();
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchAdminData();
-    }
-  }, [isAdmin]);
+    fetchAdminData();
+  }, []);
 
   useEffect(() => {
     filterUsers();
-  }, [users, searchTerm, roleFilter, statusFilter]);
+  }, [users, searchTerm, statusFilter]);
 
   const fetchAdminData = async () => {
     try {
-      console.log('Fetching admin data...');
+      setLoading(true);
       
-      // First, check if the required tables and columns exist
-      const { data: tableCheck, error: tableCheckError } = await supabase
+      // Fetch users
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select('id, user_id, username, display_name, created_at')
-        .limit(1);
-
-      if (tableCheckError) {
-        console.error('Error checking profiles table:', tableCheckError);
-        throw new Error('Database connection failed');
-      }
-
-      // Check if suspension columns exist by trying to select them
-      let hasSuspensionSupport = false;
-      try {
-        const { data: suspensionCheck } = await supabase
-          .from('profiles')
-          .select('is_suspended, last_login')
-          .limit(1);
-        hasSuspensionSupport = true;
-        console.log('Suspension functionality available');
-      } catch (error) {
-        console.log('Suspension functionality not available - columns missing');
-        hasSuspensionSupport = false;
-      }
-
-      setHasSuspensionSupport(hasSuspensionSupport);
-
-      // Fetch all users with their roles and additional data
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select(`
-          *,
-          user_roles(role)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        throw profilesError;
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        toast({
+          title: "Error",
+          description: "Failed to fetch users",
+          variant: "destructive"
+        });
+        return;
       }
 
-      console.log('Profiles fetched:', profiles?.length || 0);
-
-      // Fetch additional user statistics
-      const usersWithStats = await Promise.all(
-        profiles?.map(async (profile) => {
-          try {
-            const [playlistsResult, songsResult] = await Promise.all([
-              supabase
-                .from('playlists')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', profile.user_id),
-              supabase
-                .from('recently_played')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', profile.user_id)
-            ]);
-
-            return {
-              ...profile,
-              role: profile.user_roles?.[0]?.role || 'user',
-              playlists_count: playlistsResult.count || 0,
-              songs_played: songsResult.count || 0,
-              is_suspended: hasSuspensionSupport ? (profile.is_suspended || false) : false,
-              last_login: hasSuspensionSupport ? profile.last_login : null
-            };
-          } catch (error) {
-            console.error('Error fetching stats for user:', profile.user_id, error);
-            return {
-              ...profile,
-              role: profile.user_roles?.[0]?.role || 'user',
-              playlists_count: 0,
-              songs_played: 0,
-              is_suspended: false,
-              last_login: null
-            };
-          }
-        }) || []
-      );
-
-      setUsers(usersWithStats);
-
-      // Calculate statistics
-      const adminUsers = usersWithStats.filter(u => u.role === 'admin').length;
-      const activeUsers = usersWithStats.length; // You can add logic for active users
-      const suspendedUsers = hasSuspensionSupport ? usersWithStats.filter(u => u.is_suspended).length : 0;
-
-      // Fetch overall statistics
-      try {
-        const [
-          { count: playlistCount },
-          { count: songCount },
-          { count: activityCount }
-        ] = await Promise.all([
-          supabase.from('playlists').select('*', { count: 'exact', head: true }),
-          supabase.from('playlist_songs').select('*', { count: 'exact', head: true }),
-          supabase.from('recently_played').select('*', { count: 'exact', head: true })
-        ]);
-
-        setStats({
-          totalUsers: usersWithStats.length,
-          activeUsers,
-          suspendedUsers,
-          adminUsers,
-          totalPlaylists: playlistCount || 0,
-          totalSongs: songCount || 0,
-          recentActivity: activityCount || 0
-        });
-      } catch (error) {
-        console.error('Error fetching overall stats:', error);
-        // Set default stats if overall stats fail
-        setStats({
-          totalUsers: usersWithStats.length,
-          activeUsers,
-          suspendedUsers,
-          adminUsers,
-          totalPlaylists: 0,
-          totalSongs: 0,
-          recentActivity: 0
-        });
+      if (usersData) {
+        setUsers(usersData);
       }
 
-      console.log('Admin data fetched successfully');
+      // Fetch statistics
+      await fetchStatistics();
 
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load admin data",
+        description: "Failed to load admin data",
         variant: "destructive"
       });
     } finally {
@@ -241,117 +110,112 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  const fetchStatistics = async () => {
+    try {
+      // Get total users
+      const { count: totalUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // Get active users (not suspended)
+      const { count: activeUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_suspended', false);
+
+      // Get suspended users
+      const { count: suspendedUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_suspended', true);
+
+      // Get total playlists
+      const { count: totalPlaylists } = await supabase
+        .from('playlists')
+        .select('*', { count: 'exact', head: true });
+
+      // Get total liked songs
+      const { count: totalLikedSongs } = await supabase
+        .from('liked_songs')
+        .select('*', { count: 'exact', head: true });
+
+      // Get total recently played
+      const { count: totalRecentlyPlayed } = await supabase
+        .from('recently_played')
+        .select('*', { count: 'exact', head: true });
+
+      setStats({
+        totalUsers: totalUsers || 0,
+        activeUsers: activeUsers || 0,
+        suspendedUsers: suspendedUsers || 0,
+        totalPlaylists: totalPlaylists || 0,
+        totalLikedSongs: totalLikedSongs || 0,
+        totalRecentlyPlayed: totalRecentlyPlayed || 0
+      });
+
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+    }
+  };
+
   const filterUsers = () => {
     let filtered = users;
 
-    // Search filter
+    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(user =>
-        user.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Role filter
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'active') {
-        filtered = filtered.filter(user => !user.is_suspended);
-      } else if (statusFilter === 'suspended') {
-        filtered = filtered.filter(user => user.is_suspended);
-      }
+    // Apply status filter
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(user => !user.is_suspended);
+    } else if (statusFilter === 'suspended') {
+      filtered = filtered.filter(user => user.is_suspended);
     }
 
     setFilteredUsers(filtered);
   };
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    try {
-      // Remove existing role
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      // Add new role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userId,
-          role: newRole
-        });
-
-      if (error) throw error;
-
-      // Update local state
-      setUsers(prev => prev.map(user => 
-        user.user_id === userId 
-          ? { ...user, role: newRole }
-          : user
-      ));
-
-      toast({
-        title: "Success",
-        description: `User role updated to ${newRole}`,
-      });
-
-      fetchAdminData(); // Refresh stats
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update user role",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleSuspendUser = async (userId: string, suspend: boolean) => {
     try {
-      // Check if suspension functionality is available
-      const { data: suspensionCheck } = await supabase
+      const { error } = await supabase
         .from('profiles')
-        .select('is_suspended')
-        .limit(1);
+        .update({ is_suspended: suspend })
+        .eq('id', userId);
 
-      if (!suspensionCheck) {
+      if (error) {
+        console.error('Error updating user:', error);
         toast({
-          title: "Feature Not Available",
-          description: "User suspension functionality is not available. Please run the database migration first.",
+          title: "Error",
+          description: "Failed to update user status",
           variant: "destructive"
         });
         return;
       }
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_suspended: suspend })
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
       // Update local state
-      setUsers(prev => prev.map(user => 
-        user.user_id === userId 
-          ? { ...user, is_suspended: suspend }
-          : user
-      ));
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === userId
+            ? { ...user, is_suspended: suspend }
+            : user
+        )
+      );
 
       toast({
-        title: suspend ? "User Suspended" : "User Reactivated",
-        description: suspend 
-          ? "User has been suspended from the platform"
-          : "User has been reactivated",
+        title: "Success",
+        description: `User ${suspend ? 'suspended' : 'reactivated'} successfully`,
       });
 
-      fetchAdminData(); // Refresh stats
+      // Refresh statistics
+      await fetchStatistics();
+
     } catch (error) {
-      console.error('Error suspending user:', error);
+      console.error('Error updating user:', error);
       toast({
         title: "Error",
         description: "Failed to update user status",
@@ -360,31 +224,37 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      // Delete user roles
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
 
-      // Delete user profile
+    try {
       const { error } = await supabase
         .from('profiles')
         .delete()
-        .eq('user_id', userId);
+        .eq('id', userToDelete.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting user:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete user",
+          variant: "destructive"
+        });
+        return;
+      }
 
-      // Update local state
-      setUsers(prev => prev.filter(user => user.user_id !== userId));
+      // Remove from local state
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userToDelete.id));
+      setFilteredUsers(prevUsers => prevUsers.filter(user => user.id !== userToDelete.id));
 
       toast({
         title: "Success",
-        description: "User has been deleted",
+        description: "User deleted successfully",
       });
 
-      fetchAdminData(); // Refresh stats
+      // Refresh statistics
+      await fetchStatistics();
+
     } catch (error) {
       console.error('Error deleting user:', error);
       toast({
@@ -392,526 +262,365 @@ export const AdminView: React.FC = () => {
         description: "Failed to delete user",
         variant: "destructive"
       });
+    } finally {
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
     }
   };
 
   const openUserDetails = (user: UserProfile) => {
     setSelectedUser(user);
-    setIsUserDialogOpen(true);
+    setShowUserDetails(true);
   };
 
-  const openEditUser = (user: UserProfile) => {
-    setEditingUser(user);
-    setIsEditDialogOpen(true);
+  const confirmDeleteUser = (user: UserProfile) => {
+    setUserToDelete(user);
+    setShowDeleteDialog(true);
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
-          <div>
-            <h2 className="text-2xl font-bold">Access Denied</h2>
-            <p className="text-muted-foreground">You don't have admin privileges</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const getStatusBadge = (user: UserProfile) => {
+    if (user.is_suspended) {
+      return <Badge variant="destructive">Suspended</Badge>;
+    }
+    if (user.role === 'admin') {
+      return <Badge variant="default">Admin</Badge>;
+    }
+    return <Badge variant="secondary">User</Badge>;
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Shield className="w-4 h-4" />;
+      case 'user':
+        return <UserCheck className="w-4 h-4" />;
+      default:
+        return <UserCheck className="w-4 h-4" />;
+    }
+  };
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading admin data...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-lg">Loading admin data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Admin Header */}
-      <div className="flex items-center gap-3">
-        <Crown className="w-8 h-8 text-accent" />
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage Melodiya users and content</p>
+          <p className="text-muted-foreground">Manage users and monitor platform activity</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Shield className="w-6 h-6 text-primary" />
+          <span className="text-sm text-muted-foreground">Admin Access</span>
         </div>
       </div>
 
-      {/* Suspension Feature Notice */}
-      {!hasSuspensionSupport && (
-        <Card className="glass-card border-orange-200 bg-orange-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-orange-600" />
-              <div>
-                <p className="text-sm font-medium text-orange-800">
-                  User Suspension Feature Not Available
-                </p>
-                <p className="text-xs text-orange-700">
-                  The database migration for user suspension has not been applied yet. 
-                  Run the migration to enable user suspension functionality.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Enhanced Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Users</p>
-                <p className="text-2xl font-bold">{stats.totalUsers}</p>
-                <p className="text-xs text-muted-foreground">
-                  {stats.activeUsers} active, {stats.suspendedUsers} suspended
-                </p>
-              </div>
-            </div>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.activeUsers} active, {stats.suspendedUsers} suspended
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center">
-                <Crown className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Admin Users</p>
-                <p className="text-2xl font-bold">{stats.adminUsers}</p>
-                <p className="text-xs text-muted-foreground">
-                  {((stats.adminUsers / stats.totalUsers) * 100).toFixed(1)}% of total
-                </p>
-              </div>
-            </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Playlists</CardTitle>
+            <Music className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalPlaylists}</div>
+            <p className="text-xs text-muted-foreground">
+              User-created playlists
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-secondary/20 rounded-lg flex items-center justify-center">
-                <Music className="w-6 h-6 text-secondary-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Playlists</p>
-                <p className="text-2xl font-bold">{stats.totalPlaylists}</p>
-                <p className="text-xs text-muted-foreground">
-                  {stats.totalSongs} songs total
-                </p>
-              </div>
-            </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Liked Songs</CardTitle>
+            <Heart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalLikedSongs}</div>
+            <p className="text-xs text-muted-foreground">
+              Total user favorites
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                <Activity className="w-6 h-6 text-orange-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Recent Activity</p>
-                <p className="text-2xl font-bold">{stats.recentActivity}</p>
-                <p className="text-xs text-muted-foreground">
-                  Songs played today
-                </p>
-              </div>
-            </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recently Played</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalRecentlyPlayed}</div>
+            <p className="text-xs text-muted-foreground">
+              Playback history
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.activeUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Non-suspended users
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Suspended Users</CardTitle>
+            <UserX className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.suspendedUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Temporarily banned
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Admin Tabs */}
-      <Tabs defaultValue="users" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="content">Content Overview</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+      {/* Users Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            User Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search users by name, email, or username..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="suspended">Suspended Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <TabsContent value="users" className="space-y-4">
-          {/* User Management Controls */}
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                User Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Search users..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="user">User</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      {hasSuspensionSupport && (
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Users Table */}
+          <div className="space-y-4">
+            {filteredUsers.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No users found</p>
               </div>
-
-              {/* Users List */}
-              <div className="space-y-4">
-                {filteredUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
-                        {user.avatar_url ? (
-                          <img 
-                            src={user.avatar_url} 
-                            alt={user.display_name || user.username}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg font-semibold">
-                            {user.display_name?.charAt(0) || user.username?.charAt(0) || 'U'}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.display_name || user.username}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {user.email} • Joined {new Date(user.created_at).toLocaleDateString()}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            <Play className="w-3 h-3 mr-1" />
-                            {user.songs_played} songs
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            <Music className="w-3 h-3 mr-1" />
-                            {user.playlists_count} playlists
-                          </Badge>
-                        </div>
-                      </div>
+            ) : (
+              filteredUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      {getRoleIcon(user.role)}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role === 'admin' ? (
-                          <>
-                            <Crown className="w-3 h-3 mr-1" />
-                            Admin
-                          </>
-                        ) : (
-                          'User'
-                        )}
-                      </Badge>
-                      
-                      <div className="flex items-center gap-1">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => openUserDetails(user)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </DialogTrigger>
-                        </Dialog>
-
-                        <Select 
-                          value={user.role} 
-                          onValueChange={(value) => handleRoleChange(user.user_id, value)}
-                        >
-                          <SelectTrigger className="w-24 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="user">User</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        {hasSuspensionSupport && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className={user.is_suspended ? "text-green-600" : "text-red-600"}
-                              >
-                                {user.is_suspended ? (
-                                  <CheckCircle className="w-4 h-4" />
-                                ) : (
-                                  <Ban className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  {user.is_suspended ? "Reactivate User" : "Suspend User"}
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to {user.is_suspended ? "reactivate" : "suspend"} {user.display_name || user.username}? 
-                                  {user.is_suspended ? " They will be able to access the platform again." : " They will not be able to access the platform."}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleSuspendUser(user.user_id, !user.is_suspended)}
-                                  className={user.is_suspended ? "bg-green-600" : "bg-red-600"}
-                                >
-                                  {user.is_suspended ? "Reactivate" : "Suspend"}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-red-600">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete User</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete {user.display_name || user.username}? 
-                                This action cannot be undone and will remove all their data.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteUser(user.user_id)}
-                                className="bg-red-600"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                    <div>
+                      <div className="font-medium">{user.full_name || user.username || 'Unknown User'}</div>
+                      <div className="text-sm text-muted-foreground">{user.email}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {getStatusBadge(user)}
+                        <span className="text-xs text-muted-foreground">
+                          Joined {new Date(user.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="content" className="space-y-4">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>Content Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <h3 className="font-semibold mb-2">Popular Content</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Most played songs and trending playlists
-                    </p>
-                  </div>
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <h3 className="font-semibold mb-2">User Generated</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Playlists and favorites created by users
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openUserDetails(user)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Details
+                    </Button>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>Platform Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-semibold">User Activity</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Active Users</span>
-                      <span className="font-medium">{stats.activeUsers}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Admin Users</span>
-                      <span className="font-medium">{stats.adminUsers}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Suspended Users</span>
-                      <span className="font-medium">{stats.suspendedUsers}</span>
-                    </div>
+                    {user.is_suspended ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSuspendUser(user.id, false)}
+                      >
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        Reactivate
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSuspendUser(user.id, true)}
+                      >
+                        <UserX className="w-4 h-4 mr-2" />
+                        Suspend
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => confirmDeleteUser(user)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <h3 className="font-semibold">Content Stats</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Songs Played</span>
-                      <span className="font-medium">{stats.recentActivity}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Playlists Created</span>
-                      <span className="font-medium">{stats.totalPlaylists}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Total Songs</span>
-                      <span className="font-medium">{stats.totalSongs}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* User Details Dialog */}
-      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+      <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
             <DialogDescription>
-              Detailed information about {selectedUser?.display_name || selectedUser?.username}
+              Detailed information about {selectedUser?.full_name || selectedUser?.username}
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
-                  {selectedUser.avatar_url ? (
-                    <img 
-                      src={selectedUser.avatar_url} 
-                      alt={selectedUser.display_name || selectedUser.username}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-2xl font-semibold">
-                      {selectedUser.display_name?.charAt(0) || selectedUser.username?.charAt(0) || 'U'}
-                    </span>
-                  )}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Full Name</Label>
+                  <p className="text-sm">{selectedUser.full_name || 'Not provided'}</p>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold">{selectedUser.display_name || selectedUser.username}</h3>
-                  <p className="text-muted-foreground">{selectedUser.email}</p>
-                  <Badge variant={selectedUser.role === 'admin' ? 'default' : 'secondary'}>
-                    {selectedUser.role === 'admin' ? (
-                      <>
-                        <Crown className="w-3 h-3 mr-1" />
-                        Admin
-                      </>
-                    ) : (
-                      'User'
-                    )}
-                  </Badge>
+                  <Label>Username</Label>
+                  <p className="text-sm">{selectedUser.username || 'Not provided'}</p>
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <p className="text-sm">{selectedUser.email}</p>
+                </div>
+                <div>
+                  <Label>Role</Label>
+                  <div className="flex items-center gap-2">
+                    {getRoleIcon(selectedUser.role)}
+                    <span className="text-sm capitalize">{selectedUser.role}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedUser)}</div>
+                </div>
+                <div>
+                  <Label>Member Since</Label>
+                  <p className="text-sm">{new Date(selectedUser.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Account Information</Label>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span>Joined: {new Date(selectedUser.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span>Last login: {selectedUser.last_login ? new Date(selectedUser.last_login).toLocaleDateString() : 'Never'}</span>
-                    </div>
-                  </div>
+              {selectedUser.last_login && (
+                <div>
+                  <Label>Last Login</Label>
+                  <p className="text-sm">{new Date(selectedUser.last_login).toLocaleString()}</p>
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Activity Statistics</Label>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Play className="w-4 h-4 text-muted-foreground" />
-                      <span>Songs played: {selectedUser.songs_played}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Music className="w-4 h-4 text-muted-foreground" />
-                      <span>Playlists created: {selectedUser.playlists_count}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsUserDialogOpen(false);
-                    openEditUser(selectedUser);
-                  }}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit User
-                </Button>
-                <Button
-                  variant={selectedUser.is_suspended ? "default" : "destructive"}
-                  onClick={() => {
-                    setIsUserDialogOpen(false);
-                    handleSuspendUser(selectedUser.user_id, !selectedUser.is_suspended);
-                  }}
-                >
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-2">Quick Actions</h4>
+                <div className="flex gap-2">
                   {selectedUser.is_suspended ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Reactivate
-                    </>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        handleSuspendUser(selectedUser.id, false);
+                        setShowUserDetails(false);
+                      }}
+                    >
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      Reactivate User
+                    </Button>
                   ) : (
-                    <>
-                      <Ban className="w-4 h-4 mr-2" />
-                      Suspend
-                    </>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        handleSuspendUser(selectedUser.id, true);
+                        setShowUserDetails(false);
+                      }}
+                    >
+                      <UserX className="w-4 h-4 mr-2" />
+                      Suspend User
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setShowUserDetails(false);
+                      confirmDeleteUser(selectedUser);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete User
+                  </Button>
+                </div>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user
+              "{userToDelete?.full_name || userToDelete?.username}" and all their data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-};
+}
