@@ -82,18 +82,30 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const handleStateChange = (state: number) => {
     // YouTube Player States: 1 = playing, 2 = paused, 0 = ended, -1 = unstarted, 3 = buffering, 5 = cued
     console.log('Player state:', state);
+    console.log('Is mobile device:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    console.log('Notification permission:', Notification.permission);
     
     if (state === 1) { // playing
+      console.log('Video successfully started playing');
       setIsLoading(false);
     } else if (state === 3) { // buffering
+      console.log('Video is buffering');
       setIsLoading(true);
     } else if (state === -1 && currentTrack && isPlaying) { // unstarted but should be playing
       console.log('Player is unstarted but should be playing, retrying...');
+      console.log('Will retry in 1 second');
       setTimeout(() => {
         if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          console.log('Retrying playVideo() call');
           playerRef.current.playVideo();
         }
       }, 1000);
+    } else if (state === 2) { // paused
+      console.log('Video paused');
+      setIsLoading(false);
+    } else if (state === 0) { // ended
+      console.log('Video ended');
+      setIsLoading(false);
     }
   };
 
@@ -192,12 +204,26 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   // Request notification permission on first play
   const handleFirstPlay = async () => {
+    console.log('handleFirstPlay called on mobile');
+    console.log('Current notification permission:', Notification.permission);
+    console.log('Current track:', currentTrack);
+    console.log('Is playing:', isPlaying);
+    console.log('Player ready:', playerReady);
+    
     if (Notification.permission === 'default') {
+      console.log('Requesting notification permission...');
       const granted = await requestNotificationPermission();
+      console.log('Notification permission granted:', granted);
       if (granted) {
-        console.log('Notification permission granted');
+        console.log('Notification permission granted successfully');
+      } else {
+        console.log('Notification permission denied or failed');
       }
+    } else {
+      console.log('Notification permission already:', Notification.permission);
     }
+    
+    console.log('Calling onPlayPause from handleFirstPlay...');
     onPlayPause();
   };
 

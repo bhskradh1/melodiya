@@ -122,10 +122,18 @@ export const usePWA = () => {
 
   // Request notification permission
   const requestNotificationPermission = useCallback(async () => {
+    console.log('requestNotificationPermission called');
+    console.log('Notification API available:', 'Notification' in window);
+    console.log('Current permission:', Notification.permission);
+    
     if ('Notification' in window) {
+      console.log('Requesting notification permission...');
       const permission = await Notification.requestPermission();
+      console.log('Permission result:', permission);
+      console.log('Permission === granted:', permission === 'granted');
       return permission === 'granted';
     }
+    console.log('Notification API not available');
     return false;
   }, []);
 
