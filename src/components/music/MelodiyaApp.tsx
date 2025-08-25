@@ -1,237 +1,228 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { MusicPlayer } from './MusicPlayer';
-import { Track } from '@/integrations/supabase/types';
+import { HomeView } from './HomeView';
+import { SearchView } from './SearchView';
+import { LikedSongsView } from './LikedSongsView';
+import { PlaylistsView } from './PlaylistsView';
+import { PlaylistDetailView } from './PlaylistDetailView';
+import { RecentlyPlayedView } from './RecentlyPlayedView';
+import { TrendingView } from './TrendingView';
+import { AdminView } from '../admin/AdminView';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Menu, X } from 'lucide-react';
 
-export default function MelodiyaApp() {
+interface Track {
+  id: string;
+  title: string;
+  artist: string;
+  thumbnail: string;
+  videoId: string;
+  duration?: string;
+}
+
+export const MelodiyaApp: React.FC = () => {
+  const [activeView, setActiveView] = useState('home');
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [volume, setVolume] = useState(75);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('none');
-  const [shuffleMode, setShuffleMode] = useState(false);
-  const [likedTracks, setLikedTracks] = useState<Set<string>>(new Set());
-  const { toast } = useToast();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    fetchLikedTracks();
-  }, []);
-
-  const fetchLikedTracks = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: likedData } = await supabase
-          .from('liked_songs')
-          .select('track_id')
-          .eq('user_id', user.id);
-        
-        if (likedData) {
-          const likedIds = new Set(likedData.map(item => item.track_id));
-          setLikedTracks(likedIds);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching liked tracks:', error);
-    }
-  };
-
-  const handlePlayTrack = (track: Track) => {
+  const handlePlayTrack = async (track: Track) => {
+    console.log('handlePlayTrack called with:', track);
     setCurrentTrack(track);
     setIsPlaying(true);
     
-    // Find track index in playlist
-    const index = playlist.findIndex(t => t.id === track.id);
-    if (index !== -1) {
+    // Add to playlist if not already there
+    if (!playlist.find(t => t.id === track.id)) {
+      setPlaylist(prev => [...prev, track]);
+      setCurrentIndex(playlist.length);
+    } else {
+      const index = playlist.findIndex(t => t.id === track.id);
       setCurrentIndex(index);
+    }
+
+    // Save to recently played
+    try {
+      // First, delete any existing entry for this song to avoid duplicates
+      await supabase
+        .from('recently_played')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('youtube_video_id', track.videoId);
+
+      // Then insert the new entry
+      const { error } = await supabase
+        .from('recently_played')
+        .insert({
+          user_id: user?.id,
+          youtube_video_id: track.videoId,
+          title: track.title,
+          artist: track.artist,
+          thumbnail_url: track.thumbnail,
+          played_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error saving to recently played:', error);
+      } else {
+        console.log('Successfully saved to recently played:', track.title);
+      }
+    } catch (error) {
+      console.error('Error saving to recently played:', error);
     }
   };
 
   const handlePlayPause = () => {
-    if (currentTrack) {
-      setIsPlaying(!isPlaying);
-    }
+    console.log(`${isPlaying ? 'Pausing' : 'Playing'} track: ${currentTrack?.title}`);
+    setIsPlaying(!isPlaying);
   };
 
   const handleNext = () => {
-    if (playlist.length === 0) return;
-
-    let nextIndex = currentIndex + 1;
-    
-    if (repeatMode === 'one') {
-      // Stay on same track
-      nextIndex = currentIndex;
-    } else if (repeatMode === 'all' && nextIndex >= playlist.length) {
-      // Loop back to start
-      nextIndex = 0;
-    } else if (nextIndex >= playlist.length) {
-      // End of playlist
-      setIsPlaying(false);
-      return;
-    }
-
-    setCurrentIndex(nextIndex);
-    setCurrentTrack(playlist[nextIndex]);
-    setIsPlaying(true);
-  };
-
-  const handlePrevious = () => {
-    if (playlist.length === 0) return;
-
-    let prevIndex = currentIndex - 1;
-    
-    if (repeatMode === 'one') {
-      // Stay on same track
-      prevIndex = currentIndex;
-    } else if (repeatMode === 'all' && prevIndex < 0) {
-      // Loop to end
-      prevIndex = playlist.length - 1;
-    } else if (prevIndex < 0) {
-      // Beginning of playlist
-      return;
-    }
-
-    setCurrentIndex(prevIndex);
-    setCurrentTrack(playlist[prevIndex]);
-    setIsPlaying(true);
-  };
-
-  const handleSeek = (time: number) => {
-    setCurrentTime(time);
-  };
-
-  const handleVolumeChange = (newVolume: number) => {
-    setVolume(newVolume);
-  };
-
-  const handleTrackSelect = (track: Track) => {
-    const index = playlist.findIndex(t => t.id === track.id);
-    if (index !== -1) {
-      setCurrentIndex(index);
-      setCurrentTrack(track);
+    if (playlist.length > 0) {
+      const nextIndex = (currentIndex + 1) % playlist.length;
+      setCurrentIndex(nextIndex);
+      setCurrentTrack(playlist[nextIndex]);
+      setIsPlaying(true);
+      
+      console.log(`Skipping to next track: ${playlist[nextIndex]?.title}`);
+    } else if (currentTrack) {
+      // If no playlist, just restart current track
+      console.log('No playlist available, restarting current track');
       setIsPlaying(true);
     }
   };
 
-  const handleToggleLike = async (track: Track) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "Please log in to like tracks",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const isLiked = likedTracks.has(track.id);
+  const handlePrevious = () => {
+    if (playlist.length > 0) {
+      const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1;
+      setCurrentIndex(prevIndex);
+      setCurrentTrack(playlist[prevIndex]);
+      setIsPlaying(true);
       
-      if (isLiked) {
-        // Unlike
-        await supabase
-          .from('liked_songs')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('track_id', track.id);
-        
-        setLikedTracks(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(track.id);
-          return newSet;
-        });
-        
-        toast({
-          title: "Removed from Liked Songs",
-          description: `${track.title} has been removed from your liked songs`,
-        });
-      } else {
-        // Like
-        await supabase
-          .from('liked_songs')
-          .insert({
-            user_id: user.id,
-            track_id: track.id
-          });
-        
-        setLikedTracks(prev => new Set(prev).add(track.id));
-        
-        toast({
-          title: "Added to Liked Songs",
-          description: `${track.title} has been added to your liked songs`,
-        });
-      }
-    } catch (error) {
-      console.error('Error toggling like:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update liked status",
-        variant: "destructive"
-      });
+      console.log(`Skipping to previous track: ${playlist[prevIndex]?.title}`);
+    } else if (currentTrack) {
+      // If no playlist, just restart current track
+      console.log('No playlist available, restarting current track');
+      setIsPlaying(true);
     }
   };
 
-  const handleToggleRepeat = () => {
-    setRepeatMode(prev => {
-      switch (prev) {
-        case 'none': return 'all';
-        case 'all': return 'one';
-        case 'one': return 'none';
-        default: return 'none';
-      }
-    });
+  const handleViewPlaylist = (playlistId: string) => {
+    setSelectedPlaylistId(playlistId);
+    setActiveView('playlist-detail');
   };
 
-  const handleToggleShuffle = () => {
-    setShuffleMode(!shuffleMode);
+  const handleBackFromPlaylist = () => {
+    setSelectedPlaylistId(null);
+    setActiveView('playlists');
   };
 
-  const isLiked = currentTrack ? likedTracks.has(currentTrack.id) : false;
+  const renderView = () => {
+    switch (activeView) {
+      case 'home':
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
+      case 'search':
+        return <SearchView onPlayTrack={handlePlayTrack} />;
+      case 'trending':
+        return <TrendingView onPlayTrack={handlePlayTrack} />;
+      case 'liked':
+        return <LikedSongsView onPlayTrack={handlePlayTrack} />;
+      case 'playlists':
+        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
+      case 'playlist-detail':
+        return selectedPlaylistId ? (
+          <PlaylistDetailView 
+            playlistId={selectedPlaylistId} 
+            onPlayTrack={handlePlayTrack} 
+            onBack={handleBackFromPlaylist} 
+          />
+        ) : <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
+      case 'recently-played':
+        return <RecentlyPlayedView onPlayTrack={handlePlayTrack} />;
+      case 'admin':
+        return <AdminView />;
+      case 'library':
+        return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
+      case 'settings':
+        return (
+          <div className="p-6">
+            <h1 className="text-3xl font-bold mb-4">Settings</h1>
+            <p className="text-muted-foreground">App settings and preferences.</p>
+          </div>
+        );
+      default:
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar 
-        onPlayTrack={handlePlayTrack}
-        onSetPlaylist={setPlaylist}
-        onSetCurrentTrack={setCurrentTrack}
-        onSetIsPlaying={setIsPlaying}
-        onSetCurrentIndex={setCurrentIndex}
-      />
-      
-      <div className="flex-1 flex flex-col">
-        <main className="flex-1 overflow-y-auto p-6">
-          {/* Main content area - will be filled by child components */}
-        </main>
-        
-        {currentTrack && (
-          <MusicPlayer
-            currentTrack={currentTrack}
-            isPlaying={isPlaying}
-            onPlayPause={handlePlayPause}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            onSeek={handleSeek}
-            onVolumeChange={handleVolumeChange}
-            volume={volume}
-            currentTime={currentTime}
-            duration={duration}
-            playlist={playlist}
-            currentIndex={currentIndex}
-            onTrackSelect={handleTrackSelect}
-            onToggleLike={handleToggleLike}
-            isLiked={isLiked}
-            onToggleRepeat={handleToggleRepeat}
-            onToggleShuffle={handleToggleShuffle}
-            repeatMode={repeatMode}
-            shuffleMode={shuffleMode}
+    <div className="h-screen flex flex-col bg-background">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Mobile Header */}
+        {isMobile && (
+          <div className="absolute top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border/30 flex items-center px-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-2 ml-4">
+              <div className="w-6 h-6 bg-gradient-primary rounded-lg flex items-center justify-center">
+                <span className="text-xs font-bold text-white">M</span>
+              </div>
+              <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
+                Melodiya
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Sidebar */}
+        <div className={`${isMobile ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden') : 'relative w-64'}`}>
+          <Sidebar 
+            activeView={activeView} 
+            onViewChange={(view) => {
+              setActiveView(view);
+              if (isMobile) setIsMobileSidebarOpen(false);
+            }}
+            onClose={() => setIsMobileSidebarOpen(false)}
+            isMobile={isMobile}
+          />
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {isMobile && isMobileSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsMobileSidebarOpen(false)}
           />
         )}
+        
+        {/* Main Content */}
+        <div className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14' : ''}`}>
+          {renderView()}
+        </div>
       </div>
+      
+      {/* Music Player */}
+      <MusicPlayer
+        currentTrack={currentTrack}
+        isPlaying={isPlaying}
+        onPlayPause={handlePlayPause}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+      />
     </div>
   );
-}
+};
