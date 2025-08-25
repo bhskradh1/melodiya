@@ -99,13 +99,24 @@ export const usePWA = () => {
 
   // Request background sync
   const requestBackgroundSync = useCallback(async (tag: string) => {
-    if (swRegistration && 'sync' in swRegistration) {
-      try {
-        await swRegistration.sync.register(tag);
-        console.log('Background sync registered:', tag);
-      } catch (error) {
-        console.error('Background sync registration failed:', error);
-      }
+    // Skip background sync if not supported or service worker not ready
+    if (!swRegistration || !('sync' in swRegistration)) {
+      console.log('Background sync not supported or service worker not ready');
+      return;
+    }
+
+    // Validate tag length (Chrome has a limit)
+    if (tag.length > 100) {
+      console.warn('Background sync tag too long, skipping');
+      return;
+    }
+
+    try {
+      await (swRegistration as any).sync.register(tag);
+      console.log('Background sync registered:', tag);
+    } catch (error) {
+      // Don't throw errors, just log them to prevent app crashes
+      console.warn('Background sync registration failed, continuing without sync:', error);
     }
   }, [swRegistration]);
 
