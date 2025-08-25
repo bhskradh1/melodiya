@@ -152,20 +152,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
 
       {/* Bottom Actions */}
       <div className="p-3 space-y-2">
-        {/* Install App Button - Desktop */}
-        {canInstall && !isInstalled && (
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
-            onClick={() => {
-              console.log('Install button clicked');
+        {/* Install App Button - Desktop - Always show with fallback */}
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
+          onClick={() => {
+            console.log('Install button clicked, canInstall:', canInstall, 'isInstalled:', isInstalled);
+            if (canInstall && installPWA) {
               installPWA();
-            }}
-          >
-            <Download className="w-5 h-5" />
-            Install App
-          </Button>
-        )}
+            } else {
+              // Fallback: Show manual installation instructions
+              const isChrome = /Chrome/.test(navigator.userAgent);
+              const isEdge = /Edg/.test(navigator.userAgent);
+              
+              let message = '';
+              if (isChrome) {
+                message = 'To install Melodiya:\n\n1. Look for the install icon (⬇️) in the address bar\n2. OR click the 3-dot menu (⋮) → "Install Melodiya..."\n3. Click "Install" in the popup\n\nThe app will then open in its own window!';
+              } else if (isEdge) {
+                message = 'To install Melodiya:\n\n1. Look for the install icon in the address bar\n2. OR click the 3-dot menu → "Apps" → "Install this site as an app"\n3. Click "Install" in the popup';
+              } else {
+                message = 'To install Melodiya:\n\n1. Use Chrome or Edge browser for best experience\n2. Look for "Install" option in browser menu\n3. Or bookmark this page for quick access';
+              }
+              
+              alert(message);
+            }
+          }}
+        >
+          <Download className="w-5 h-5" />
+          Install App
+        </Button>
         
         <Button
           variant="ghost"

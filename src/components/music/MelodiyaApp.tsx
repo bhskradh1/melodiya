@@ -191,21 +191,36 @@ export const MelodiyaApp: React.FC = () => {
               </span>
             </div>
             
-            {/* Install App Button - Mobile */}
-            {canInstall && !isInstalled && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-primary hover:text-primary/80"
-                onClick={() => {
-                  console.log('Install button clicked');
+            {/* Install App Button - Mobile - Always show with fallback */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-primary hover:text-primary/80"
+              onClick={() => {
+                console.log('Install button clicked, canInstall:', canInstall, 'isInstalled:', isInstalled);
+                if (canInstall && installPWA) {
                   installPWA();
-                }}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Install
-              </Button>
-            )}
+                } else {
+                  // Fallback: Show manual installation instructions
+                  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                  const isChrome = /Chrome/.test(navigator.userAgent);
+                  
+                  let message = '';
+                  if (isIOS) {
+                    message = 'To install:\n1. Tap the Share button (box with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to install the app';
+                  } else if (isChrome) {
+                    message = 'To install:\n1. Click the 3-dot menu (⋮) in browser\n2. Select "Install Melodiya..."\n3. Click "Install" in the popup';
+                  } else {
+                    message = 'To install this app:\n1. Use Chrome or Edge browser\n2. Look for "Install" option in browser menu\n3. Or add this page to your home screen';
+                  }
+                  
+                  alert(message);
+                }
+              }}
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Install
+            </Button>
           </div>
         )}
 
