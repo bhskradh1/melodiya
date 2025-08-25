@@ -51,16 +51,16 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const playerRef = useRef<any>(null);
   
-  // PWA functionality - temporarily disabled for debugging
+  // PWA functionality
   const { 
-    canInstall = false, 
-    installPWA = () => {}, 
-    isInstalled = false, 
-    isOnline = true, 
-    requestNotificationPermission = async () => false,
-    showNotification = (title: string, options?: NotificationOptions) => null,
-    requestBackgroundSync = (tag: string) => {} 
-  } = {}; // usePWA();
+    canInstall, 
+    installPWA, 
+    isInstalled, 
+    isOnline, 
+    requestNotificationPermission,
+    showNotification,
+    requestBackgroundSync 
+  } = usePWA();
 
   const handlePlayerReady = () => {
     console.log('Player is ready');
