@@ -13,7 +13,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Download } from 'lucide-react';
+import { usePWA } from '@/hooks/use-pwa';
 
 interface Track {
   id: string;
@@ -34,6 +35,7 @@ export const MelodiyaApp: React.FC = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const { canInstall, installPWA, isInstalled } = usePWA();
 
   const handlePlayTrack = async (track: Track) => {
     console.log('handlePlayTrack called with:', track);
@@ -177,7 +179,7 @@ export const MelodiyaApp: React.FC = () => {
             >
               <Menu className="w-5 h-5" />
             </Button>
-            <div className="flex items-center gap-2 ml-4">
+            <div className="flex items-center gap-2 ml-4 flex-1">
               <div className="w-6 h-6 bg-gradient-primary rounded-lg flex items-center justify-center">
                 <span className="text-xs font-bold text-white">M</span>
               </div>
@@ -185,6 +187,19 @@ export const MelodiyaApp: React.FC = () => {
                 Melodiya
               </span>
             </div>
+            
+            {/* Install App Button - Mobile */}
+            {canInstall && !isInstalled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-primary hover:text-primary/80"
+                onClick={installPWA}
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Install
+              </Button>
+            )}
           </div>
         )}
 

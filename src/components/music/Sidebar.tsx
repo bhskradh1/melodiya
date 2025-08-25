@@ -13,9 +13,11 @@ import {
   Crown,
   Library,
   Clock,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePWA } from '@/hooks/use-pwa';
 
 interface SidebarProps {
   activeView: string;
@@ -26,6 +28,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onClose, isMobile }) => {
   const { signOut, isAdmin } = useAuth();
+  const { canInstall, installPWA, isInstalled } = usePWA();
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
@@ -149,6 +152,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
 
       {/* Bottom Actions */}
       <div className="p-3 space-y-2">
+        {/* Install App Button - Desktop */}
+        {canInstall && !isInstalled && (
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
+            onClick={installPWA}
+          >
+            <Download className="w-5 h-5" />
+            Install App
+          </Button>
+        )}
+        
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 h-10 hover:bg-hover-bg"
