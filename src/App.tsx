@@ -11,8 +11,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Initialize PWA functionality
-  usePWA();
+  console.log('App component loading - PWA disabled for debugging');
+  
+  // Initialize PWA functionality - temporarily disabled for debugging
+  // usePWA();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -26,7 +28,8 @@ const App = () => {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-        <PWAInstallPrompt />
+        {/* PWA Install Prompt temporarily disabled for debugging */}
+        {/* <PWAInstallPrompt /> */}
       </TooltipProvider>
     </QueryClientProvider>
   );
