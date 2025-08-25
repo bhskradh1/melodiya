@@ -1,108 +1,154 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
-export function usePWA() {
-  const [canInstall, setCanInstall] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+interface PWAState {
+  isInstalled: boolean;
+  isOnline: boolean;
+  canInstall: boolean;
+  deferredPrompt: any;
+}
 
-  useEffect(() => {
-    // Check if app is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
+export const usePWA = () => {
+  const [pwaState, setPwaState] = useState<PWAState>({
+    isInstalled: false,
+    isOnline: navigator.onLine,
+    canInstall: false,
+    deferredPrompt: null,
+  });
+
+  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+
+  // Check if app is installed
+  const checkIfInstalled = useCallback(() => {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      setPwaState(prev => ({ ...prev, isInstalled: true }));
     }
-
-    // Listen for beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setCanInstall(true);
-    };
-
-    // Listen for appinstalled event
-    const handleAppInstalled = () => {
-      setIsInstalled(true);
-      setCanInstall(false);
-      setDeferredPrompt(null);
-    };
-
-    // Listen for online/offline events
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    // Add event listeners
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
-  const installPWA = async () => {
-    if (!deferredPrompt) return false;
+  // Handle online/offline status
+  const handleOnlineStatus = useCallback(() => {
+    setPwaState(prev => ({ ...prev, isOnline: navigator.onLine }));
+  }, []);
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-      setCanInstall(false);
-      return true;
-    }
-    
-    return false;
-  };
+  // Handle beforeinstallprompt event
+  const handleBeforeInstallPrompt = useCallback((e: Event) => {
+    e.preventDefault();
+    setPwaState(prev => ({ 
+      ...prev, 
+      canInstall: true, 
+      deferredPrompt: e 
+    }));
+  }, []);
 
-  const requestNotificationPermission = async (): Promise<NotificationPermission> => {
-    if (!('Notification' in window)) {
-      return 'denied';
-    }
-
-    if (Notification.permission === 'granted') {
-      return 'granted';
-    }
-
-    if (Notification.permission === 'denied') {
-      return 'denied';
-    }
-
-    const permission = await Notification.requestPermission();
-    return permission;
-  };
-
-  const showNotification = (title: string, options?: NotificationOptions) => {
-    if (Notification.permission === 'granted') {
-      new Notification(title, options);
-    }
-  };
-
-  const requestBackgroundSync = async (tag: string) => {
-    if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register(tag);
-        return true;
-      } catch (error) {
-        console.error('Background sync failed:', error);
-        return false;
+  // Install PWA
+  const installPWA = useCallback(async () => {
+    if (pwaState.deferredPrompt) {
+      pwaState.deferredPrompt.prompt();
+      const { outcome } = await pwaState.deferredPrompt.userChoice;
+      
+      if (outcome === 'accepted') {
+        setPwaState(prev => ({ 
+          ...prev, 
+          canInstall: false, 
+          deferredPrompt: null,
+          isInstalled: true 
+        }));
       }
     }
+  }, [pwaState.deferredPrompt]);
+
+  // Register service worker
+  const registerServiceWorker = useCallback(async () => {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        setSwRegistration(registration);
+        
+        // Handle service worker updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New service worker available
+                console.log('New service worker available');
+              }
+            });
+          }
+        });
+
+        // Handle service worker messages
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'MUSIC_ACTION') {
+            // Handle music actions from service worker
+            handleMusicAction(event.data.action);
+          }
+        });
+
+        console.log('Service Worker registered successfully');
+      } catch (error) {
+        console.error('Service Worker registration failed:', error);
+      }
+    }
+  }, []);
+
+  // Handle music actions from service worker
+  const handleMusicAction = useCallback((action: string) => {
+    // This will be handled by the music player component
+    window.dispatchEvent(new CustomEvent('music-action', { detail: { action } }));
+  }, []);
+
+  // Request background sync
+  const requestBackgroundSync = useCallback(async (tag: string) => {
+    if (swRegistration && 'sync' in swRegistration) {
+      try {
+        await swRegistration.sync.register(tag);
+        console.log('Background sync registered:', tag);
+      } catch (error) {
+        console.error('Background sync registration failed:', error);
+      }
+    }
+  }, [swRegistration]);
+
+  // Request notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
     return false;
-  };
+  }, []);
+
+  // Show notification
+  const showNotification = useCallback((title: string, options?: NotificationOptions) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      return new Notification(title, options);
+    }
+    return null;
+  }, []);
+
+  // Initialize PWA
+  useEffect(() => {
+    checkIfInstalled();
+    registerServiceWorker();
+
+    // Event listeners
+    window.addEventListener('online', handleOnlineStatus);
+    window.addEventListener('offline', handleOnlineStatus);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('online', handleOnlineStatus);
+      window.removeEventListener('offline', handleOnlineStatus);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, [checkIfInstalled, registerServiceWorker, handleOnlineStatus, handleBeforeInstallPrompt]);
 
   return {
-    canInstall,
+    ...pwaState,
     installPWA,
-    isInstalled,
-    isOnline,
+    requestBackgroundSync,
     requestNotificationPermission,
     showNotification,
-    requestBackgroundSync
+    swRegistration,
   };
-}
+};
