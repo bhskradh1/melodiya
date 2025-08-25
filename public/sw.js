@@ -9,9 +9,7 @@ const STATIC_FILES = [
   '/manifest.json',
   '/favicon.ico',
   '/icon-192x192.png',
-  '/icon-512x512.png',
-  '/screenshot-wide.png',
-  '/screenshot-narrow.png'
+  '/icon-512x512.png'
 ];
 
 // Install event - cache static files
