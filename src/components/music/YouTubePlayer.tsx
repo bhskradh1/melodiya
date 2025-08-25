@@ -27,6 +27,12 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Detect iOS devices
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  // For iOS, only render when playing
+  const shouldRender = !isIOS || (isIOS && (isPlaying || videoId));
 
   useImperativeHandle(ref, () => playerRef.current);
 
@@ -171,6 +177,11 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
       }
     }
   }, [isPlaying]);
+
+  // Don't render on iOS unless there's a video and it should be playing
+  if (!shouldRender) {
+    return null;
+  }
 
   return (
     <div 
