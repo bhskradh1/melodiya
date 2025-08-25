@@ -176,11 +176,15 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
     <div 
       ref={containerRef}
       style={{ 
-        position: 'absolute', 
+        position: 'absolute',
         top: '-9999px', 
         left: '-9999px',
         width: '1px',
-        height: '1px' 
+        height: '1px',
+        opacity: 0,
+        visibility: 'hidden',
+        zIndex: -1000,
+        pointerEvents: 'none'
       }}
     />
   );
