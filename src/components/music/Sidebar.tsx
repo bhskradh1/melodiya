@@ -153,11 +153,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
       {/* Bottom Actions */}
       <div className="p-3 space-y-2">
         {/* Install App Button - Desktop */}
-        {canInstall && !isInstalled && (
+        {(canInstall && !isInstalled) || true && (
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
-            onClick={installPWA}
+            onClick={() => {
+              console.log('Install button clicked, canInstall:', canInstall, 'isInstalled:', isInstalled);
+              if (canInstall) {
+                installPWA();
+              } else {
+                alert('PWA install not available yet. Make sure you\'re using Chrome/Edge and the app is served over HTTPS.');
+              }
+            }}
           >
             <Download className="w-5 h-5" />
             Install App

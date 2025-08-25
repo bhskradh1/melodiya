@@ -36,6 +36,9 @@ export const MelodiyaApp: React.FC = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { canInstall, installPWA, isInstalled } = usePWA();
+  
+  // Debug PWA state
+  console.log('PWA State:', { canInstall, isInstalled });
 
   const handlePlayTrack = async (track: Track) => {
     console.log('handlePlayTrack called with:', track);
@@ -189,12 +192,19 @@ export const MelodiyaApp: React.FC = () => {
             </div>
             
             {/* Install App Button - Mobile */}
-            {canInstall && !isInstalled && (
+            {(canInstall && !isInstalled) || true && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 px-2 text-xs text-primary hover:text-primary/80"
-                onClick={installPWA}
+                onClick={() => {
+                  console.log('Install button clicked, canInstall:', canInstall, 'isInstalled:', isInstalled);
+                  if (canInstall) {
+                    installPWA();
+                  } else {
+                    alert('PWA install not available yet. Make sure you\'re using Chrome/Edge and the app is served over HTTPS.');
+                  }
+                }}
               >
                 <Download className="w-4 h-4 mr-1" />
                 Install
