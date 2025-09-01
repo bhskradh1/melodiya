@@ -217,62 +217,76 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
       {playlists.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {playlists.map((playlist) => (
-            <Card key={playlist.id} className="glass-card hover-lift group cursor-pointer">
-              <CardContent className="p-4">
-                <div 
-                  className="space-y-3"
-                  onClick={() => onViewPlaylist(playlist.id)}
-                >
-                  <div className="relative aspect-square bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
-                    {playlist.cover_image_url ? (
-                      <img
-                        src={playlist.cover_image_url}
-                        alt={playlist.name}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    ) : (
-                      <Music className="w-12 h-12 text-muted-foreground" />
-                    )}
-                    <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button
-                        size="sm"
-                        className="h-10 w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // TODO: Play first song of playlist
-                        }}
-                      >
-                        <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
-                      </Button>
+              <Card key={playlist.id} className="glass-card hover-lift group cursor-pointer">
+                <CardContent className="p-4">
+                  <div 
+                    className="space-y-3"
+                    onClick={() => onViewPlaylist(playlist.id)}
+                  >
+                    <div className="relative aspect-square bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
+                      {playlist.cover_image_url ? (
+                        <img
+                          src={playlist.cover_image_url}
+                          alt={playlist.name}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <Music className="w-12 h-12 text-muted-foreground" />
+                      )}
+                      <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          size="sm"
+                          className="h-10 w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            // Fetch all songs for this playlist and play all
+                            const { data: songsData, error: songsError } = await supabase
+                              .from('playlist_songs')
+                              .select('*')
+                              .eq('playlist_id', playlist.id)
+                              .order('added_at', { ascending: true });
+                            if (songsError || !songsData || songsData.length === 0) return;
+                            const tracks = songsData.map(song => ({
+                              id: song.id,
+                              title: song.title,
+                              artist: song.artist || 'Unknown Artist',
+                              thumbnail: song.thumbnail_url || '/placeholder.svg',
+                              videoId: song.youtube_video_id
+                            }));
+                            onPlayTrack(tracks[0], tracks);
+                          }}
+                        >
+                          <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <h3 className="font-medium text-sm truncate">{playlist.name}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {playlist.song_count} song{playlist.song_count !== 1 ? 's' : ''}
+                      </p>
+                      {playlist.description && (
+                        <p className="text-xs text-muted-foreground truncate">{playlist.description}</p>
+                      )}
                     </div>
                   </div>
                   
-                  <div className="space-y-1">
-                    <h3 className="font-medium text-sm truncate">{playlist.name}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {playlist.song_count} song{playlist.song_count !== 1 ? 's' : ''}
-                    </p>
-                    {playlist.description && (
-                      <p className="text-xs text-muted-foreground truncate">{playlist.description}</p>
-                    )}
+                  <div className="flex items-center justify-end mt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePlaylist(playlist.id, playlist.name);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-end mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deletePlaylist(playlist.id, playlist.name);
-                    }}
-                  >
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
           ))}
         </div>
       ) : (
