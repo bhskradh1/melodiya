@@ -152,7 +152,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       onPlayPause();
       setTimeout(() => onPlayPause(), 100);
     } else {
-      // Go to next track
+      // Go to next track (parent will handle stopping at end)
       onNext();
     }
   };
