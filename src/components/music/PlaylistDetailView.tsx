@@ -127,8 +127,16 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
 
   const playAllSongs = () => {
     if (songs.length > 0) {
-      const firstSong = songs[0];
-      playSong(firstSong);
+      // Convert PlaylistSong[] to Track[]
+      const tracks = songs.map(song => ({
+        id: song.id,
+        title: song.title,
+        artist: song.artist || 'Unknown Artist',
+        thumbnail: song.thumbnail_url || '/placeholder.svg',
+        videoId: song.youtube_video_id
+      }));
+      // Play all songs by passing the playlist and starting from the first
+      onPlayTrack(tracks[0], tracks);
     }
   };
 

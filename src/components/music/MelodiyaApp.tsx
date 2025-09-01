@@ -40,18 +40,22 @@ export const MelodiyaApp: React.FC = () => {
   // Debug PWA state
   console.log('PWA State:', { canInstall, isInstalled });
 
-  const handlePlayTrack = async (track: Track) => {
-    console.log('handlePlayTrack called with:', track);
+  // Accept optional playlist argument
+  const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
     setCurrentTrack(track);
     setIsPlaying(true);
-    
-    // Add to playlist if not already there
-    if (!playlist.find(t => t.id === track.id)) {
-      setPlaylist(prev => [...prev, track]);
-      setCurrentIndex(playlist.length);
+    if (newPlaylist && newPlaylist.length > 0) {
+      setPlaylist(newPlaylist);
+      setCurrentIndex(0);
     } else {
-      const index = playlist.findIndex(t => t.id === track.id);
-      setCurrentIndex(index);
+      // Add to playlist if not already there
+      if (!playlist.find(t => t.id === track.id)) {
+        setPlaylist(prev => [...prev, track]);
+        setCurrentIndex(playlist.length);
+      } else {
+        const index = playlist.findIndex(t => t.id === track.id);
+        setCurrentIndex(index);
+      }
     }
 
     // Save to recently played

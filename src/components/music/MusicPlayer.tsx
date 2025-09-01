@@ -115,27 +115,27 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     console.log('MusicPlayer - Is playing:', isPlaying);
     console.log('MusicPlayer - Player ready:', playerReady);
     
-    if (currentTrack && isPlaying) {
-      console.log('Track changed, ensuring playback for:', currentTrack.title);
+    if (currentTrack && playerReady) {
       setIsLoading(true);
-      
-      if (playerReady) {
-        // Player is ready, load and play immediately
-        console.log('Player ready, loading and playing video for:', currentTrack.title);
-        setTimeout(() => {
-          if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+      // If track changed, load video and seek to 0
+      if (isPlaying) {
+        // Only load video if it's a new track
+        if (playerRef.current && typeof playerRef.current.getVideoData === 'function') {
+          const loadedVideoId = playerRef.current.getVideoData().video_id;
+          if (loadedVideoId !== currentTrack.videoId) {
             playerRef.current.loadVideoById(currentTrack.videoId);
             setTimeout(() => {
-              if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-                console.log('Playing video for:', currentTrack.title);
-                playerRef.current.playVideo();
-              }
+              playerRef.current.seekTo(0, true);
+              playerRef.current.playVideo();
             }, 1000);
+          } else {
+            // Resume from paused position
+            setTimeout(() => {
+              playerRef.current.seekTo(currentTime, true);
+              playerRef.current.playVideo();
+            }, 100);
           }
-        }, 100);
-      } else {
-        // Player not ready yet, wait for it
-        console.log('Player not ready yet, waiting for initialization');
+        }
       }
     }
   }, [currentTrack, isPlaying, playerReady]);
