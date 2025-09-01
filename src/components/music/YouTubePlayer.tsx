@@ -1,19 +1,12 @@
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { YouTubePlayerProps } from '@/types/music';
 
 declare global {
   interface Window {
     YT: any;
     onYouTubeIframeAPIReady: () => void;
   }
-}
-
-interface YouTubePlayerProps {
-  videoId: string | null;
-  isPlaying: boolean;
-  onReady?: () => void;
-  onStateChange?: (state: number) => void;
-  onEnd?: () => void;
-  onTimeUpdate?: (currentTime: number, duration: number) => void;
 }
 
 export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
@@ -23,7 +16,7 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   onStateChange,
   onEnd,
   onTimeUpdate
-}, ref) => {
+}, ref): JSX.Element => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -136,24 +129,44 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   }, []);
 
   useEffect(() => {
-    if (playerRef.current && videoId) {
+    const loadVideo = async () => {
+      if (!playerRef.current || !videoId) return;
+
       console.log('Loading video:', videoId);
       try {
+        // Verify player is in a valid state
+        if (typeof playerRef.current.getPlayerState !== 'function') {
+          console.warn('Player not fully initialized, waiting...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          if (!playerRef.current) return;
+        }
+
         // First cue the video to ensure it's loaded
-        playerRef.current.cueVideoById(videoId);
-        console.log('Video cue command sent for:', videoId);
+        if (typeof playerRef.current.cueVideoById === 'function') {
+          playerRef.current.cueVideoById(videoId);
+          console.log('Video cue command sent for:', videoId);
+        } else {
+          throw new Error('cueVideoById not available');
+        }
         
         // Then load it for immediate playback if needed
-        setTimeout(() => {
-          if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
-            playerRef.current.loadVideoById(videoId);
-            console.log('Video load command sent for:', videoId);
-          }
-        }, 100);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+          playerRef.current.loadVideoById(videoId);
+          console.log('Video load command sent for:', videoId);
+        }
       } catch (error) {
         console.error('Error loading video:', error);
+        // Attempt recovery by reinitializing player
+        if (containerRef.current) {
+          console.log('Attempting player recovery...');
+          initializePlayer();
+        }
       }
-    }
+    };
+
+    loadVideo();
   }, [videoId]);
 
   useEffect(() => {

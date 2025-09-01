@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
@@ -16,29 +17,18 @@ import {
   Download
 } from 'lucide-react';
 
-interface Track {
-  id: string;
-  title: string;
-  artist: string;
-  thumbnail: string;
-  videoId: string;
-}
+import { Track, MusicPlayerProps } from '@/types/music';
 
-interface MusicPlayerProps {
-  currentTrack: Track | null;
-  isPlaying: boolean;
-  onPlayPause: () => void;
-  onNext: () => void;
-  onPrevious: () => void;
-}
-
-export const MusicPlayer: React.FC<MusicPlayerProps> = ({
+export const MusicPlayer = ({
   currentTrack,
   isPlaying,
+  playlist,
+  currentIndex,
   onPlayPause,
   onNext,
-  onPrevious
-}) => {
+  onPrevious,
+  onSongEnd
+}: MusicPlayerProps): JSX.Element => {
   const [volume, setVolume] = useState([75]);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -115,30 +105,65 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     console.log('MusicPlayer - Is playing:', isPlaying);
     console.log('MusicPlayer - Player ready:', playerReady);
     
-    if (currentTrack && playerReady) {
-      setIsLoading(true);
-      // If track changed, load video and seek to 0
-      if (isPlaying) {
-        // Only load video if it's a new track
-        if (playerRef.current && typeof playerRef.current.getVideoData === 'function') {
-          const loadedVideoId = playerRef.current.getVideoData().video_id;
-          if (loadedVideoId !== currentTrack.videoId) {
-            playerRef.current.loadVideoById(currentTrack.videoId);
-            setTimeout(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const loadAndPlayTrack = async () => {
+      if (!currentTrack || !playerReady || !playerRef.current) return;
+      
+      try {
+        setIsLoading(true);
+        
+        // Safely check current video ID
+        let loadedVideoId = '';
+        try {
+          if (typeof playerRef.current.getVideoData === 'function') {
+            loadedVideoId = playerRef.current.getVideoData().video_id;
+          }
+        } catch (error) {
+          console.error('Error getting video data:', error);
+        }
+        
+        // Load new video if needed
+        if (loadedVideoId !== currentTrack.videoId) {
+          console.log('Loading new video:', currentTrack.videoId);
+          try {
+            await new Promise(resolve => {
+              playerRef.current.loadVideoById(currentTrack.videoId);
+              timeoutId = setTimeout(resolve, 1000);
+            });
+            
+            if (playerRef.current) {
               playerRef.current.seekTo(0, true);
-              playerRef.current.playVideo();
-            }, 1000);
-          } else {
-            // Resume from paused position
-            setTimeout(() => {
-              playerRef.current.seekTo(currentTime, true);
-              playerRef.current.playVideo();
-            }, 100);
+              if (isPlaying) {
+                playerRef.current.playVideo();
+              }
+            }
+          } catch (error) {
+            console.error('Error loading video:', error);
+          }
+        } else if (isPlaying) {
+          // Resume from current position
+          console.log('Resuming current video');
+          try {
+            playerRef.current.seekTo(currentTime, true);
+            playerRef.current.playVideo();
+          } catch (error) {
+            console.error('Error resuming video:', error);
           }
         }
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [currentTrack, isPlaying, playerReady]);
+    };
+    
+    loadAndPlayTrack();
+    
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [currentTrack, isPlaying, playerReady, currentTime]);
 
   const handleTimeUpdate = (current: number, total: number) => {
     setCurrentTime(current);
@@ -147,12 +172,19 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   const handleVideoEnd = () => {
     console.log('Video ended');
-    if (isRepeat) {
-      // Restart current track
-      onPlayPause();
-      setTimeout(() => onPlayPause(), 100);
-    } else {
-      // Go to next track (parent will handle stopping at end)
+    try {
+      if (isRepeat && playerRef.current) {
+        // Instead of toggling play state, directly seek to beginning and play
+        playerRef.current.seekTo(0, true);
+        playerRef.current.playVideo();
+      } else if (onSongEnd) {
+        onSongEnd();
+      } else {
+        onNext();
+      }
+    } catch (error) {
+      console.error('Error handling video end:', error);
+      // Fallback to next song if something goes wrong
       onNext();
     }
   };
@@ -255,7 +287,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   if (!currentTrack) {
     return (
       <div className="glass-player h-20 px-4 flex items-center justify-center">
-        <p className="text-muted-foreground">No track selected</p>
+        <p className="text-muted-foreground">{playlist && playlist.length > 0 ? "Playlist finished. Enjoy your music!" : "Song finished. Enjoy your music!"}</p>
       </div>
     );
   }

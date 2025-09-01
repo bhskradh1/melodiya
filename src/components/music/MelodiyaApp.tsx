@@ -17,6 +17,7 @@ import { Menu, X, Download } from 'lucide-react';
 import { usePWA } from '@/hooks/use-pwa';
 
 interface Track {
+// ...existing code...
   id: string;
   title: string;
   artist: string;
@@ -31,6 +32,19 @@ export const MelodiyaApp: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Handle song end from MusicPlayer
+  const handleSongEnd = () => {
+    if (playlist.length > 0 && currentIndex + 1 < playlist.length) {
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      setCurrentTrack(playlist[nextIndex]);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+      setCurrentTrack(null);
+    }
+  };
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -265,9 +279,12 @@ export const MelodiyaApp: React.FC = () => {
       <MusicPlayer
         currentTrack={currentTrack}
         isPlaying={isPlaying}
+        playlist={playlist}
+        currentIndex={currentIndex}
         onPlayPause={handlePlayPause}
         onNext={handleNext}
         onPrevious={handlePrevious}
+        onSongEnd={handleSongEnd}
       />
     </div>
   );
