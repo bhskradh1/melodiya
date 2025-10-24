@@ -1,4 +1,4 @@
-name: Keep Supabase Alive
+name: Keep Supabase Alive (Music App)
 
 on:
   schedule:
@@ -12,11 +12,11 @@ jobs:
     steps:
       - name: Ping Supabase (Music App)
         run: |
-          echo "🎵 Pinging Supabase Music App to keep it awake..."
+          echo "🎵 Pinging Supabase (Music App) to keep it awake..."
 
-          # Ping your 'profiles' table to keep database connection warm
+          # Ping the 'profiles' table to keep database connection active
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://czrosatosvrjkzxkaqxs.supabase.co/rest/v1/profiles?select=id&limit=1" \
+            "https://xdtgtwlpkgldszmufoay.supabase.co/rest/v1/profiles?select=id&limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
             -H "Content-Type: application/json")
