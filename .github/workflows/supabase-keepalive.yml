@@ -1,16 +1,29 @@
-name: 🟢 Supabase Keep Alive
+name: Keep Supabase Alive
 
 on:
   schedule:
-    - cron: "0 0 */2 * *"   # Runs every 2 days at midnight UTC
-  workflow_dispatch:        # Allow manual run
+    - cron: '0 0 */2 * *'  # runs every 2 days at midnight UTC
+  workflow_dispatch:        # allows manual run
 
 jobs:
   ping:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Keep Supabase Alive
+      - name: Ping Supabase (Music App)
         run: |
-          curl -s -o /dev/null -w "%{http_code}\n" \
-          https://xdtgtwlpkgldszmufoay.supabase.co/rest/v1/
+          echo "🎵 Pinging Supabase Music App to keep it awake..."
+
+          # Ping your 'profiles' table to keep database connection warm
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://czrosatosvrjkzxkaqxs.supabase.co/rest/v1/profiles?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
+            -H "Content-Type: application/json")
+
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ Supabase (Music App) is awake and responding successfully!"
+          else
+            echo "⚠️ Supabase ping failed. HTTP status: $RESPONSE"
+            exit 1
+          fi
