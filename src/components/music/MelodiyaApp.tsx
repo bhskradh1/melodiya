@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Download } from 'lucide-react';
+import { Menu, X, Download, Home, Music, Settings as SettingsIcon } from 'lucide-react';
 import { usePWA } from '@/hooks/use-pwa';
 
 interface Track {
@@ -39,17 +39,14 @@ export const MelodiyaApp: React.FC = () => {
   const { user } = useAuth();
   const { canInstall, installPWA, isInstalled } = usePWA();
 
-  // Accept optional playlist argument
   const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
     setCurrentTrack(track);
     setIsPlaying(true);
     if (newPlaylist && newPlaylist.length > 0) {
       setPlaylist(newPlaylist);
-      // Set index to the clicked track's position in the playlist
       const clickedIndex = newPlaylist.findIndex(t => t.id === track.id);
       setCurrentIndex(clickedIndex >= 0 ? clickedIndex : 0);
     } else {
-      // Add to playlist if not already there
       if (!playlist.find(t => t.id === track.id)) {
         const newIndex = playlist.length;
         setPlaylist(prev => [...prev, track]);
@@ -60,16 +57,13 @@ export const MelodiyaApp: React.FC = () => {
       }
     }
 
-    // Save to recently played
     try {
-      // First, delete any existing entry for this song to avoid duplicates
       await supabase
         .from('recently_played')
         .delete()
         .eq('user_id', user?.id)
         .eq('youtube_video_id', track.videoId);
 
-      // Then insert the new entry
       const { error } = await supabase
         .from('recently_played')
         .insert({
@@ -80,19 +74,13 @@ export const MelodiyaApp: React.FC = () => {
           thumbnail_url: track.thumbnail,
           played_at: new Date().toISOString()
         });
-
-      if (error) {
-        console.error('Error saving to recently played:', error);
-      } else {
-        console.log('Successfully saved to recently played:', track.title);
-      }
+      if (error) console.error('Error saving to recently played:', error);
     } catch (error) {
       console.error('Error saving to recently played:', error);
     }
   };
 
   const handlePlayPause = () => {
-    console.log(`${isPlaying ? 'Pausing' : 'Playing'} track: ${currentTrack?.title}`);
     setIsPlaying(!isPlaying);
   };
 
@@ -103,7 +91,6 @@ export const MelodiyaApp: React.FC = () => {
         body: { query }
       });
       if (error || !data?.tracks) return [];
-      // Filter out the current track and any already in playlist
       const existingIds = new Set(playlist.map(t => t.videoId));
       existingIds.add(track.videoId);
       return (data.tracks as Track[]).filter(t => !existingIds.has(t.videoId));
@@ -115,31 +102,22 @@ export const MelodiyaApp: React.FC = () => {
 
   const handleNext = async () => {
     if (playlist.length > 0 && currentIndex + 1 < playlist.length) {
-      // Next track available in playlist
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setCurrentTrack(playlist[nextIndex]);
       setIsPlaying(true);
     } else if (currentTrack) {
-      // Playlist exhausted — auto-fetch related tracks and keep playing
-      console.log('Playlist ended, fetching related tracks for:', currentTrack.title);
       const related = await fetchRelatedTracks(currentTrack);
       if (related.length > 0) {
         const nextTrack = related[0];
-        // Append all related tracks to playlist for continuous play
         setPlaylist(prev => [...prev, ...related]);
         setCurrentIndex(prev => prev + 1);
         setCurrentTrack(nextTrack);
         setIsPlaying(true);
-        console.log('Auto-playing related track:', nextTrack.title);
-      } else {
-        // Couldn't find related tracks — loop playlist from start
-        if (playlist.length > 0) {
-          setCurrentIndex(0);
-          setCurrentTrack(playlist[0]);
-          setIsPlaying(true);
-          console.log('No related tracks found, looping playlist.');
-        }
+      } else if (playlist.length > 0) {
+        setCurrentIndex(0);
+        setCurrentTrack(playlist[0]);
+        setIsPlaying(true);
       }
     }
   };
@@ -150,11 +128,7 @@ export const MelodiyaApp: React.FC = () => {
       setCurrentIndex(prevIndex);
       setCurrentTrack(playlist[prevIndex]);
       setIsPlaying(true);
-      
-      console.log(`Skipping to previous track: ${playlist[prevIndex]?.title}`);
     } else if (currentTrack) {
-      // If no playlist, just restart current track
-      console.log('No playlist available, restarting current track');
       setIsPlaying(true);
     }
   };
@@ -183,10 +157,10 @@ export const MelodiyaApp: React.FC = () => {
         return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'playlist-detail':
         return selectedPlaylistId ? (
-          <PlaylistDetailView 
-            playlistId={selectedPlaylistId} 
-            onPlayTrack={handlePlayTrack} 
-            onBack={handleBackFromPlaylist} 
+          <PlaylistDetailView
+            playlistId={selectedPlaylistId}
+            onPlayTrack={handlePlayTrack}
+            onBack={handleBackFromPlaylist}
           />
         ) : <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'recently-played':
@@ -207,71 +181,54 @@ export const MelodiyaApp: React.FC = () => {
     }
   };
 
+  /* Mobile bottom nav items */
+  const mobileNavItems = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'library', label: 'Library', icon: Music },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+  ];
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex flex-1 overflow-hidden">
-        {/* Mobile Header */}
-        {isMobile && (
-          <div className="absolute top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border/30 flex items-center px-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setIsMobileSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            <div className="flex items-center gap-2 ml-4 flex-1">
-              <div className="w-6 h-6 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-xs font-bold text-white">M</span>
-              </div>
-              <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Melodiya
-              </span>
-            </div>
-            
-            {/* Install App Button - Mobile */}
-            {!isInstalled && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-primary hover:text-primary/80"
-                onClick={() => setShowInstallDialog(true)}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Install
-              </Button>
-            )}
+        {/* Desktop Sidebar */}
+        {!isMobile && (
+          <div className="relative w-64 flex-shrink-0">
+            <Sidebar
+              activeView={activeView}
+              onViewChange={setActiveView}
+              isMobile={false}
+            />
           </div>
         )}
 
-        {/* Sidebar */}
-        <div className={`${isMobile ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden') : 'relative w-64'}`}>
-          <Sidebar 
-            activeView={activeView} 
-            onViewChange={(view) => {
-              setActiveView(view);
-              if (isMobile) setIsMobileSidebarOpen(false);
-            }}
-            onClose={() => setIsMobileSidebarOpen(false)}
-            isMobile={isMobile}
-          />
-        </div>
-
-        {/* Mobile Sidebar Overlay */}
+        {/* Mobile Sidebar drawer */}
         {isMobile && isMobileSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
+          <>
+            <div
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+            <div className="fixed inset-y-0 left-0 z-50 w-72 animate-in slide-in-from-left duration-200">
+              <Sidebar
+                activeView={activeView}
+                onViewChange={(view) => {
+                  setActiveView(view);
+                  setIsMobileSidebarOpen(false);
+                }}
+                onClose={() => setIsMobileSidebarOpen(false)}
+                isMobile
+              />
+            </div>
+          </>
         )}
-        
+
         {/* Main Content */}
-        <div className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14' : ''}`}>
+        <div className="flex-1 overflow-y-auto">
           {renderView()}
         </div>
       </div>
-      
+
       {/* Music Player */}
       <MusicPlayer
         currentTrack={currentTrack}
@@ -280,6 +237,39 @@ export const MelodiyaApp: React.FC = () => {
         onNext={handleNext}
         onPrevious={handlePrevious}
       />
+
+      {/* ── Mobile floating bottom nav ── */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {/* Frosted pill bar */}
+          <div className="flex items-center justify-around bg-card/70 backdrop-blur-2xl border border-white/[0.08] rounded-2xl py-2 px-2 shadow-xl shadow-black/30"
+            style={{ marginBottom: currentTrack ? '72px' : '0' }}
+          >
+            {mobileNavItems.map(item => {
+              const Icon = item.icon;
+              const isActive = activeView === item.id;
+              // Center icon is the music/library button with accent
+              const isCenter = item.id === 'library';
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id)}
+                  className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all ${
+                    isCenter
+                      ? 'bg-primary text-primary-foreground rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-primary/40 -mt-4'
+                      : isActive
+                        ? 'text-foreground'
+                        : 'text-muted-foreground'
+                  }`}
+                >
+                  <Icon className={isCenter ? 'w-6 h-6' : 'w-5 h-5'} />
+                  {!isCenter && <span className="text-[10px] font-medium">{item.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Install Dialog */}
       <InstallDialog

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Heart, Search, Bell, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -25,80 +25,70 @@ const getGreeting = () => {
   return 'Good evening';
 };
 
-const GENRES = [
-  { name: 'Pop', emoji: '🎤', from: '340 80% 55%', to: '320 85% 45%' },
-  { name: 'Rock', emoji: '🎸', from: '10 80% 55%', to: '25 90% 48%' },
-  { name: 'Hip Hop', emoji: '🎧', from: '265 85% 55%', to: '280 80% 45%' },
-  { name: 'Electronic', emoji: '🎹', from: '195 90% 50%', to: '210 95% 40%' },
-  { name: 'Jazz', emoji: '🎷', from: '38 90% 50%', to: '28 85% 42%' },
-  { name: 'Classical', emoji: '🎻', from: '155 70% 45%', to: '140 75% 35%' },
-  { name: 'R&B', emoji: '🎶', from: '275 75% 55%', to: '290 80% 42%' },
-  { name: 'Lo-Fi', emoji: '🌙', from: '220 60% 50%', to: '235 55% 38%' },
-] as const;
-
-const popularTracks: Track[] = [
-  { id: '1', title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/placeholder.svg', videoId: '4NRXx6U8ABQ' },
-  { id: '2', title: 'Watermelon Sugar', artist: 'Harry Styles', thumbnail: '/placeholder.svg', videoId: 'E07s5ZYygMg' },
-  { id: '3', title: 'Good 4 U', artist: 'Olivia Rodrigo', thumbnail: '/placeholder.svg', videoId: 'gNi_6U5Pm_o' },
+type TabId = 'all' | 'new' | 'hot' | 'picks';
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'new', label: 'New Artists' },
+  { id: 'hot', label: 'Hot Tracks' },
+  { id: 'picks', label: "Editor's Picks" },
 ];
 
-/* ─────────── small sub-components ─────────── */
+const popularTracks: Track[] = [
+  { id: '1', title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: 'https://img.youtube.com/vi/4NRXx6U8ABQ/hqdefault.jpg', videoId: '4NRXx6U8ABQ' },
+  { id: '2', title: 'Watermelon Sugar', artist: 'Harry Styles', thumbnail: 'https://img.youtube.com/vi/E07s5ZYygMg/hqdefault.jpg', videoId: 'E07s5ZYygMg' },
+  { id: '3', title: 'Good 4 U', artist: 'Olivia Rodrigo', thumbnail: 'https://img.youtube.com/vi/gNi_6U5Pm_o/hqdefault.jpg', videoId: 'gNi_6U5Pm_o' },
+  { id: '4', title: 'Save Your Tears', artist: 'The Weeknd', thumbnail: 'https://img.youtube.com/vi/XXYlFuWEuKI/hqdefault.jpg', videoId: 'XXYlFuWEuKI' },
+  { id: '5', title: 'Levitating', artist: 'Dua Lipa', thumbnail: 'https://img.youtube.com/vi/TUVcZfQe-Kw/hqdefault.jpg', videoId: 'TUVcZfQe-Kw' },
+];
 
-const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: number }> = ({ track, onPlay, index }) => (
+/* ── Track row for Popular list ── */
+const TrackRow: React.FC<{ track: Track; onPlay: (t: Track) => void }> = ({ track, onPlay }) => (
   <button
     onClick={() => onPlay(track)}
-    className="group relative flex flex-col gap-3 rounded-2xl bg-card/40 p-3 backdrop-blur-md border border-border/20 hover:border-primary/30 transition-all duration-300 hover:bg-card/70 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_hsl(280_100%_70%/0.25)] text-left"
-    style={{ animationDelay: `${index * 60}ms` }}
+    className="group flex items-center gap-3 w-full rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.06] active:bg-white/[0.1]"
   >
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl">
-      <img src={track.thumbnail} alt={track.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className="absolute bottom-2 right-2 h-10 w-10 flex items-center justify-center rounded-full bg-primary shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-        <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
-      </div>
+    <img src={track.thumbnail} alt={track.title} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+    <div className="min-w-0 flex-1 text-left">
+      <p className="text-sm font-medium truncate">{track.title}</p>
+      <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
     </div>
-    <div className="min-w-0">
-      <p className="truncate text-sm font-semibold">{track.title}</p>
-      <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
+    <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center opacity-60 group-hover:opacity-100 group-hover:border-primary group-hover:bg-primary/10 transition-all flex-shrink-0">
+      <Play className="w-4 h-4 ml-0.5" />
     </div>
   </button>
 );
 
-const QuickAction: React.FC<{ icon: React.ReactNode; label: string; sub: string; onClick: () => void; gradient?: string }> = ({ icon, label, sub, onClick, gradient }) => (
+/* ── Featured banner card ── */
+const FeaturedCard: React.FC<{ title: string; subtitle: string; gradient: string; onClick: () => void }> = ({ title, subtitle, gradient, onClick }) => (
   <button
     onClick={onClick}
-    className={`group relative flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden ${gradient ?? 'bg-card/50 border border-border/20 hover:border-primary/30'}`}
+    className="relative flex-shrink-0 w-[260px] h-[150px] rounded-2xl overflow-hidden group"
+    style={{ background: gradient }}
   >
-    {gradient && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_top_right,hsl(280_100%_70%/0.15),transparent_60%)]" />}
-    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${gradient ? 'bg-white/15' : 'bg-primary/10'}`}>
-      {icon}
+    {/* decorative glow */}
+    <div className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:scale-150 transition-transform duration-700" />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+    <div className="relative z-10 flex flex-col justify-between h-full p-5">
+      <div>
+        <h3 className="text-white font-bold text-lg leading-tight">{title}</h3>
+        <p className="text-white/70 text-xs mt-1 line-clamp-2">{subtitle}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-white bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+          Start Listening
+        </span>
+      </div>
     </div>
-    <div className="relative z-10 min-w-0 text-left">
-      <p className="text-sm font-semibold">{label}</p>
-      <p className={`text-xs ${gradient ? 'opacity-75' : 'text-muted-foreground'}`}>{sub}</p>
-    </div>
-    <ChevronRight className="relative z-10 ml-auto h-4 w-4 opacity-0 group-hover:opacity-60 transition-opacity" />
   </button>
 );
-
-const SectionHeader: React.FC<{ title: string; onViewAll?: () => void }> = ({ title, onViewAll }) => (
-  <div className="flex items-center justify-between">
-    <h2 className="text-lg md:text-xl font-bold tracking-tight">{title}</h2>
-    {onViewAll && (
-      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={onViewAll}>
-        View all <ChevronRight className="ml-1 h-3 w-3" />
-      </Button>
-    )}
-  </div>
-);
-
-/* ─────────── main component ─────────── */
 
 export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>('all');
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const greeting = useMemo(getGreeting, []);
+  const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'there';
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
@@ -112,10 +102,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
         .select('*')
         .eq('user_id', user?.id)
         .order('played_at', { ascending: false })
-        .limit(6);
-
+        .limit(8);
       if (error) throw error;
-
       setRecentlyPlayed(
         (data ?? []).map(item => ({
           id: item.id,
@@ -133,92 +121,131 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   };
 
   return (
-    <div className="relative min-h-full">
-      {/* Ambient glow blobs */}
-      <div className="pointer-events-none absolute -top-32 left-1/3 h-[420px] w-[420px] rounded-full bg-primary/[0.06] blur-[120px]" />
-      <div className="pointer-events-none absolute top-20 right-0 h-[320px] w-[320px] rounded-full bg-accent/[0.05] blur-[100px]" />
+    <div className="relative min-h-full pb-28">
+      {/* Ambient top glow */}
+      <div className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-primary/[0.08] blur-[120px]" />
 
-      <div className="relative z-10 mx-auto max-w-6xl space-y-10 p-5 md:p-8 pb-32">
-        {/* ── Hero greeting ── */}
-        <section className="space-y-1.5">
-          <p className="text-sm font-medium text-muted-foreground tracking-wide uppercase">{greeting}</p>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-            What do you want to
-            <span className="bg-gradient-primary bg-clip-text text-transparent"> listen</span> to?
-          </h1>
+      <div className="relative z-10 max-w-3xl mx-auto px-5 pt-6 space-y-7">
+        {/* ── Header with avatar ── */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-purple-400 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary/30">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{greeting}</p>
+              <h1 className="text-xl font-bold leading-tight">Hello, {displayName}</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 rounded-full bg-white/[0.06] hover:bg-white/[0.12]"
+              onClick={() => onViewChange?.('search')}
+            >
+              <Search className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 rounded-full bg-white/[0.06] hover:bg-white/[0.12]"
+            >
+              <Bell className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Pill tabs ── */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                activeTab === tab.id
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30'
+                  : 'bg-white/[0.07] text-muted-foreground hover:bg-white/[0.12] hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── For you — featured cards ── */}
+        <section className="space-y-3">
+          <h2 className="text-base font-bold">For you</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-5 px-5">
+            <FeaturedCard
+              title="Feel the Beat"
+              subtitle="Explore trending tracks and hidden gems curated just for you."
+              gradient="linear-gradient(135deg, hsl(280 80% 50%), hsl(250 90% 40%))"
+              onClick={() => onViewChange?.('trending')}
+            />
+            <FeaturedCard
+              title="Mood Mix"
+              subtitle="Sweet tunes to match your vibe. Let the music speak."
+              gradient="linear-gradient(135deg, hsl(200 80% 45%), hsl(260 70% 50%))"
+              onClick={() => onViewChange?.('liked')}
+            />
+            <FeaturedCard
+              title="Chill Zone"
+              subtitle="Lo-fi beats and ambient tracks for focus and relaxation."
+              gradient="linear-gradient(135deg, hsl(160 60% 40%), hsl(200 70% 35%))"
+              onClick={() => onViewChange?.('library')}
+            />
+          </div>
         </section>
 
-        {/* ── Quick actions ── */}
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickAction
-            icon={<Music className="h-5 w-5 text-primary-foreground" />}
-            label="Your Library"
-            sub="Saved music"
-            onClick={() => onViewChange?.('library')}
-            gradient="bg-gradient-primary text-primary-foreground"
-          />
-          <QuickAction
-            icon={<TrendingUp className="h-5 w-5 text-accent-foreground" />}
-            label="Trending"
-            sub="Hot right now"
-            onClick={() => onViewChange?.('trending')}
-            gradient="bg-gradient-secondary text-accent-foreground"
-          />
-          <QuickAction
-            icon={<Heart className="h-5 w-5 text-primary" />}
-            label="Liked Songs"
-            sub="Your favorites"
-            onClick={() => onViewChange?.('liked')}
-          />
-          <QuickAction
-            icon={<Clock className="h-5 w-5 text-primary" />}
-            label="Recently Played"
-            sub="Pick up where you left"
-            onClick={() => onViewChange?.('recently-played')}
-          />
-        </section>
-
-        {/* ── Recently played ── */}
+        {/* ── Recently played horizontal scroll ── */}
         {recentlyPlayed.length > 0 && (
-          <section className="space-y-5">
-            <SectionHeader title="Jump back in" onViewAll={() => onViewChange?.('recently-played')} />
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {recentlyPlayed.map((track, i) => (
-                <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold">Recently Played</h2>
+              <button
+                onClick={() => onViewChange?.('recently-played')}
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+              >
+                Show all <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-5 px-5">
+              {recentlyPlayed.map(track => (
+                <button
+                  key={track.id}
+                  onClick={() => onPlayTrack(track)}
+                  className="group flex-shrink-0 w-[120px] space-y-2"
+                >
+                  <div className="relative w-[120px] h-[120px] rounded-xl overflow-hidden">
+                    <img src={track.thumbnail} alt={track.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                        <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-medium truncate">{track.title}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{track.artist}</p>
+                  </div>
+                </button>
               ))}
             </div>
           </section>
         )}
 
-        {/* ── Popular this week ── */}
-        <section className="space-y-5">
-          <SectionHeader title="Popular this week" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {popularTracks.map((track, i) => (
-              <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
-            ))}
+        {/* ── Popular list ── */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold">Popular</h2>
+            <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors">
+              Show all <ChevronRight className="w-3 h-3" />
+            </button>
           </div>
-        </section>
-
-        {/* ── Browse genres ── */}
-        <section className="space-y-5">
-          <SectionHeader title="Browse by genre" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {GENRES.map((g) => (
-              <button
-                key={g.name}
-                className="group relative h-24 md:h-28 overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, hsl(${g.from}), hsl(${g.to}))`,
-                }}
-              >
-                {/* Decorative circle */}
-                <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" />
-                <div className="relative z-10 flex h-full flex-col justify-between p-4">
-                  <span className="text-2xl">{g.emoji}</span>
-                  <span className="text-sm font-bold text-white drop-shadow-md">{g.name}</span>
-                </div>
-              </button>
+          <div className="space-y-0.5">
+            {popularTracks.map(track => (
+              <TrackRow key={track.id} track={track} onPlay={onPlayTrack} />
             ))}
           </div>
         </section>
