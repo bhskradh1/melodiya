@@ -358,7 +358,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                       return (
                         <p
                           key={i}
-                          ref={isActive ? activeLyricRef : undefined}
+                          ref={isActive && autoScrollEnabled ? activeLyricRef : undefined}
                           className={`
                             text-lg md:text-xl leading-relaxed font-medium py-1.5 px-2 rounded-lg cursor-pointer
                             transition-all duration-500 ease-out
