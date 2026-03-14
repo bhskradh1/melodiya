@@ -18,18 +18,6 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          pwa: ['@/hooks/use-pwa']
-        }
-      }
-    }
-  },
-  define: {
-    __PWA_ENABLED__: JSON.stringify(true)
-  }
 }));
