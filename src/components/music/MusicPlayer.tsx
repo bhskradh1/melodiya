@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
+import { LyricsView } from './LyricsView';
 import { usePWA } from '@/hooks/use-pwa';
 import { 
   Play, 
@@ -13,7 +14,8 @@ import {
   Heart,
   Repeat,
   Shuffle,
-  Download
+  Download,
+  Music2
 } from 'lucide-react';
 
 interface Track {
@@ -49,6 +51,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [playerReady, setPlayerReady] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
   const playerRef = useRef<any>(null);
   
   // PWA functionality
@@ -146,13 +149,19 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   const handleVideoEnd = () => {
-    console.log('Video ended');
+    console.log('Video ended, isRepeat:', isRepeat);
+    setCurrentTime(0);
+    setIsLoading(false);
+    
     if (isRepeat) {
-      // Restart current track
-      onPlayPause();
-      setTimeout(() => onPlayPause(), 100);
+      // Restart current track by reloading the video
+      if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+        playerRef.current.seekTo(0, true);
+        playerRef.current.playVideo();
+      }
     } else {
-      // Go to next track (parent will handle stopping at end)
+      // Go to next track
+      console.log('Calling onNext to play next track');
       onNext();
     }
   };
@@ -262,6 +271,14 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   return (
     <>
+      {/* Lyrics View */}
+      <LyricsView
+        trackTitle={currentTrack.title}
+        trackArtist={currentTrack.artist}
+        isVisible={showLyrics}
+        onClose={() => setShowLyrics(false)}
+      />
+
       {/* Hidden YouTube Player */}
       <YouTubePlayer
         ref={playerRef}
@@ -286,7 +303,16 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
             <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-10 w-10 p-0 ${showLyrics ? 'text-primary' : 'text-muted-foreground'}`}
+              onClick={() => setShowLyrics(!showLyrics)}
+              title="Lyrics"
+            >
+              <Music2 className="w-5 h-5" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -463,8 +489,17 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </div>
 
-        {/* Volume Control - Desktop */}
+        {/* Volume Control & Lyrics - Desktop */}
         <div className="flex items-center gap-2 flex-1 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 w-8 p-0 ${showLyrics ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+            onClick={() => setShowLyrics(!showLyrics)}
+            title="Lyrics"
+          >
+            <Music2 className="w-4 h-4" />
+          </Button>
           <Button
             variant="ghost"
             size="sm"
