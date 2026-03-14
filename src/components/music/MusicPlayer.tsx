@@ -52,6 +52,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [playerReady, setPlayerReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
+  const prevTrackIdRef = useRef<string | null>(null);
   const playerRef = useRef<any>(null);
   
   const { 
