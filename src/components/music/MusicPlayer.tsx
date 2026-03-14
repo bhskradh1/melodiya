@@ -94,7 +94,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     if (currentTrack && playerReady) {
       setIsLoading(true);
       if (isPlaying && playerRef.current && typeof playerRef.current.getVideoData === 'function') {
-        const loadedVideoId = playerRef.current.getVideoData().video_id;
+        const videoData = playerRef.current.getVideoData?.();
+        const loadedVideoId = videoData?.video_id;
         if (loadedVideoId !== currentTrack.videoId) {
           playerRef.current.loadVideoById(currentTrack.videoId);
           setTimeout(() => {
