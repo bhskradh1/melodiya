@@ -188,3 +188,12 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
   0% { transform: scaleY(0.3); }
   100% { transform: scaleY(1); }
 }
+
+@keyframes pulse-subtle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
