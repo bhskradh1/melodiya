@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
+import { LyricsView } from './LyricsView';
 import { usePWA } from '@/hooks/use-pwa';
 import { 
   Play, 
@@ -13,7 +14,8 @@ import {
   Heart,
   Repeat,
   Shuffle,
-  Download
+  Download,
+  Music2
 } from 'lucide-react';
 
 interface Track {
