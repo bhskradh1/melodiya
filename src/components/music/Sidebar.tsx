@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePWA } from '@/hooks/use-pwa';
+import { InstallDialog } from './InstallDialog';
 
 interface SidebarProps {
   activeView: string;
