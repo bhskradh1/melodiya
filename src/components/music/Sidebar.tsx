@@ -183,6 +183,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
           Sign Out
         </Button>
       </div>
+
+      {/* Install Dialog */}
+      <InstallDialog
+        open={showInstallDialog}
+        onOpenChange={setShowInstallDialog}
+        onNativeInstall={installPWA}
+        canNativeInstall={canInstall}
+      />
     </div>
   );
 };
