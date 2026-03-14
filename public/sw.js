@@ -1,6 +1,6 @@
-const CACHE_NAME = 'melodiya-v1.0.0';
-const STATIC_CACHE = 'melodiya-static-v1.0.0';
-const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.0';
+const CACHE_NAME = 'melodiya-v1.0.1';
+const STATIC_CACHE = 'melodiya-static-v1.0.1';
+const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.1';
 
 // Files to cache immediately
 const STATIC_FILES = [
