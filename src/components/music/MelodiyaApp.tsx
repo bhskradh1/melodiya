@@ -9,6 +9,7 @@ import { PlaylistDetailView } from './PlaylistDetailView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { TrendingView } from './TrendingView';
 import { AdminView } from '../admin/AdminView';
+import { InstallDialog } from './InstallDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
