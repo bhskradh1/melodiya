@@ -268,6 +268,8 @@ self.addEventListener('notificationclick', (event) => {
   }
 });
 
+} // end of production-only block
+
 // Message handling for communication with main app
 self.addEventListener('message', (event) => {
   console.log('Service Worker: Message received:', event.data);
