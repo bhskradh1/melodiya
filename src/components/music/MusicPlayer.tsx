@@ -265,6 +265,14 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   return (
     <>
+      {/* Lyrics View */}
+      <LyricsView
+        trackTitle={currentTrack.title}
+        trackArtist={currentTrack.artist}
+        isVisible={showLyrics}
+        onClose={() => setShowLyrics(false)}
+      />
+
       {/* Hidden YouTube Player */}
       <YouTubePlayer
         ref={playerRef}
