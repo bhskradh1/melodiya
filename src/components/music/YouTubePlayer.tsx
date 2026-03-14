@@ -48,8 +48,17 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
 
   const initializePlayer = () => {
     if (containerRef.current && window.YT && window.YT.Player) {
+      // Create a child element for YouTube to replace (keeps React's ref intact)
+      if (playerElementRef.current) {
+        playerElementRef.current.remove();
+      }
+      const el = document.createElement('div');
+      el.id = 'yt-player-target';
+      containerRef.current.appendChild(el);
+      playerElementRef.current = el;
+
       console.log('Initializing YouTube player...');
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      playerRef.current = new window.YT.Player(el, {
         height: '0',
         width: '0',
         videoId: videoId || '',
