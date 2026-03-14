@@ -51,6 +51,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [playerReady, setPlayerReady] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
   const playerRef = useRef<any>(null);
   
   // PWA functionality
