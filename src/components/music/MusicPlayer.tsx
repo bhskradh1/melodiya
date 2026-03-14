@@ -149,13 +149,19 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   const handleVideoEnd = () => {
-    console.log('Video ended');
+    console.log('Video ended, isRepeat:', isRepeat);
+    setCurrentTime(0);
+    setIsLoading(false);
+    
     if (isRepeat) {
-      // Restart current track
-      onPlayPause();
-      setTimeout(() => onPlayPause(), 100);
+      // Restart current track by reloading the video
+      if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+        playerRef.current.seekTo(0, true);
+        playerRef.current.playVideo();
+      }
     } else {
-      // Go to next track (parent will handle stopping at end)
+      // Go to next track
+      console.log('Calling onNext to play next track');
       onNext();
     }
   };
