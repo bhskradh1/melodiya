@@ -55,6 +55,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const prevTrackIdRef = useRef<string | null>(null);
   const playerRef = useRef<any>(null);
+  const isMobile = useIsMobile();
   
   const { 
     canInstall, 
@@ -64,6 +65,16 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     showNotification,
     requestBackgroundSync 
   } = usePWA();
+
+  // Auto-open Now Playing on mobile when a new track starts
+  useEffect(() => {
+    if (currentTrack && currentTrack.id !== prevTrackIdRef.current) {
+      prevTrackIdRef.current = currentTrack.id;
+      if (isMobile) {
+        setShowNowPlaying(true);
+      }
+    }
+  }, [currentTrack, isMobile]);
 
   const handlePlayerReady = () => {
     setPlayerReady(true);
