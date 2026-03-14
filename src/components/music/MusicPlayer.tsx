@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
@@ -52,7 +53,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [playerReady, setPlayerReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
+  const prevTrackIdRef = useRef<string | null>(null);
   const playerRef = useRef<any>(null);
+  const isMobile = useIsMobile();
   
   const { 
     canInstall, 
@@ -62,6 +65,16 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     showNotification,
     requestBackgroundSync 
   } = usePWA();
+
+  // Auto-open Now Playing on mobile when a new track starts
+  useEffect(() => {
+    if (currentTrack && currentTrack.id !== prevTrackIdRef.current) {
+      prevTrackIdRef.current = currentTrack.id;
+      if (isMobile) {
+        setShowNowPlaying(true);
+      }
+    }
+  }, [currentTrack, isMobile]);
 
   const handlePlayerReady = () => {
     setPlayerReady(true);
@@ -229,7 +242,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       />
       
       {/* Mobile Layout */}
-      <div className="md:hidden glass-player px-4 py-2 flex flex-col gap-1">
+      <div className="md:hidden glass-player px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-1 flex-shrink-0">
         {/* Clickable Track Info - Opens Now Playing */}
         <div 
           className="flex items-center gap-3 cursor-pointer active:opacity-80 transition-opacity"
