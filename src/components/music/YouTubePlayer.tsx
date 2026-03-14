@@ -26,13 +26,9 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
 }, ref) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const playerElementRef = useRef<HTMLDivElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Detect iOS devices
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  
-  // For iOS, only render when playing
-  const shouldRender = !isIOS || (isIOS && (isPlaying || videoId));
+  const [isReady, setIsReady] = useState(false);
 
   useImperativeHandle(ref, () => playerRef.current);
 
@@ -52,8 +48,17 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
 
   const initializePlayer = () => {
     if (containerRef.current && window.YT && window.YT.Player) {
+      // Create a child element for YouTube to replace (keeps React's ref intact)
+      if (playerElementRef.current) {
+        playerElementRef.current.remove();
+      }
+      const el = document.createElement('div');
+      el.id = 'yt-player-target';
+      containerRef.current.appendChild(el);
+      playerElementRef.current = el;
+
       console.log('Initializing YouTube player...');
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      playerRef.current = new window.YT.Player(el, {
         height: '0',
         width: '0',
         videoId: videoId || '',
@@ -177,11 +182,6 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
       }
     }
   }, [isPlaying]);
-
-  // Don't render on iOS unless there's a video and it should be playing
-  if (!shouldRender) {
-    return null;
-  }
 
   return (
     <div 
