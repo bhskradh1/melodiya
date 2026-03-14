@@ -183,11 +183,6 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
     }
   }, [isPlaying]);
 
-  // Don't render on iOS unless there's a video and it should be playing
-  if (!shouldRender) {
-    return null;
-  }
-
   return (
     <div 
       ref={containerRef}
