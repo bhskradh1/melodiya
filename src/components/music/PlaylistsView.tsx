@@ -30,7 +30,7 @@ interface Playlist {
 }
 
 interface PlaylistsViewProps {
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, playlist?: Track[]) => void;
   onViewPlaylist: (playlistId: string) => void;
 }
 

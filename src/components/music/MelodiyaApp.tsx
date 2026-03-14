@@ -103,15 +103,18 @@ export const MelodiyaApp: React.FC = () => {
         setIsPlaying(true);
         console.log(`Skipping to next track: ${playlist[nextIndex]?.title}`);
       } else {
-        // End of playlist reached
-        setIsPlaying(false);
-        setCurrentTrack(null);
-        console.log('End of playlist reached. Stopping playback.');
+        // End of playlist reached - loop back to start
+        const nextIndex = 0;
+        setCurrentIndex(nextIndex);
+        setCurrentTrack(playlist[nextIndex]);
+        setIsPlaying(true);
+        console.log('End of playlist reached. Looping back to start.');
       }
     } else if (currentTrack) {
       // If no playlist, just restart current track
       console.log('No playlist available, restarting current track');
-      setIsPlaying(true);
+      setIsPlaying(false);
+      setTimeout(() => setIsPlaying(true), 200);
     }
   };
 
