@@ -96,27 +96,51 @@ export const MelodiyaApp: React.FC = () => {
     setIsPlaying(!isPlaying);
   };
 
-  const handleNext = () => {
-    if (playlist.length > 0) {
-      if (currentIndex + 1 < playlist.length) {
-        const nextIndex = currentIndex + 1;
-        setCurrentIndex(nextIndex);
-        setCurrentTrack(playlist[nextIndex]);
-        setIsPlaying(true);
-        console.log(`Skipping to next track: ${playlist[nextIndex]?.title}`);
-      } else {
-        // End of playlist reached - loop back to start
-        const nextIndex = 0;
-        setCurrentIndex(nextIndex);
-        setCurrentTrack(playlist[nextIndex]);
-        setIsPlaying(true);
-        console.log('End of playlist reached. Looping back to start.');
-      }
+  const fetchRelatedTracks = async (track: Track): Promise<Track[]> => {
+    try {
+      const query = `${track.artist} ${track.title} similar songs`;
+      const { data, error } = await supabase.functions.invoke('youtube-search', {
+        body: { query }
+      });
+      if (error || !data?.tracks) return [];
+      // Filter out the current track and any already in playlist
+      const existingIds = new Set(playlist.map(t => t.videoId));
+      existingIds.add(track.videoId);
+      return (data.tracks as Track[]).filter(t => !existingIds.has(t.videoId));
+    } catch (err) {
+      console.error('Error fetching related tracks:', err);
+      return [];
+    }
+  };
+
+  const handleNext = async () => {
+    if (playlist.length > 0 && currentIndex + 1 < playlist.length) {
+      // Next track available in playlist
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      setCurrentTrack(playlist[nextIndex]);
+      setIsPlaying(true);
     } else if (currentTrack) {
-      // If no playlist, just restart current track
-      console.log('No playlist available, restarting current track');
-      setIsPlaying(false);
-      setTimeout(() => setIsPlaying(true), 200);
+      // Playlist exhausted — auto-fetch related tracks and keep playing
+      console.log('Playlist ended, fetching related tracks for:', currentTrack.title);
+      const related = await fetchRelatedTracks(currentTrack);
+      if (related.length > 0) {
+        const nextTrack = related[0];
+        // Append all related tracks to playlist for continuous play
+        setPlaylist(prev => [...prev, ...related]);
+        setCurrentIndex(prev => prev + 1);
+        setCurrentTrack(nextTrack);
+        setIsPlaying(true);
+        console.log('Auto-playing related track:', nextTrack.title);
+      } else {
+        // Couldn't find related tracks — loop playlist from start
+        if (playlist.length > 0) {
+          setCurrentIndex(0);
+          setCurrentTrack(playlist[0]);
+          setIsPlaying(true);
+          console.log('No related tracks found, looping playlist.');
+        }
+      }
     }
   };
 
