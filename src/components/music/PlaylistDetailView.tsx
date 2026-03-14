@@ -91,14 +91,16 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   };
 
   const playSong = (song: PlaylistSong) => {
-    const track: Track = {
-      id: song.id,
-      title: song.title,
-      artist: song.artist || 'Unknown Artist',
-      thumbnail: song.thumbnail_url || '/placeholder.svg',
-      videoId: song.youtube_video_id
-    };
-    onPlayTrack(track);
+    // Convert all songs to tracks and pass as playlist, starting from clicked song
+    const tracks = songs.map(s => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist || 'Unknown Artist',
+      thumbnail: s.thumbnail_url || '/placeholder.svg',
+      videoId: s.youtube_video_id
+    }));
+    const clickedTrack = tracks.find(t => t.id === song.id) || tracks[0];
+    onPlayTrack(clickedTrack, tracks);
   };
 
   const removeSongFromPlaylist = async (songId: string, songTitle: string) => {
