@@ -46,12 +46,15 @@ export const MelodiyaApp: React.FC = () => {
     setIsPlaying(true);
     if (newPlaylist && newPlaylist.length > 0) {
       setPlaylist(newPlaylist);
-      setCurrentIndex(0);
+      // Set index to the clicked track's position in the playlist
+      const clickedIndex = newPlaylist.findIndex(t => t.id === track.id);
+      setCurrentIndex(clickedIndex >= 0 ? clickedIndex : 0);
     } else {
       // Add to playlist if not already there
       if (!playlist.find(t => t.id === track.id)) {
+        const newIndex = playlist.length;
         setPlaylist(prev => [...prev, track]);
-        setCurrentIndex(playlist.length);
+        setCurrentIndex(newIndex);
       } else {
         const index = playlist.findIndex(t => t.id === track.id);
         setCurrentIndex(index);
