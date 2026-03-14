@@ -99,44 +99,39 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       .replace(/official\s*(music\s*)?video/gi, '')
       .replace(/lyrics?\s*video/gi, '')
       .replace(/audio/gi, '')
-      .replace(/hd|hq|4k/gi, '')
+      .replace(/hd|hq|4k|mv/gi, '')
       .replace(/\|.*$/g, '')
       .replace(/ft\.?|feat\.?/gi, '')
+      .replace(/\s{2,}/g, ' ')
       .trim();
 
     const cleanArtist = currentTrack.artist
       .replace(/\s*-\s*Topic$/i, '')
       .replace(/VEVO$/i, '')
+      .replace(/\s*Official$/i, '')
       .trim();
 
     try {
-      // Try lyrics.ovh
-      const res = await fetch(
-        `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.lyrics) {
-          setLyrics(data.lyrics.trim());
-          setLyricsLoading(false);
-          return;
-        }
-      }
+      // 1. Try LRCLIB (best free lyrics database, supports synced + plain lyrics)
+      const lrcResult = await tryLrclib(cleanArtist, cleanTitle);
+      if (lrcResult) { setLyrics(lrcResult); setLyricsLoading(false); return; }
 
-      // Try shorter title
+      // 2. Try LRCLIB search (broader matching)
+      const lrcSearchResult = await tryLrclibSearch(`${cleanArtist} ${cleanTitle}`);
+      if (lrcSearchResult) { setLyrics(lrcSearchResult); setLyricsLoading(false); return; }
+
+      // 3. Try lyrics.ovh as fallback
+      const ovhResult = await tryLyricsOvh(cleanArtist, cleanTitle);
+      if (ovhResult) { setLyrics(ovhResult); setLyricsLoading(false); return; }
+
+      // 4. Try with shorter/simpler title
       const shortTitle = cleanTitle.split(/[-|,]/)[0].trim();
       if (shortTitle !== cleanTitle && shortTitle.length > 2) {
-        const res2 = await fetch(
-          `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(shortTitle)}`
-        );
-        if (res2.ok) {
-          const data2 = await res2.json();
-          if (data2.lyrics) {
-            setLyrics(data2.lyrics.trim());
-            setLyricsLoading(false);
-            return;
-          }
-        }
+        const shortResult = await tryLrclib(cleanArtist, shortTitle);
+        if (shortResult) { setLyrics(shortResult); setLyricsLoading(false); return; }
+        
+        const shortOvh = await tryLyricsOvh(cleanArtist, shortTitle);
+        if (shortOvh) { setLyrics(shortOvh); setLyricsLoading(false); return; }
       }
 
       setLyricsError('Lyrics not available for this song');
@@ -145,6 +140,58 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     } finally {
       setLyricsLoading(false);
     }
+  };
+
+  const tryLrclib = async (artist: string, title: string): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`,
+        { headers: { 'User-Agent': 'Melodiya Music App v1.0' } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        // Prefer synced lyrics, fall back to plain lyrics
+        const lyricsText = data.syncedLyrics || data.plainLyrics;
+        if (lyricsText) {
+          // Clean synced lyrics timestamps if present: [00:12.34] Line -> Line
+          return lyricsText.replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s?/gm, '').trim();
+        }
+      }
+    } catch (e) { console.log('LRCLIB get failed:', e); }
+    return null;
+  };
+
+  const tryLrclibSearch = async (query: string): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`,
+        { headers: { 'User-Agent': 'Melodiya Music App v1.0' } }
+      );
+      if (res.ok) {
+        const results = await res.json();
+        if (Array.isArray(results) && results.length > 0) {
+          const best = results[0];
+          const lyricsText = best.syncedLyrics || best.plainLyrics;
+          if (lyricsText) {
+            return lyricsText.replace(/^\[\d{2}:\d{2}\.\d{2,3}\]\s?/gm, '').trim();
+          }
+        }
+      }
+    } catch (e) { console.log('LRCLIB search failed:', e); }
+    return null;
+  };
+
+  const tryLyricsOvh = async (artist: string, title: string): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.lyrics) return data.lyrics.trim();
+      }
+    } catch (e) { console.log('lyrics.ovh failed:', e); }
+    return null;
   };
 
   if (!isVisible) return null;
