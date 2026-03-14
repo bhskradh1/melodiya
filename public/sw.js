@@ -1,6 +1,6 @@
-const CACHE_NAME = 'melodiya-v1.0.0';
-const STATIC_CACHE = 'melodiya-static-v1.0.0';
-const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.0';
+const CACHE_NAME = 'melodiya-v1.0.1';
+const STATIC_CACHE = 'melodiya-static-v1.0.1';
+const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.1';
 
 // Files to cache immediately
 const STATIC_FILES = [
@@ -65,6 +65,15 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http requests
   if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // Never intercept Vite dev/HMR/module requests (prevents stale chunk mismatches)
+  if (
+    url.pathname.startsWith('/node_modules/.vite/') ||
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/src/')
+  ) {
     return;
   }
 
