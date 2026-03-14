@@ -77,7 +77,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const hasScrolledInitially = useRef(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(false);
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -118,28 +118,27 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return idx;
   }, [syncedLines, currentTime]);
 
-  // Scroll to top when lyrics first load, then enable auto-scroll
+  // When lyrics load or panel opens, start from top then enable auto-scroll
   useEffect(() => {
-    if ((syncedLines || plainLyrics) && lyricsContainerRef.current) {
+    setAutoScrollEnabled(false);
+    if (lyricsContainerRef.current) {
       lyricsContainerRef.current.scrollTop = 0;
-      hasScrolledInitially.current = false;
-      // Delay auto-scroll activation so user sees lyrics from the top
-      const timer = setTimeout(() => {
-        hasScrolledInitially.current = true;
-      }, 2000);
-      return () => clearTimeout(timer);
     }
-  }, [syncedLines, plainLyrics]);
+    const timer = setTimeout(() => {
+      setAutoScrollEnabled(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [syncedLines, plainLyrics, showLyrics]);
 
-  // Auto-scroll to active lyric line (only after initial delay)
+  // Auto-scroll to active lyric line
   useEffect(() => {
-    if (hasScrolledInitially.current && activeLyricRef.current && lyricsContainerRef.current) {
+    if (autoScrollEnabled && activeLyricRef.current) {
       activeLyricRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
     }
-  }, [activeLineIndex]);
+  }, [activeLineIndex, autoScrollEnabled]);
 
   // Fetch lyrics when track changes or lyrics tab opened
   useEffect(() => {
@@ -359,7 +358,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                       return (
                         <p
                           key={i}
-                          ref={isActive ? activeLyricRef : undefined}
+                          ref={isActive && autoScrollEnabled ? activeLyricRef : undefined}
                           className={`
                             text-lg md:text-xl leading-relaxed font-medium py-1.5 px-2 rounded-lg cursor-pointer
                             transition-all duration-500 ease-out
