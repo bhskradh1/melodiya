@@ -256,6 +256,14 @@ export const MelodiyaApp: React.FC = () => {
         onNext={handleNext}
         onPrevious={handlePrevious}
       />
+
+      {/* Install Dialog */}
+      <InstallDialog
+        open={showInstallDialog}
+        onOpenChange={setShowInstallDialog}
+        onNativeInstall={installPWA}
+        canNativeInstall={canInstall}
+      />
     </div>
   );
 };
