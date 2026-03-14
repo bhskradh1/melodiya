@@ -1,143 +1,157 @@
 import { useEffect, useState, useCallback } from 'react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 interface PWAState {
   isInstalled: boolean;
   isOnline: boolean;
   canInstall: boolean;
-  deferredPrompt: any;
+  deferredPrompt: BeforeInstallPromptEvent | null;
 }
+
+const getInitialOnlineStatus = () => {
+  if (typeof navigator === 'undefined') return true;
+  return navigator.onLine;
+};
+
+const clearPwaCachesAndWorkers = async () => {
+  if (typeof window === 'undefined') return;
+
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  }
+
+  if ('caches' in window) {
+    const cacheKeys = await caches.keys();
+    await Promise.all(
+      cacheKeys
+        .filter((key) => key.startsWith('melodiya-'))
+        .map((key) => caches.delete(key))
+    );
+  }
+};
 
 export const usePWA = () => {
   const [pwaState, setPwaState] = useState<PWAState>({
     isInstalled: false,
-    isOnline: navigator.onLine,
+    isOnline: getInitialOnlineStatus(),
     canInstall: false,
     deferredPrompt: null,
   });
 
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
-  // Check if app is installed
   const checkIfInstalled = useCallback(() => {
-    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-      setPwaState(prev => ({ ...prev, isInstalled: true }));
+    if (window.matchMedia?.('(display-mode: standalone)').matches) {
+      setPwaState((prev) => ({ ...prev, isInstalled: true }));
     }
   }, []);
 
-  // Handle online/offline status
   const handleOnlineStatus = useCallback(() => {
-    setPwaState(prev => ({ ...prev, isOnline: navigator.onLine }));
+    setPwaState((prev) => ({ ...prev, isOnline: navigator.onLine }));
   }, []);
 
-  // Handle beforeinstallprompt event
   const handleBeforeInstallPrompt = useCallback((e: Event) => {
     e.preventDefault();
-    setPwaState(prev => ({ 
-      ...prev, 
-      canInstall: true, 
-      deferredPrompt: e 
+    setPwaState((prev) => ({
+      ...prev,
+      canInstall: true,
+      deferredPrompt: e as BeforeInstallPromptEvent,
     }));
   }, []);
 
-  // Install PWA
   const installPWA = useCallback(async () => {
-    if (pwaState.deferredPrompt) {
-      pwaState.deferredPrompt.prompt();
-      const { outcome } = await pwaState.deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        setPwaState(prev => ({ 
-          ...prev, 
-          canInstall: false, 
-          deferredPrompt: null,
-          isInstalled: true 
-        }));
-      }
+    if (!pwaState.deferredPrompt) return;
+
+    await pwaState.deferredPrompt.prompt();
+    const { outcome } = await pwaState.deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      setPwaState((prev) => ({
+        ...prev,
+        canInstall: false,
+        deferredPrompt: null,
+        isInstalled: true,
+      }));
     }
   }, [pwaState.deferredPrompt]);
 
-  // Register service worker
-  const registerServiceWorker = useCallback(async () => {
-    if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        setSwRegistration(registration);
-        
-        // Handle service worker updates
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New service worker available
-                console.log('New service worker available');
-              }
-            });
-          }
-        });
-
-        // Handle service worker messages
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data.type === 'MUSIC_ACTION') {
-            // Handle music actions from service worker
-            handleMusicAction(event.data.action);
-          }
-        });
-
-        console.log('Service Worker registered successfully');
-      } catch (error) {
-        console.error('Service Worker registration failed:', error);
-      }
-    }
-  }, []);
-
-  // Handle music actions from service worker
   const handleMusicAction = useCallback((action: string) => {
-    // This will be handled by the music player component
     window.dispatchEvent(new CustomEvent('music-action', { detail: { action } }));
   }, []);
 
-  // Request background sync
-  const requestBackgroundSync = useCallback(async (tag: string) => {
-    // Skip background sync if not supported or service worker not ready
-    if (!swRegistration || !('sync' in swRegistration)) {
-      console.log('Background sync not supported or service worker not ready');
+  const registerServiceWorker = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+
+    // Critical: never keep service worker active in Vite dev/sandbox preview.
+    if (import.meta.env.DEV) {
+      await clearPwaCachesAndWorkers();
+      setSwRegistration(null);
       return;
     }
 
-    // Validate tag length (Chrome has a limit)
-    if (tag.length > 100) {
-      console.warn('Background sync tag too long, skipping');
-      return;
-    }
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
 
     try {
-      await (swRegistration as any).sync.register(tag);
-      console.log('Background sync registered:', tag);
-    } catch (error) {
-      // Don't throw errors, just log them to prevent app crashes
-      console.warn('Background sync registration failed, continuing without sync:', error);
-    }
-  }, [swRegistration]);
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      setSwRegistration(registration);
 
-  // Request notification permission
-  const requestNotificationPermission = useCallback(async () => {
-    console.log('requestNotificationPermission called');
-    console.log('Notification API available:', 'Notification' in window);
-    console.log('Current permission:', Notification.permission);
-    
-    if ('Notification' in window) {
-      console.log('Requesting notification permission...');
-      const permission = await Notification.requestPermission();
-      console.log('Permission result:', permission);
-      console.log('Permission === granted:', permission === 'granted');
-      return permission === 'granted';
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('New service worker available');
+          }
+        });
+      });
+
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'MUSIC_ACTION') {
+          handleMusicAction(event.data.action);
+        }
+      });
+
+      console.log('Service Worker registered successfully');
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
     }
-    console.log('Notification API not available');
-    return false;
+  }, [handleMusicAction]);
+
+  const requestBackgroundSync = useCallback(
+    async (tag: string) => {
+      if (!swRegistration || !("sync" in swRegistration)) {
+        console.log('Background sync not supported or service worker not ready');
+        return;
+      }
+
+      if (tag.length > 100) {
+        console.warn('Background sync tag too long, skipping');
+        return;
+      }
+
+      try {
+        await (swRegistration as any).sync.register(tag);
+        console.log('Background sync registered:', tag);
+      } catch (error) {
+        console.warn('Background sync registration failed, continuing without sync:', error);
+      }
+    },
+    [swRegistration]
+  );
+
+  const requestNotificationPermission = useCallback(async () => {
+    if (!('Notification' in window)) return false;
+
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
   }, []);
 
-  // Show notification
   const showNotification = useCallback((title: string, options?: NotificationOptions) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       return new Notification(title, options);
@@ -145,12 +159,10 @@ export const usePWA = () => {
     return null;
   }, []);
 
-  // Initialize PWA
   useEffect(() => {
     checkIfInstalled();
-    registerServiceWorker();
+    void registerServiceWorker();
 
-    // Event listeners
     window.addEventListener('online', handleOnlineStatus);
     window.addEventListener('offline', handleOnlineStatus);
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);

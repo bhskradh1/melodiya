@@ -68,6 +68,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Never intercept Vite dev/HMR/module requests (prevents stale chunk mismatches)
+  if (
+    url.pathname.startsWith('/node_modules/.vite/') ||
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/src/')
+  ) {
+    return;
+  }
+
   // Handle different types of requests
   if (url.pathname === '/' || url.pathname === '/index.html') {
     // Handle main page
