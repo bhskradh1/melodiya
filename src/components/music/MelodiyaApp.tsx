@@ -9,6 +9,7 @@ import { PlaylistDetailView } from './PlaylistDetailView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { TrendingView } from './TrendingView';
 import { AdminView } from '../admin/AdminView';
+import { InstallDialog } from './InstallDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,12 +34,10 @@ export const MelodiyaApp: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { canInstall, installPWA, isInstalled } = usePWA();
-  
-  // Debug PWA state
-  console.log('PWA State:', { canInstall, isInstalled });
 
   // Accept optional playlist argument
   const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
@@ -207,36 +206,18 @@ export const MelodiyaApp: React.FC = () => {
               </span>
             </div>
             
-            {/* Install App Button - Mobile - Always show with fallback */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs text-primary hover:text-primary/80"
-              onClick={() => {
-                console.log('Install button clicked, canInstall:', canInstall, 'isInstalled:', isInstalled);
-                if (canInstall && installPWA) {
-                  installPWA();
-                } else {
-                  // Fallback: Show manual installation instructions
-                  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                  const isChrome = /Chrome/.test(navigator.userAgent);
-                  
-                  let message = '';
-                  if (isIOS) {
-                    message = 'To install:\n1. Tap the Share button (box with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to install the app';
-                  } else if (isChrome) {
-                    message = 'To install:\n1. Click the 3-dot menu (⋮) in browser\n2. Select "Install Melodiya..."\n3. Click "Install" in the popup';
-                  } else {
-                    message = 'To install this app:\n1. Use Chrome or Edge browser\n2. Look for "Install" option in browser menu\n3. Or add this page to your home screen';
-                  }
-                  
-                  alert(message);
-                }
-              }}
-            >
-              <Download className="w-4 h-4 mr-1" />
-              Install
-            </Button>
+            {/* Install App Button - Mobile */}
+            {!isInstalled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-primary hover:text-primary/80"
+                onClick={() => setShowInstallDialog(true)}
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Install
+              </Button>
+            )}
           </div>
         )}
 
@@ -274,6 +255,14 @@ export const MelodiyaApp: React.FC = () => {
         onPlayPause={handlePlayPause}
         onNext={handleNext}
         onPrevious={handlePrevious}
+      />
+
+      {/* Install Dialog */}
+      <InstallDialog
+        open={showInstallDialog}
+        onOpenChange={setShowInstallDialog}
+        onNativeInstall={installPWA}
+        canNativeInstall={canInstall}
       />
     </div>
   );

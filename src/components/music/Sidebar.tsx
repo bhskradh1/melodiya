@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePWA } from '@/hooks/use-pwa';
+import { InstallDialog } from './InstallDialog';
 
 interface SidebarProps {
   activeView: string;
@@ -29,6 +30,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onClose, isMobile }) => {
   const { signOut, isAdmin } = useAuth();
   const { canInstall, installPWA, isInstalled } = usePWA();
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
@@ -152,35 +154,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
 
       {/* Bottom Actions */}
       <div className="p-3 space-y-2">
-        {/* Install App Button - Desktop - Always show with fallback */}
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
-          onClick={() => {
-            console.log('Install button clicked, canInstall:', canInstall, 'isInstalled:', isInstalled);
-            if (canInstall && installPWA) {
-              installPWA();
-            } else {
-              // Fallback: Show manual installation instructions
-              const isChrome = /Chrome/.test(navigator.userAgent);
-              const isEdge = /Edg/.test(navigator.userAgent);
-              
-              let message = '';
-              if (isChrome) {
-                message = 'To install Melodiya:\n\n1. Look for the install icon (⬇️) in the address bar\n2. OR click the 3-dot menu (⋮) → "Install Melodiya..."\n3. Click "Install" in the popup\n\nThe app will then open in its own window!';
-              } else if (isEdge) {
-                message = 'To install Melodiya:\n\n1. Look for the install icon in the address bar\n2. OR click the 3-dot menu → "Apps" → "Install this site as an app"\n3. Click "Install" in the popup';
-              } else {
-                message = 'To install Melodiya:\n\n1. Use Chrome or Edge browser for best experience\n2. Look for "Install" option in browser menu\n3. Or bookmark this page for quick access';
-              }
-              
-              alert(message);
-            }
-          }}
-        >
-          <Download className="w-5 h-5" />
-          Install App
-        </Button>
+        {/* Install App Button - Desktop */}
+        {!isInstalled && (
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
+            onClick={() => setShowInstallDialog(true)}
+          >
+            <Download className="w-5 h-5" />
+            Install App
+          </Button>
+        )}
         
         <Button
           variant="ghost"
@@ -199,6 +183,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
           Sign Out
         </Button>
       </div>
+
+      {/* Install Dialog */}
+      <InstallDialog
+        open={showInstallDialog}
+        onOpenChange={setShowInstallDialog}
+        onNativeInstall={installPWA}
+        canNativeInstall={canInstall}
+      />
     </div>
   );
 };
