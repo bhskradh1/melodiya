@@ -34,12 +34,10 @@ export const MelodiyaApp: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { canInstall, installPWA, isInstalled } = usePWA();
-  
-  // Debug PWA state
-  console.log('PWA State:', { canInstall, isInstalled });
 
   // Accept optional playlist argument
   const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
