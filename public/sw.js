@@ -1,3 +1,18 @@
+// If running on lovableproject.com (dev preview), unregister immediately
+if (self.location.hostname.includes('lovableproject.com') || self.location.hostname === 'localhost') {
+  self.addEventListener('install', () => self.skipWaiting());
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        .then(() => self.clients.claim())
+        .then(() => {
+          self.registration.unregister();
+        })
+    );
+  });
+  // Stop here — do not register any fetch handlers in dev
+} else {
+
 const CACHE_NAME = 'melodiya-v1.0.1';
 const STATIC_CACHE = 'melodiya-static-v1.0.1';
 const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.1';
