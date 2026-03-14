@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.937e166c0acc4c6ca6d27fd952f28593',
+  appId: 'app.lovable.melodiya',
   appName: 'melodiya-your-sound',
   webDir: 'dist',
   server: {
