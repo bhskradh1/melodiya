@@ -77,6 +77,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const hasScrolledInitially = useRef(false);
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
