@@ -297,7 +297,16 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
             <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-10 w-10 p-0 ${showLyrics ? 'text-primary' : 'text-muted-foreground'}`}
+              onClick={() => setShowLyrics(!showLyrics)}
+              title="Lyrics"
+            >
+              <Music2 className="w-5 h-5" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
