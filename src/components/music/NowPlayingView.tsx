@@ -118,9 +118,22 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return idx;
   }, [syncedLines, currentTime]);
 
-  // Auto-scroll to active lyric line
+  // Scroll to top when lyrics first load, then enable auto-scroll
   useEffect(() => {
-    if (activeLyricRef.current && lyricsContainerRef.current) {
+    if ((syncedLines || plainLyrics) && lyricsContainerRef.current) {
+      lyricsContainerRef.current.scrollTop = 0;
+      hasScrolledInitially.current = false;
+      // Delay auto-scroll activation so user sees lyrics from the top
+      const timer = setTimeout(() => {
+        hasScrolledInitially.current = true;
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncedLines, plainLyrics]);
+
+  // Auto-scroll to active lyric line (only after initial delay)
+  useEffect(() => {
+    if (hasScrolledInitially.current && activeLyricRef.current && lyricsContainerRef.current) {
       activeLyricRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
