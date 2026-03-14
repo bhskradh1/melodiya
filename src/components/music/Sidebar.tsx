@@ -30,6 +30,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onClose, isMobile }) => {
   const { signOut, isAdmin } = useAuth();
   const { canInstall, installPWA, isInstalled } = usePWA();
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
