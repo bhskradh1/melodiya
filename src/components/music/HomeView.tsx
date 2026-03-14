@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Music, TrendingUp, Clock, Sparkles } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -19,15 +18,91 @@ interface HomeViewProps {
   onViewChange?: (view: string) => void;
 }
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
+const GENRES = [
+  { name: 'Pop', emoji: '🎤', from: '340 80% 55%', to: '320 85% 45%' },
+  { name: 'Rock', emoji: '🎸', from: '10 80% 55%', to: '25 90% 48%' },
+  { name: 'Hip Hop', emoji: '🎧', from: '265 85% 55%', to: '280 80% 45%' },
+  { name: 'Electronic', emoji: '🎹', from: '195 90% 50%', to: '210 95% 40%' },
+  { name: 'Jazz', emoji: '🎷', from: '38 90% 50%', to: '28 85% 42%' },
+  { name: 'Classical', emoji: '🎻', from: '155 70% 45%', to: '140 75% 35%' },
+  { name: 'R&B', emoji: '🎶', from: '275 75% 55%', to: '290 80% 42%' },
+  { name: 'Lo-Fi', emoji: '🌙', from: '220 60% 50%', to: '235 55% 38%' },
+] as const;
+
+const popularTracks: Track[] = [
+  { id: '1', title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/placeholder.svg', videoId: '4NRXx6U8ABQ' },
+  { id: '2', title: 'Watermelon Sugar', artist: 'Harry Styles', thumbnail: '/placeholder.svg', videoId: 'E07s5ZYygMg' },
+  { id: '3', title: 'Good 4 U', artist: 'Olivia Rodrigo', thumbnail: '/placeholder.svg', videoId: 'gNi_6U5Pm_o' },
+];
+
+/* ─────────── small sub-components ─────────── */
+
+const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: number }> = ({ track, onPlay, index }) => (
+  <button
+    onClick={() => onPlay(track)}
+    className="group relative flex flex-col gap-3 rounded-2xl bg-card/40 p-3 backdrop-blur-md border border-border/20 hover:border-primary/30 transition-all duration-300 hover:bg-card/70 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_hsl(280_100%_70%/0.25)] text-left"
+    style={{ animationDelay: `${index * 60}ms` }}
+  >
+    <div className="relative aspect-square w-full overflow-hidden rounded-xl">
+      <img src={track.thumbnail} alt={track.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute bottom-2 right-2 h-10 w-10 flex items-center justify-center rounded-full bg-primary shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+        <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+      </div>
+    </div>
+    <div className="min-w-0">
+      <p className="truncate text-sm font-semibold">{track.title}</p>
+      <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
+    </div>
+  </button>
+);
+
+const QuickAction: React.FC<{ icon: React.ReactNode; label: string; sub: string; onClick: () => void; gradient?: string }> = ({ icon, label, sub, onClick, gradient }) => (
+  <button
+    onClick={onClick}
+    className={`group relative flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden ${gradient ?? 'bg-card/50 border border-border/20 hover:border-primary/30'}`}
+  >
+    {gradient && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_top_right,hsl(280_100%_70%/0.15),transparent_60%)]" />}
+    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${gradient ? 'bg-white/15' : 'bg-primary/10'}`}>
+      {icon}
+    </div>
+    <div className="relative z-10 min-w-0 text-left">
+      <p className="text-sm font-semibold">{label}</p>
+      <p className={`text-xs ${gradient ? 'opacity-75' : 'text-muted-foreground'}`}>{sub}</p>
+    </div>
+    <ChevronRight className="relative z-10 ml-auto h-4 w-4 opacity-0 group-hover:opacity-60 transition-opacity" />
+  </button>
+);
+
+const SectionHeader: React.FC<{ title: string; onViewAll?: () => void }> = ({ title, onViewAll }) => (
+  <div className="flex items-center justify-between">
+    <h2 className="text-lg md:text-xl font-bold tracking-tight">{title}</h2>
+    {onViewAll && (
+      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={onViewAll}>
+        View all <ChevronRight className="ml-1 h-3 w-3" />
+      </Button>
+    )}
+  </div>
+);
+
+/* ─────────── main component ─────────── */
+
 export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const greeting = useMemo(getGreeting, []);
 
   useEffect(() => {
-    if (user) {
-      fetchRecentlyPlayed();
-    }
+    if (user) fetchRecentlyPlayed();
+    else setLoading(false);
   }, [user]);
 
   const fetchRecentlyPlayed = async () => {
@@ -41,15 +116,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
 
       if (error) throw error;
 
-      const tracks = data?.map(item => ({
-        id: item.id,
-        title: item.title,
-        artist: item.artist || 'Unknown Artist',
-        thumbnail: item.thumbnail_url || '/placeholder.svg',
-        videoId: item.youtube_video_id
-      })) || [];
-
-      setRecentlyPlayed(tracks);
+      setRecentlyPlayed(
+        (data ?? []).map(item => ({
+          id: item.id,
+          title: item.title,
+          artist: item.artist || 'Unknown Artist',
+          thumbnail: item.thumbnail_url || '/placeholder.svg',
+          videoId: item.youtube_video_id,
+        }))
+      );
     } catch (error) {
       console.error('Error fetching recently played:', error);
     } finally {
@@ -57,211 +132,96 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     }
   };
 
-  const popularTracks = [
-    {
-      id: '1',
-      title: 'Blinding Lights',
-      artist: 'The Weeknd',
-      thumbnail: '/placeholder.svg',
-      videoId: '4NRXx6U8ABQ'
-    },
-    {
-      id: '2',
-      title: 'Watermelon Sugar',
-      artist: 'Harry Styles',
-      thumbnail: '/placeholder.svg',
-      videoId: 'E07s5ZYygMg'
-    },
-    {
-      id: '3',
-      title: 'Good 4 U',
-      artist: 'Olivia Rodrigo',
-      thumbnail: '/placeholder.svg',
-      videoId: 'gNi_6U5Pm_o'
-    }
-  ];
-
   return (
-    <div className="p-4 md:p-6 space-y-6 md:space-y-8">
-      {/* Welcome Header */}
-      <div className="space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-          <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-primary" />
-          Welcome back!
-        </h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Discover new music and continue where you left off
-        </p>
-      </div>
+    <div className="relative min-h-full">
+      {/* Ambient glow blobs */}
+      <div className="pointer-events-none absolute -top-32 left-1/3 h-[420px] w-[420px] rounded-full bg-primary/[0.06] blur-[120px]" />
+      <div className="pointer-events-none absolute top-20 right-0 h-[320px] w-[320px] rounded-full bg-accent/[0.05] blur-[100px]" />
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-        <Card 
-          className="glass-card hover-lift cursor-pointer bg-gradient-primary text-primary-foreground"
-          onClick={() => {
-            console.log('Navigate to Your Library');
-            onViewChange?.('library');
-          }}
-        >
-          <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <Music className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm md:text-base">Your Library</h3>
-              <p className="text-primary-foreground/80 text-xs md:text-sm">Browse your saved music</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="relative z-10 mx-auto max-w-6xl space-y-10 p-5 md:p-8 pb-32">
+        {/* ── Hero greeting ── */}
+        <section className="space-y-1.5">
+          <p className="text-sm font-medium text-muted-foreground tracking-wide uppercase">{greeting}</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+            What do you want to
+            <span className="bg-gradient-primary bg-clip-text text-transparent"> listen</span> to?
+          </h1>
+        </section>
 
-        <Card 
-          className="glass-card hover-lift cursor-pointer bg-gradient-secondary text-accent-foreground"
-          onClick={() => {
-            console.log('Navigate to Trending Now');
-            onViewChange?.('trending');
-          }}
-        >
-          <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm md:text-base">Trending Now</h3>
-              <p className="text-accent-foreground/80 text-xs md:text-sm">Popular songs today</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* ── Quick actions ── */}
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QuickAction
+            icon={<Music className="h-5 w-5 text-primary-foreground" />}
+            label="Your Library"
+            sub="Saved music"
+            onClick={() => onViewChange?.('library')}
+            gradient="bg-gradient-primary text-primary-foreground"
+          />
+          <QuickAction
+            icon={<TrendingUp className="h-5 w-5 text-accent-foreground" />}
+            label="Trending"
+            sub="Hot right now"
+            onClick={() => onViewChange?.('trending')}
+            gradient="bg-gradient-secondary text-accent-foreground"
+          />
+          <QuickAction
+            icon={<Heart className="h-5 w-5 text-primary" />}
+            label="Liked Songs"
+            sub="Your favorites"
+            onClick={() => onViewChange?.('liked')}
+          />
+          <QuickAction
+            icon={<Clock className="h-5 w-5 text-primary" />}
+            label="Recently Played"
+            sub="Pick up where you left"
+            onClick={() => onViewChange?.('recently-played')}
+          />
+        </section>
 
-        <Card 
-          className="glass-card hover-lift cursor-pointer"
-          onClick={() => {
-            console.log('Navigate to Recently Played');
-            onViewChange?.('recently-played');
-          }}
-        >
-          <CardContent className="p-4 md:p-6 flex items-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+        {/* ── Recently played ── */}
+        {recentlyPlayed.length > 0 && (
+          <section className="space-y-5">
+            <SectionHeader title="Jump back in" onViewAll={() => onViewChange?.('recently-played')} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {recentlyPlayed.map((track, i) => (
+                <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
+              ))}
             </div>
-            <div>
-              <h3 className="font-semibold text-sm md:text-base">Recently Played</h3>
-              <p className="text-muted-foreground text-xs md:text-sm">Continue listening</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </section>
+        )}
 
-      {/* Recently Played */}
-      {recentlyPlayed.length > 0 && (
-        <div className="space-y-3 md:space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl md:text-2xl font-bold">Recently Played</h2>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => onViewChange?.('recently-played')}
-              className="text-xs md:text-sm"
-            >
-              View All
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-            {recentlyPlayed.slice(0, 6).map((track) => (
-              <Card key={track.id} className="glass-card hover-lift group cursor-pointer">
-                <CardContent className="p-3 md:p-4">
-                  <div className="relative mb-2 md:mb-3">
-                    <img
-                      src={track.thumbnail}
-                      alt={track.title}
-                      className="w-full aspect-square rounded-lg object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button
-                        size="sm"
-                        className="h-8 w-8 md:h-10 md:w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
-                        onClick={() => onPlayTrack(track)}
-                      >
-                        <Play className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground ml-0.5" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-xs md:text-sm mb-1 truncate">{track.title}</h3>
-                    <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* ── Popular this week ── */}
+        <section className="space-y-5">
+          <SectionHeader title="Popular this week" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {popularTracks.map((track, i) => (
+              <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
             ))}
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* Popular This Week */}
-      <div className="space-y-3 md:space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl md:text-2xl font-bold">Popular This Week</h2>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            className="text-xs md:text-sm"
-          >
-            View All
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-          {popularTracks.slice(0, 6).map((track) => (
-            <Card key={track.id} className="glass-card hover-lift group cursor-pointer">
-              <CardContent className="p-3 md:p-4">
-                <div className="relative mb-2 md:mb-3">
-                  <img
-                    src={track.thumbnail}
-                    alt={track.title}
-                    className="w-full aspect-square rounded-lg object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Button
-                      size="sm"
-                      className="h-8 w-8 md:h-10 md:w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
-                      onClick={() => onPlayTrack(track)}
-                    >
-                      <Play className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground ml-0.5" />
-                    </Button>
-                  </div>
+        {/* ── Browse genres ── */}
+        <section className="space-y-5">
+          <SectionHeader title="Browse by genre" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {GENRES.map((g) => (
+              <button
+                key={g.name}
+                className="group relative h-24 md:h-28 overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{
+                  background: `linear-gradient(135deg, hsl(${g.from}), hsl(${g.to}))`,
+                }}
+              >
+                {/* Decorative circle */}
+                <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" />
+                <div className="relative z-10 flex h-full flex-col justify-between p-4">
+                  <span className="text-2xl">{g.emoji}</span>
+                  <span className="text-sm font-bold text-white drop-shadow-md">{g.name}</span>
                 </div>
-                <div>
-                  <h3 className="font-medium text-xs md:text-sm mb-1 truncate">{track.title}</h3>
-                  <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Music Categories */}
-      <div className="space-y-3 md:space-y-4">
-        <h2 className="text-xl md:text-2xl font-bold">Browse by Genre</h2>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          {[
-            { name: 'Pop', color: 'bg-gradient-to-br from-pink-500 to-rose-500' },
-            { name: 'Rock', color: 'bg-gradient-to-br from-red-500 to-orange-500' },
-            { name: 'Hip Hop', color: 'bg-gradient-to-br from-purple-500 to-indigo-500' },
-            { name: 'Electronic', color: 'bg-gradient-to-br from-cyan-500 to-blue-500' },
-            { name: 'Jazz', color: 'bg-gradient-to-br from-amber-500 to-yellow-500' },
-            { name: 'Classical', color: 'bg-gradient-to-br from-emerald-500 to-green-500' },
-            { name: 'Country', color: 'bg-gradient-to-br from-orange-500 to-red-500' },
-            { name: 'R&B', color: 'bg-gradient-to-br from-violet-500 to-purple-500' }
-          ].slice(0, 8).map((genre) => (
-            <Card key={genre.name} className={`${genre.color} hover-lift cursor-pointer text-white`}>
-              <CardContent className="p-4 md:p-6 h-20 md:h-24 flex items-end">
-                <h3 className="font-bold text-sm md:text-lg">{genre.name}</h3>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );
