@@ -483,8 +483,17 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </div>
 
-        {/* Volume Control - Desktop */}
+        {/* Volume Control & Lyrics - Desktop */}
         <div className="flex items-center gap-2 flex-1 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 w-8 p-0 ${showLyrics ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+            onClick={() => setShowLyrics(!showLyrics)}
+            title="Lyrics"
+          >
+            <Music2 className="w-4 h-4" />
+          </Button>
           <Button
             variant="ghost"
             size="sm"
