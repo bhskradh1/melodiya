@@ -121,25 +121,28 @@ export const MelodiyaApp: React.FC = () => {
       setCurrentIndex(nextIndex);
       setCurrentTrack(playlist[nextIndex]);
       setIsPlaying(true);
+    } else if (isPlaylistMode && playlist.length > 0) {
+      // Playlist mode: loop back to the start of the playlist
+      setCurrentIndex(0);
+      setCurrentTrack(playlist[0]);
+      setIsPlaying(true);
+      console.log('Playlist ended, looping back to start.');
     } else if (currentTrack) {
-      // Playlist exhausted — auto-fetch related tracks and keep playing
-      console.log('Playlist ended, fetching related tracks for:', currentTrack.title);
+      // Non-playlist mode: auto-fetch related tracks and keep playing
+      console.log('Song ended, fetching related tracks for:', currentTrack.title);
       const related = await fetchRelatedTracks(currentTrack);
       if (related.length > 0) {
         const nextTrack = related[0];
-        // Append all related tracks to playlist for continuous play
         setPlaylist(prev => [...prev, ...related]);
         setCurrentIndex(prev => prev + 1);
         setCurrentTrack(nextTrack);
         setIsPlaying(true);
         console.log('Auto-playing related track:', nextTrack.title);
       } else {
-        // Couldn't find related tracks — loop playlist from start
         if (playlist.length > 0) {
           setCurrentIndex(0);
           setCurrentTrack(playlist[0]);
           setIsPlaying(true);
-          console.log('No related tracks found, looping playlist.');
         }
       }
     }
