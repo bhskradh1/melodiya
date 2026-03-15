@@ -14,7 +14,7 @@ interface Track {
 }
 
 interface HomeViewProps {
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, playlist?: Track[]) => void;
   onViewChange?: (view: string) => void;
 }
 
