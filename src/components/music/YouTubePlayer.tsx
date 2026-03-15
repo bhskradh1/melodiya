@@ -124,7 +124,7 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
           onTimeUpdate?.(currentTime, duration);
         }
       }
-    }, 1000);
+    }, 250);
   };
 
   const stopTimeTracking = () => {
