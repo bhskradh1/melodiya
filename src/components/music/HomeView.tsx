@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight, Mic2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -25,22 +25,16 @@ const getGreeting = () => {
   return 'Good evening';
 };
 
-const GENRES = [
-  { name: 'Pop', emoji: '🎤', from: '340 80% 55%', to: '320 85% 45%' },
-  { name: 'Rock', emoji: '🎸', from: '10 80% 55%', to: '25 90% 48%' },
-  { name: 'Hip Hop', emoji: '🎧', from: '265 85% 55%', to: '280 80% 45%' },
-  { name: 'Electronic', emoji: '🎹', from: '195 90% 50%', to: '210 95% 40%' },
-  { name: 'Jazz', emoji: '🎷', from: '38 90% 50%', to: '28 85% 42%' },
-  { name: 'Classical', emoji: '🎻', from: '155 70% 45%', to: '140 75% 35%' },
-  { name: 'R&B', emoji: '🎶', from: '275 75% 55%', to: '290 80% 42%' },
-  { name: 'Lo-Fi', emoji: '🌙', from: '220 60% 50%', to: '235 55% 38%' },
+const KARAOKE_SEARCHES = [
+  { name: 'Pop Hits', emoji: '🎤', query: 'karaoke pop hits 2025', from: '340 80% 55%', to: '320 85% 45%' },
+  { name: 'Bollywood', emoji: '🎬', query: 'karaoke bollywood songs', from: '10 80% 55%', to: '25 90% 48%' },
+  { name: 'Rock Classics', emoji: '🎸', query: 'karaoke rock classics', from: '265 85% 55%', to: '280 80% 45%' },
+  { name: 'R&B / Soul', emoji: '🎶', query: 'karaoke r&b soul songs', from: '195 90% 50%', to: '210 95% 40%' },
+  { name: 'EDM / Dance', emoji: '🎹', query: 'karaoke edm dance', from: '38 90% 50%', to: '28 85% 42%' },
+  { name: 'Country', emoji: '🤠', query: 'karaoke country songs', from: '155 70% 45%', to: '140 75% 35%' },
+  { name: 'K-Pop', emoji: '💜', query: 'karaoke kpop songs', from: '275 75% 55%', to: '290 80% 42%' },
+  { name: 'Lo-Fi Chill', emoji: '🌙', query: 'karaoke lofi chill songs', from: '220 60% 50%', to: '235 55% 38%' },
 ] as const;
-
-const popularTracks: Track[] = [
-  { id: '1', title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/placeholder.svg', videoId: '4NRXx6U8ABQ' },
-  { id: '2', title: 'Watermelon Sugar', artist: 'Harry Styles', thumbnail: '/placeholder.svg', videoId: 'E07s5ZYygMg' },
-  { id: '3', title: 'Good 4 U', artist: 'Olivia Rodrigo', thumbnail: '/placeholder.svg', videoId: 'gNi_6U5Pm_o' },
-];
 
 /* ─────────── small sub-components ─────────── */
 
@@ -96,13 +90,17 @@ const SectionHeader: React.FC<{ title: string; onViewAll?: () => void }> = ({ ti
 
 export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
+  const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
   const { user } = useAuth();
   const greeting = useMemo(getGreeting, []);
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
     else setLoading(false);
+    fetchTrending();
   }, [user]);
 
   const fetchRecentlyPlayed = async () => {
@@ -129,6 +127,42 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
       console.error('Error fetching recently played:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTrending = async () => {
+    setTrendingLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-search', {
+        body: { query: 'trending music songs this week 2025' }
+      });
+      if (error || !data?.tracks) {
+        console.error('Error fetching trending:', error);
+        setTrendingTracks([]);
+      } else {
+        setTrendingTracks((data.tracks as Track[]).slice(0, 6));
+      }
+    } catch (err) {
+      console.error('Error fetching trending:', err);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
+  const handleKaraokeSearch = async (search: typeof KARAOKE_SEARCHES[number]) => {
+    setKaraokeLoading(search.name);
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-search', {
+        body: { query: search.query }
+      });
+      if (!error && data?.tracks && data.tracks.length > 0) {
+        // Play first karaoke track and pass all as playlist
+        onPlayTrack(data.tracks[0], data.tracks);
+      }
+    } catch (err) {
+      console.error('Error fetching karaoke:', err);
+    } finally {
+      setKaraokeLoading(null);
     }
   };
 
@@ -190,33 +224,47 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
           </section>
         )}
 
-        {/* ── Popular this week ── */}
+        {/* ── Popular this week (YouTube Trending) ── */}
         <section className="space-y-5">
-          <SectionHeader title="Popular this week" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {popularTracks.map((track, i) => (
-              <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
-            ))}
-          </div>
+          <SectionHeader title="Popular this week" onViewAll={() => onViewChange?.('trending')} />
+          {trendingLoading ? (
+            <div className="flex items-center gap-3 py-8 justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading trending...</p>
+            </div>
+          ) : trendingTracks.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {trendingTracks.map((track, i) => (
+                <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">Could not load trending songs</p>
+          )}
         </section>
 
-        {/* ── Browse genres ── */}
+        {/* ── Karaoke Zone ── */}
         <section className="space-y-5">
-          <SectionHeader title="Browse by genre" />
+          <div className="flex items-center gap-2">
+            <Mic2 className="w-5 h-5 text-primary" />
+            <SectionHeader title="Karaoke Zone" />
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {GENRES.map((g) => (
+            {KARAOKE_SEARCHES.map((k) => (
               <button
-                key={g.name}
-                className="group relative h-24 md:h-28 overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+                key={k.name}
+                onClick={() => handleKaraokeSearch(k)}
+                disabled={karaokeLoading === k.name}
+                className="group relative h-24 md:h-28 overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-70"
                 style={{
-                  background: `linear-gradient(135deg, hsl(${g.from}), hsl(${g.to}))`,
+                  background: `linear-gradient(135deg, hsl(${k.from}), hsl(${k.to}))`,
                 }}
               >
                 {/* Decorative circle */}
                 <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" />
                 <div className="relative z-10 flex h-full flex-col justify-between p-4">
-                  <span className="text-2xl">{g.emoji}</span>
-                  <span className="text-sm font-bold text-white drop-shadow-md">{g.name}</span>
+                  <span className="text-2xl">{karaokeLoading === k.name ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : k.emoji}</span>
+                  <span className="text-sm font-bold text-white drop-shadow-md">{k.name}</span>
                 </div>
               </button>
             ))}

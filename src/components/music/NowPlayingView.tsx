@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Play,
   Pause,
@@ -15,6 +14,7 @@ import {
   VolumeX,
   Music2,
   Loader2,
+  Gauge,
 } from 'lucide-react';
 
 interface Track {
@@ -50,6 +50,13 @@ interface NowPlayingViewProps {
   onToggleLike: () => void;
 }
 
+const SCROLL_SPEEDS = [
+  { label: '0.5x', value: 0.5 },
+  { label: '1x', value: 1 },
+  { label: '1.5x', value: 1.5 },
+  { label: '2x', value: 2 },
+];
+
 export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   isVisible,
   onClose,
@@ -77,7 +84,12 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [scrollSpeed, setScrollSpeed] = useState(1); // 1x default
+  const [showSpeedControl, setShowSpeedControl] = useState(false);
+  const plainScrollRef = useRef<number | null>(null);
+  const userScrollRef = useRef(false);
+  const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -104,12 +116,14 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return lines.sort((a, b) => a.time - b.time);
   }, []);
 
-  // Find current active line index based on playback time
+  // Find current active line index based on playback time with a small offset for better sync
   const activeLineIndex = useMemo(() => {
     if (!syncedLines || syncedLines.length === 0) return -1;
+    // Add a small negative offset so highlight appears slightly before the vocal
+    const adjustedTime = currentTime + 0.15;
     let idx = -1;
     for (let i = 0; i < syncedLines.length; i++) {
-      if (currentTime >= syncedLines[i].time) {
+      if (adjustedTime >= syncedLines[i].time) {
         idx = i;
       } else {
         break;
@@ -118,27 +132,67 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return idx;
   }, [syncedLines, currentTime]);
 
-  // When lyrics load or panel opens, start from top then enable auto-scroll
+  // Detect user manual scroll to temporarily disable auto-scroll
   useEffect(() => {
-    setAutoScrollEnabled(false);
-    if (lyricsContainerRef.current) {
-      lyricsContainerRef.current.scrollTop = 0;
-    }
-    const timer = setTimeout(() => {
-      setAutoScrollEnabled(true);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [syncedLines, plainLyrics, showLyrics]);
+    const container = lyricsContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      if (!userScrollRef.current) {
+        userScrollRef.current = true;
+        setAutoScrollEnabled(false);
+      }
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+      userScrollTimeoutRef.current = setTimeout(() => {
+        userScrollRef.current = false;
+        setAutoScrollEnabled(true);
+      }, 4000);
+    };
+    container.addEventListener('wheel', handleScroll, { passive: true });
+    container.addEventListener('touchmove', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('wheel', handleScroll);
+      container.removeEventListener('touchmove', handleScroll);
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    };
+  }, [showLyrics, syncedLines, plainLyrics]);
 
-  // Auto-scroll to active lyric line
+  // Auto-scroll to active lyric line (synced mode)
   useEffect(() => {
-    if (autoScrollEnabled && activeLyricRef.current) {
+    if (autoScrollEnabled && isSynced && activeLyricRef.current) {
       activeLyricRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
     }
-  }, [activeLineIndex, autoScrollEnabled]);
+  }, [activeLineIndex, autoScrollEnabled, isSynced]);
+
+  // Auto-scroll for plain lyrics (no timestamps) — scroll at a constant rate
+  useEffect(() => {
+    if (plainScrollRef.current) {
+      cancelAnimationFrame(plainScrollRef.current);
+      plainScrollRef.current = null;
+    }
+    if (!autoScrollEnabled || !plainLyrics || !showLyrics || isSynced || !isPlaying) return;
+    const container = lyricsContainerRef.current;
+    if (!container) return;
+
+    const pixelsPerSecond = 30 * scrollSpeed;
+    let lastTime: number | null = null;
+
+    const step = (timestamp: number) => {
+      if (lastTime !== null) {
+        const delta = (timestamp - lastTime) / 1000;
+        container.scrollTop += pixelsPerSecond * delta;
+      }
+      lastTime = timestamp;
+      plainScrollRef.current = requestAnimationFrame(step);
+    };
+    plainScrollRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (plainScrollRef.current) cancelAnimationFrame(plainScrollRef.current);
+    };
+  }, [autoScrollEnabled, plainLyrics, showLyrics, isSynced, isPlaying, scrollSpeed]);
 
   // Fetch lyrics when track changes or lyrics tab opened
   useEffect(() => {
@@ -198,7 +252,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   };
 
   const setLyricsFromLrc = (data: any): boolean => {
-    // Prefer synced lyrics for timed highlighting
     if (data.syncedLyrics) {
       const parsed = parseSyncedLyrics(data.syncedLyrics);
       if (parsed.length > 0) {
@@ -238,7 +291,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       if (res.ok) {
         const results = await res.json();
         if (Array.isArray(results) && results.length > 0) {
-          // Prefer result with synced lyrics
           const withSynced = results.find((r: any) => r.syncedLyrics);
           const best = withSynced || results[0];
           if (setLyricsFromLrc(best)) { setLyricsLoading(false); return true; }
@@ -265,8 +317,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     } catch (e) { console.log('lyrics.ovh failed:', e); }
     return false;
   };
-
-  const hasLyrics = syncedLines || plainLyrics;
 
   if (!isVisible) return null;
 
@@ -323,11 +373,43 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
           {/* Lyrics Panel */}
           {showLyrics && (
             <div className="md:w-1/2 w-full flex-1 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-300">
-              <div className="flex items-center gap-2 mb-3">
-                <Music2 className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Lyrics {isSynced && <span className="text-primary text-xs ml-1">• Synced</span>}
-                </h3>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Music2 className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Lyrics {isSynced && <span className="text-primary text-xs ml-1">• Synced</span>}
+                  </h3>
+                </div>
+                {/* Scroll speed control */}
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                    onClick={() => setShowSpeedControl(!showSpeedControl)}
+                  >
+                    <Gauge className="w-3.5 h-3.5" />
+                    {scrollSpeed}x
+                  </Button>
+                  {showSpeedControl && (
+                    <div className="absolute right-0 top-full mt-1 bg-card/90 backdrop-blur-xl border border-border/30 rounded-xl p-2 flex gap-1 z-50 shadow-xl">
+                      {SCROLL_SPEEDS.map((s) => (
+                        <Button
+                          key={s.value}
+                          variant={scrollSpeed === s.value ? 'default' : 'ghost'}
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setScrollSpeed(s.value);
+                            setShowSpeedControl(false);
+                          }}
+                        >
+                          {s.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto pr-4 scroll-smooth" style={{ scrollbarWidth: 'thin' }}>
@@ -349,19 +431,17 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                 {/* Synced Lyrics with highlighting */}
                 {isSynced && syncedLines && !lyricsLoading && (
                   <div className="space-y-1 py-8">
-                    {/* Top spacer so first line can center */}
                     <div className="h-24" />
                     {syncedLines.map((line, i) => {
                       const isActive = i === activeLineIndex;
                       const isPast = i < activeLineIndex;
-                      const isFuture = i > activeLineIndex;
                       return (
                         <p
                           key={i}
-                          ref={isActive && autoScrollEnabled ? activeLyricRef : undefined}
+                          ref={isActive ? activeLyricRef : undefined}
                           className={`
                             text-lg md:text-xl leading-relaxed font-medium py-1.5 px-2 rounded-lg cursor-pointer
-                            transition-all duration-500 ease-out
+                            transition-all duration-300 ease-out
                             ${isActive
                               ? 'text-foreground scale-105 origin-left bg-primary/10'
                               : isPast
@@ -374,7 +454,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                             textShadow: isActive ? '0 0 20px hsl(280 100% 70% / 0.3)' : 'none',
                           }}
                           onClick={() => {
-                            // Click to seek to that line
                             if (duration > 0) {
                               const seekPercent = (line.time / duration) * 100;
                               onSeek([seekPercent]);
@@ -385,7 +464,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                         </p>
                       );
                     })}
-                    {/* Bottom spacer */}
                     <div className="h-48" />
                   </div>
                 )}
