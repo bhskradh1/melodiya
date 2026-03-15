@@ -32,6 +32,7 @@ export const MelodiyaApp: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaylistMode, setIsPlaylistMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
