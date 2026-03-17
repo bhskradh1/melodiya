@@ -250,7 +250,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       const shortTitle = cleanTitle.split(/[-|,]/)[0].trim();
       if (shortTitle !== cleanTitle && shortTitle.length > 2) {
         if (await tryLrclib(cleanArtist, shortTitle)) return;
+        if (await tryLrclibSearch(shortTitle)) return;
         if (await tryLyricsOvh(cleanArtist, shortTitle)) return;
+      }
+
+      // 5. Try with just the title (no artist) for better matching
+      if (cleanTitle.length > 3) {
+        if (await tryLrclibSearch(cleanTitle)) return;
       }
 
       setLyricsError('Lyrics not available for this song');
