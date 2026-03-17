@@ -32,7 +32,7 @@ export const LyricsView: React.FC<LyricsViewProps> = ({
     setLyrics(null);
 
     try {
-      // Clean up title - remove common suffixes like (Official Video), [Lyrics], etc.
+      // Clean up title - remove common suffixes like (Official Video), [Lyrics], karaoke terms, etc.
       const cleanTitle = trackTitle
         .replace(/\(.*?\)/g, '')
         .replace(/\[.*?\]/g, '')
@@ -41,11 +41,21 @@ export const LyricsView: React.FC<LyricsViewProps> = ({
         .replace(/audio/gi, '')
         .replace(/hd|hq|4k/gi, '')
         .replace(/ft\.?|feat\.?/gi, '')
+        .replace(/karao?ke/gi, '')
+        .replace(/instrumental/gi, '')
+        .replace(/backing\s*track/gi, '')
+        .replace(/piano\s*version/gi, '')
+        .replace(/cover/gi, '')
+        .replace(/\|.*$/g, '')
+        .replace(/\s{2,}/g, ' ')
         .trim();
 
       const cleanArtist = trackArtist
         .replace(/\s*-\s*Topic$/i, '')
         .replace(/VEVO$/i, '')
+        .replace(/karao?ke/gi, '')
+        .replace(/\|.*$/g, '')
+        .replace(/\s{2,}/g, ' ')
         .trim();
 
       // Try lyrics.ovh API (free, no key needed)
