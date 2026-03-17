@@ -32,7 +32,7 @@ export const LyricsView: React.FC<LyricsViewProps> = ({
     setLyrics(null);
 
     try {
-      // Clean up title - remove common suffixes like (Official Video), [Lyrics], etc.
+      // Clean up title - remove common suffixes like (Official Video), [Lyrics], karaoke terms, etc.
       const cleanTitle = trackTitle
         .replace(/\(.*?\)/g, '')
         .replace(/\[.*?\]/g, '')
@@ -41,14 +41,43 @@ export const LyricsView: React.FC<LyricsViewProps> = ({
         .replace(/audio/gi, '')
         .replace(/hd|hq|4k/gi, '')
         .replace(/ft\.?|feat\.?/gi, '')
+        .replace(/karao?ke/gi, '')
+        .replace(/instrumental/gi, '')
+        .replace(/backing\s*track/gi, '')
+        .replace(/piano\s*version/gi, '')
+        .replace(/cover/gi, '')
+        .replace(/\|.*$/g, '')
+        .replace(/\s{2,}/g, ' ')
         .trim();
 
       const cleanArtist = trackArtist
         .replace(/\s*-\s*Topic$/i, '')
         .replace(/VEVO$/i, '')
+        .replace(/karao?ke/gi, '')
+        .replace(/\|.*$/g, '')
+        .replace(/\s{2,}/g, ' ')
         .trim();
 
-      // Try lyrics.ovh API (free, no key needed)
+      // Try LRCLIB first for better results
+      try {
+        const lrcRes = await fetch(
+          `https://lrclib.net/api/search?q=${encodeURIComponent(`${cleanArtist} ${cleanTitle}`)}`,
+          { headers: { 'User-Agent': 'Melodiya Music App v1.0' } }
+        );
+        if (lrcRes.ok) {
+          const results = await lrcRes.json();
+          if (Array.isArray(results) && results.length > 0) {
+            const best = results[0];
+            if (best.plainLyrics) {
+              setLyrics(best.plainLyrics.trim());
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (e) { console.log('LRCLIB search failed:', e); }
+
+      // Try lyrics.ovh API
       const response = await fetch(
         `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`
       );
@@ -64,7 +93,22 @@ export const LyricsView: React.FC<LyricsViewProps> = ({
 
       // If first attempt fails, try with just the first part of the title
       const shortTitle = cleanTitle.split(/[-|,]/)[0].trim();
-      if (shortTitle !== cleanTitle) {
+      if (shortTitle !== cleanTitle && shortTitle.length > 2) {
+        try {
+          const lrcRes2 = await fetch(
+            `https://lrclib.net/api/search?q=${encodeURIComponent(shortTitle)}`,
+            { headers: { 'User-Agent': 'Melodiya Music App v1.0' } }
+          );
+          if (lrcRes2.ok) {
+            const results2 = await lrcRes2.json();
+            if (Array.isArray(results2) && results2.length > 0 && results2[0].plainLyrics) {
+              setLyrics(results2[0].plainLyrics.trim());
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) { /* ignore */ }
+
         const response2 = await fetch(
           `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(shortTitle)}`
         );

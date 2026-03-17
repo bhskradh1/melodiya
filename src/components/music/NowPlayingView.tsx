@@ -116,11 +116,11 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return lines.sort((a, b) => a.time - b.time);
   }, []);
 
-  // Find current active line index based on playback time with a small offset for better sync
+  // Find current active line index based on playback time with adaptive offset
   const activeLineIndex = useMemo(() => {
     if (!syncedLines || syncedLines.length === 0) return -1;
-    // Add a small negative offset so highlight appears slightly before the vocal
-    const adjustedTime = currentTime + 0.15;
+    // Use a small look-ahead so lyrics highlight just before the vocal starts
+    const adjustedTime = currentTime + 0.3;
     let idx = -1;
     for (let i = 0; i < syncedLines.length; i++) {
       if (adjustedTime >= syncedLines[i].time) {
@@ -130,7 +130,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       }
     }
     return idx;
-  }, [syncedLines, currentTime]);
+  }, [syncedLines, Math.floor(currentTime * 4)]); // update ~4 times per second for smoother tracking
 
   // Detect user manual scroll to temporarily disable auto-scroll
   useEffect(() => {
@@ -217,6 +217,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       .replace(/hd|hq|4k|mv/gi, '')
       .replace(/\|.*$/g, '')
       .replace(/ft\.?|feat\.?/gi, '')
+      .replace(/karao?ke/gi, '')
+      .replace(/instrumental/gi, '')
+      .replace(/backing\s*track/gi, '')
+      .replace(/with\s*lyrics/gi, '')
+      .replace(/piano\s*version/gi, '')
+      .replace(/acoustic\s*version/gi, '')
+      .replace(/cover/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
 
@@ -224,6 +231,9 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       .replace(/\s*-\s*Topic$/i, '')
       .replace(/VEVO$/i, '')
       .replace(/\s*Official$/i, '')
+      .replace(/karao?ke/gi, '')
+      .replace(/\|.*$/g, '')
+      .replace(/\s{2,}/g, ' ')
       .trim();
 
     try {
@@ -240,7 +250,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       const shortTitle = cleanTitle.split(/[-|,]/)[0].trim();
       if (shortTitle !== cleanTitle && shortTitle.length > 2) {
         if (await tryLrclib(cleanArtist, shortTitle)) return;
+        if (await tryLrclibSearch(shortTitle)) return;
         if (await tryLyricsOvh(cleanArtist, shortTitle)) return;
+      }
+
+      // 5. Try with just the title (no artist) for better matching
+      if (cleanTitle.length > 3) {
+        if (await tryLrclibSearch(cleanTitle)) return;
       }
 
       setLyricsError('Lyrics not available for this song');
