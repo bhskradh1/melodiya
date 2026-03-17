@@ -95,8 +95,28 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [loading, setLoading] = useState(true);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
+  const [karaokeQuery, setKaraokeQuery] = useState('');
+  const [karaokeSearchLoading, setKaraokeSearchLoading] = useState(false);
   const { user } = useAuth();
   const greeting = useMemo(getGreeting, []);
+
+  const handleKaraokeCustomSearch = useCallback(async () => {
+    const q = karaokeQuery.trim();
+    if (!q) return;
+    setKaraokeSearchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-search', {
+        body: { query: `karaoke ${q}` }
+      });
+      if (!error && data?.tracks && data.tracks.length > 0) {
+        onPlayTrack(data.tracks[0], data.tracks);
+      }
+    } catch (err) {
+      console.error('Karaoke search error:', err);
+    } finally {
+      setKaraokeSearchLoading(false);
+    }
+  }, [karaokeQuery, onPlayTrack]);
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
