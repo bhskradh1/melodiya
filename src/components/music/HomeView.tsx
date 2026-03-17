@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight, Mic2, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight, Mic2, Loader2, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -94,8 +95,28 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [loading, setLoading] = useState(true);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
+  const [karaokeQuery, setKaraokeQuery] = useState('');
+  const [karaokeSearchLoading, setKaraokeSearchLoading] = useState(false);
   const { user } = useAuth();
   const greeting = useMemo(getGreeting, []);
+
+  const handleKaraokeCustomSearch = useCallback(async () => {
+    const q = karaokeQuery.trim();
+    if (!q) return;
+    setKaraokeSearchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-search', {
+        body: { query: `karaoke ${q}` }
+      });
+      if (!error && data?.tracks && data.tracks.length > 0) {
+        onPlayTrack(data.tracks[0], data.tracks);
+      }
+    } catch (err) {
+      console.error('Karaoke search error:', err);
+    } finally {
+      setKaraokeSearchLoading(false);
+    }
+  }, [karaokeQuery, onPlayTrack]);
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
@@ -249,6 +270,23 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
             <Mic2 className="w-5 h-5 text-primary" />
             <SectionHeader title="Karaoke Zone" />
           </div>
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleKaraokeCustomSearch(); }}
+            className="flex gap-2"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search any karaoke song..."
+                value={karaokeQuery}
+                onChange={(e) => setKaraokeQuery(e.target.value)}
+                className="pl-9 bg-card/50 border-border/30 focus-visible:ring-primary/40"
+              />
+            </div>
+            <Button type="submit" disabled={karaokeSearchLoading || !karaokeQuery.trim()} size="default" className="shrink-0">
+              {karaokeSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+            </Button>
+          </form>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {KARAOKE_SEARCHES.map((k) => (
               <button
@@ -260,7 +298,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
                   background: `linear-gradient(135deg, hsl(${k.from}), hsl(${k.to}))`,
                 }}
               >
-                {/* Decorative circle */}
                 <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" />
                 <div className="relative z-10 flex h-full flex-col justify-between p-4">
                   <span className="text-2xl">{karaokeLoading === k.name ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : k.emoji}</span>
