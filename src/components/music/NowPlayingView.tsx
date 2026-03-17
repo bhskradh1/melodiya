@@ -217,6 +217,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       .replace(/hd|hq|4k|mv/gi, '')
       .replace(/\|.*$/g, '')
       .replace(/ft\.?|feat\.?/gi, '')
+      .replace(/karao?ke/gi, '')
+      .replace(/instrumental/gi, '')
+      .replace(/backing\s*track/gi, '')
+      .replace(/with\s*lyrics/gi, '')
+      .replace(/piano\s*version/gi, '')
+      .replace(/acoustic\s*version/gi, '')
+      .replace(/cover/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
 
@@ -224,6 +231,9 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       .replace(/\s*-\s*Topic$/i, '')
       .replace(/VEVO$/i, '')
       .replace(/\s*Official$/i, '')
+      .replace(/karao?ke/gi, '')
+      .replace(/\|.*$/g, '')
+      .replace(/\s{2,}/g, ' ')
       .trim();
 
     try {
