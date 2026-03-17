@@ -428,7 +428,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                 </div>
               </div>
 
-              <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto pr-4 scroll-smooth" style={{ scrollbarWidth: 'thin' }}>
+              <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto pr-1 scroll-smooth scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {lyricsLoading && (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />

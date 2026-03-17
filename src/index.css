@@ -197,3 +197,7 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
 .animate-pulse-subtle {
   animation: pulse-subtle 3s ease-in-out infinite;
 }
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
