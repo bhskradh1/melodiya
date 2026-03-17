@@ -270,9 +270,23 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
             <Mic2 className="w-5 h-5 text-primary" />
             <SectionHeader title="Karaoke Zone" />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {KARAOKE_SEARCHES.map((k) => (
-              <button
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleKaraokeCustomSearch(); }}
+            className="flex gap-2"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search any karaoke song..."
+                value={karaokeQuery}
+                onChange={(e) => setKaraokeQuery(e.target.value)}
+                className="pl-9 bg-card/50 border-border/30 focus-visible:ring-primary/40"
+              />
+            </div>
+            <Button type="submit" disabled={karaokeSearchLoading || !karaokeQuery.trim()} size="default" className="shrink-0">
+              {karaokeSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+            </Button>
+          </form>
                 key={k.name}
                 onClick={() => handleKaraokeSearch(k)}
                 disabled={karaokeLoading === k.name}
