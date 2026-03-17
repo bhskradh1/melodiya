@@ -287,6 +287,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
               {karaokeSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
             </Button>
           </form>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {KARAOKE_SEARCHES.map((k) => (
+              <button
                 key={k.name}
                 onClick={() => handleKaraokeSearch(k)}
                 disabled={karaokeLoading === k.name}
@@ -295,7 +298,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
                   background: `linear-gradient(135deg, hsl(${k.from}), hsl(${k.to}))`,
                 }}
               >
-                {/* Decorative circle */}
                 <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" />
                 <div className="relative z-10 flex h-full flex-col justify-between p-4">
                   <span className="text-2xl">{karaokeLoading === k.name ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : k.emoji}</span>
