@@ -157,139 +157,20 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return () => window.removeEventListener('music-action', handleMusicAction as EventListener);
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
 
-  // Media Session API for background playback & lock screen controls
   useEffect(() => {
-    if (!currentTrack) return;
-
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentTrack.title,
-        artist: currentTrack.artist,
-        album: 'Melodiya',
-        artwork: [
-          { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
-          { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
-          { src: currentTrack.thumbnail, sizes: '192x192', type: 'image/jpeg' },
-          { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-          { src: currentTrack.thumbnail, sizes: '384x384', type: 'image/jpeg' },
-          { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
-        ]
-      });
-
-      navigator.mediaSession.setActionHandler('play', () => {
-        if (!isPlaying) onPlayPause();
-      });
-      navigator.mediaSession.setActionHandler('pause', () => {
-        if (isPlaying) onPlayPause();
-      });
-      navigator.mediaSession.setActionHandler('previoustrack', onPrevious);
-      navigator.mediaSession.setActionHandler('nexttrack', onNext);
-      navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (details.seekTime != null && playerRef.current && duration > 0) {
-          playerRef.current.seekTo(details.seekTime, true);
-          setCurrentTime(details.seekTime);
-        }
-      });
-
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }
-  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, duration]);
-
-  // Update media session position state for seek bar on lock screen
-  useEffect(() => {
-    if ('mediaSession' in navigator && duration > 0) {
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: duration,
-          playbackRate: 1,
-          position: Math.min(currentTime, duration),
+    if (currentTrack && isPlaying) {
+      requestBackgroundSync('background-audio-sync');
+      if (Notification.permission === 'granted') {
+        showNotification(`Now Playing: ${currentTrack.title}`, {
+          body: `by ${currentTrack.artist}`,
+          icon: currentTrack.thumbnail,
+          tag: 'music-player',
+          requireInteraction: false,
+          silent: true
         });
-      } catch (e) {
-        // Some browsers don't support setPositionState
       }
     }
-  }, [Math.floor(currentTime), duration]);
-
-  // Web Audio API keepalive - prevents browser from suspending the tab
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
-  const bgIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (isPlaying && currentTrack) {
-      // 1. Start a Web AudioContext with a silent oscillator to prevent tab suspension
-      if (!audioCtxRef.current) {
-        try {
-          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        } catch (e) {}
-      }
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-
-      // 2. Play a silent HTML audio element as a media session anchor
-      if (!bgAudioRef.current) {
-        const audio = new Audio();
-        // 1-second silent WAV, looped
-        audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-        audio.loop = true;
-        audio.volume = 0.001;
-        bgAudioRef.current = audio;
-      }
-      bgAudioRef.current.play().catch(() => {});
-
-      // 3. Polling watchdog: check every 2s if YT player got paused by the browser
-      if (bgIntervalRef.current) clearInterval(bgIntervalRef.current);
-      bgIntervalRef.current = setInterval(() => {
-        if (playerRef.current && isPlaying) {
-          try {
-            const state = playerRef.current.getPlayerState?.();
-            // state 2 = paused, -1 = unstarted — both need a nudge
-            if (state === 2 || state === -1) {
-              console.log('Background watchdog: resuming YouTube player (state was', state, ')');
-              playerRef.current.playVideo();
-            }
-          } catch (e) {}
-        }
-      }, 2000);
-    } else {
-      // Cleanup when paused
-      bgAudioRef.current?.pause();
-      if (bgIntervalRef.current) {
-        clearInterval(bgIntervalRef.current);
-        bgIntervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (bgIntervalRef.current) {
-        clearInterval(bgIntervalRef.current);
-        bgIntervalRef.current = null;
-      }
-    };
-  }, [isPlaying, currentTrack]);
-
-  // Resume playback when returning from background
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Resume AudioContext if suspended
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-      if (!document.hidden && isPlaying && playerRef.current) {
-        try {
-          const state = playerRef.current.getPlayerState?.();
-          if (state === 2 || state === -1) {
-            playerRef.current.playVideo();
-          }
-        } catch (e) {
-          console.log('Error resuming playback:', e);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isPlaying]);
+  }, [currentTrack, isPlaying]);
 
   const handleFirstPlay = async () => {
     if (Notification.permission === 'default') {
