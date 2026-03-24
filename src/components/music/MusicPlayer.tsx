@@ -238,6 +238,25 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [currentTrack, isPlaying]);
 
+  // Resume playback when returning from background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isPlaying && playerRef.current) {
+        // When coming back to foreground, ensure player is still playing
+        try {
+          const state = playerRef.current.getPlayerState?.();
+          if (state === 2) { // paused
+            playerRef.current.playVideo();
+          }
+        } catch (e) {
+          console.log('Error resuming playback:', e);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying]);
+
   const handleFirstPlay = async () => {
     if (Notification.permission === 'default') {
       await requestNotificationPermission();
