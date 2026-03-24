@@ -157,18 +157,84 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return () => window.removeEventListener('music-action', handleMusicAction as EventListener);
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
 
+  // Media Session API for background playback & lock screen controls
+  useEffect(() => {
+    if (!currentTrack) return;
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: 'Melodiya',
+        artwork: [
+          { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '192x192', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '384x384', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (!isPlaying) onPlayPause();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (isPlaying) onPlayPause();
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', onPrevious);
+      navigator.mediaSession.setActionHandler('nexttrack', onNext);
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime != null && playerRef.current && duration > 0) {
+          playerRef.current.seekTo(details.seekTime, true);
+          setCurrentTime(details.seekTime);
+        }
+      });
+
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, duration]);
+
+  // Update media session position state for seek bar on lock screen
+  useEffect(() => {
+    if ('mediaSession' in navigator && duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: duration,
+          playbackRate: 1,
+          position: Math.min(currentTime, duration),
+        });
+      } catch (e) {
+        // Some browsers don't support setPositionState
+      }
+    }
+  }, [Math.floor(currentTime), duration]);
+
+  // Keep an inaudible Audio element alive so the browser treats us as a media tab
+  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (!bgAudioRef.current) {
+      // Create a silent audio context to keep the tab "active" for media
+      const audio = new Audio();
+      // Use a tiny silent WAV data URI
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      audio.loop = true;
+      audio.volume = 0.001; // Nearly silent
+      bgAudioRef.current = audio;
+    }
+    if (isPlaying && currentTrack) {
+      bgAudioRef.current.play().catch(() => {});
+    } else {
+      bgAudioRef.current.pause();
+    }
+    return () => {
+      bgAudioRef.current?.pause();
+    };
+  }, [isPlaying, currentTrack]);
+
   useEffect(() => {
     if (currentTrack && isPlaying) {
       requestBackgroundSync('background-audio-sync');
-      if (Notification.permission === 'granted') {
-        showNotification(`Now Playing: ${currentTrack.title}`, {
-          body: `by ${currentTrack.artist}`,
-          icon: currentTrack.thumbnail,
-          tag: 'music-player',
-          requireInteraction: false,
-          silent: true
-        });
-      }
     }
   }, [currentTrack, isPlaying]);
 
