@@ -210,42 +210,76 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [Math.floor(currentTime), duration]);
 
-  // Keep an inaudible Audio element alive so the browser treats us as a media tab
+  // Web Audio API keepalive - prevents browser from suspending the tab
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const bgAudioRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    if (!bgAudioRef.current) {
-      // Create a silent audio context to keep the tab "active" for media
-      const audio = new Audio();
-      // Use a tiny silent WAV data URI
-      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-      audio.loop = true;
-      audio.volume = 0.001; // Nearly silent
-      bgAudioRef.current = audio;
-    }
-    if (isPlaying && currentTrack) {
-      bgAudioRef.current.play().catch(() => {});
-    } else {
-      bgAudioRef.current.pause();
-    }
-    return () => {
-      bgAudioRef.current?.pause();
-    };
-  }, [isPlaying, currentTrack]);
+  const bgIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (currentTrack && isPlaying) {
-      requestBackgroundSync('background-audio-sync');
+    if (isPlaying && currentTrack) {
+      // 1. Start a Web AudioContext with a silent oscillator to prevent tab suspension
+      if (!audioCtxRef.current) {
+        try {
+          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch (e) {}
+      }
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+
+      // 2. Play a silent HTML audio element as a media session anchor
+      if (!bgAudioRef.current) {
+        const audio = new Audio();
+        // 1-second silent WAV, looped
+        audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+        audio.loop = true;
+        audio.volume = 0.001;
+        bgAudioRef.current = audio;
+      }
+      bgAudioRef.current.play().catch(() => {});
+
+      // 3. Polling watchdog: check every 2s if YT player got paused by the browser
+      if (bgIntervalRef.current) clearInterval(bgIntervalRef.current);
+      bgIntervalRef.current = setInterval(() => {
+        if (playerRef.current && isPlaying) {
+          try {
+            const state = playerRef.current.getPlayerState?.();
+            // state 2 = paused, -1 = unstarted — both need a nudge
+            if (state === 2 || state === -1) {
+              console.log('Background watchdog: resuming YouTube player (state was', state, ')');
+              playerRef.current.playVideo();
+            }
+          } catch (e) {}
+        }
+      }, 2000);
+    } else {
+      // Cleanup when paused
+      bgAudioRef.current?.pause();
+      if (bgIntervalRef.current) {
+        clearInterval(bgIntervalRef.current);
+        bgIntervalRef.current = null;
+      }
     }
-  }, [currentTrack, isPlaying]);
+
+    return () => {
+      if (bgIntervalRef.current) {
+        clearInterval(bgIntervalRef.current);
+        bgIntervalRef.current = null;
+      }
+    };
+  }, [isPlaying, currentTrack]);
 
   // Resume playback when returning from background
   useEffect(() => {
     const handleVisibilityChange = () => {
+      // Resume AudioContext if suspended
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
       if (!document.hidden && isPlaying && playerRef.current) {
-        // When coming back to foreground, ensure player is still playing
         try {
           const state = playerRef.current.getPlayerState?.();
-          if (state === 2) { // paused
+          if (state === 2 || state === -1) {
             playerRef.current.playVideo();
           }
         } catch (e) {
