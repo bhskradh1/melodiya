@@ -1,5 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
@@ -56,6 +59,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const prevTrackIdRef = useRef<string | null>(null);
   const playerRef = useRef<any>(null);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { toast } = useToast();
   
   const { 
     canInstall, 
@@ -65,6 +70,46 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     showNotification,
     requestBackgroundSync 
   } = usePWA();
+
+  // Check if current track is liked
+  useEffect(() => {
+    const checkLiked = async () => {
+      if (!currentTrack || !user) { setIsLiked(false); return; }
+      const { data } = await supabase
+        .from('liked_songs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('youtube_video_id', currentTrack.videoId)
+        .maybeSingle();
+      setIsLiked(!!data);
+    };
+    checkLiked();
+  }, [currentTrack?.videoId, user]);
+
+  const handleToggleLike = useCallback(async () => {
+    if (!currentTrack || !user) return;
+    if (isLiked) {
+      await supabase
+        .from('liked_songs')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('youtube_video_id', currentTrack.videoId);
+      setIsLiked(false);
+      toast({ title: 'Removed from Liked Songs' });
+    } else {
+      await supabase
+        .from('liked_songs')
+        .insert({
+          user_id: user.id,
+          youtube_video_id: currentTrack.videoId,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          thumbnail_url: currentTrack.thumbnail,
+        });
+      setIsLiked(true);
+      toast({ title: 'Added to Liked Songs' });
+    }
+  }, [currentTrack, user, isLiked, toast]);
 
   // Auto-open Now Playing on mobile when a new track starts
   useEffect(() => {
@@ -287,7 +332,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         isLiked={isLiked}
         onToggleRepeat={() => setIsRepeat(!isRepeat)}
         onToggleShuffle={() => setIsShuffle(!isShuffle)}
-        onToggleLike={() => setIsLiked(!isLiked)}
+        onToggleLike={handleToggleLike}
       />
 
       {/* Hidden YouTube Player */}
@@ -322,7 +367,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               variant="ghost"
               size="sm"
               className={`h-10 w-10 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-              onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
+              onClick={(e) => { e.stopPropagation(); handleToggleLike(); }}
             >
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
             </Button>
@@ -377,7 +422,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             variant="ghost"
             size="sm"
             className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-            onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
+            onClick={(e) => { e.stopPropagation(); handleToggleLike(); }}
           >
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
           </Button>
