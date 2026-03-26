@@ -28,9 +28,20 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerElementRef = useRef<HTMLDivElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const onReadyRef = useRef(onReady);
+  const onStateChangeRef = useRef(onStateChange);
+  const onEndRef = useRef(onEnd);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
   const [isReady, setIsReady] = useState(false);
 
   useImperativeHandle(ref, () => playerRef.current);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+    onStateChangeRef.current = onStateChange;
+    onEndRef.current = onEnd;
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onReady, onStateChange, onEnd, onTimeUpdate]);
 
   useEffect(() => {
     // Load YouTube IFrame API
@@ -75,33 +86,25 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
           showinfo: 0,
         },
         events: {
-          onReady: (event: any) => {
+          onReady: () => {
             console.log('YouTube player ready');
-            // Ensure the player is fully initialized
+            setIsReady(true);
             setTimeout(() => {
-              onReady?.();
+              onReadyRef.current?.();
             }, 100);
           },
           onStateChange: (event: any) => {
             console.log('YouTube player state changed:', event.data);
-            onStateChange?.(event.data);
+            onStateChangeRef.current?.(event.data);
             
-            // YouTube Player States:
-            // -1 (unstarted)
-            // 0 (ended)
-            // 1 (playing)
-            // 2 (paused)
-            // 3 (buffering)
-            // 5 (video cued)
-            
-            if (event.data === 1) { // playing
+            if (event.data === 1) {
               startTimeTracking();
-            } else if (event.data === 2 || event.data === 0) { // paused or ended
+            } else if (event.data === 2 || event.data === 0) {
               stopTimeTracking();
             }
             
-            if (event.data === 0) { // ended
-              onEnd?.();
+            if (event.data === 0) {
+              onEndRef.current?.();
             }
           },
           onError: (event: any) => {
@@ -121,7 +124,7 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
         const duration = playerRef.current.getDuration();
         
         if (duration > 0) {
-          onTimeUpdate?.(currentTime, duration);
+          onTimeUpdateRef.current?.(currentTime, duration);
         }
       }
     }, 250);
