@@ -125,15 +125,20 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [currentTrack, isPlaying, playerReady]);
 
-  const handleTimeUpdate = (current: number, total: number) => {
-    setCurrentTime(current);
-    setDuration(total);
-  };
+  const endTriggeredRef = useRef(false);
 
-  const handleVideoEnd = () => {
+  // Reset end-triggered flag when track changes
+  useEffect(() => {
+    endTriggeredRef.current = false;
+  }, [currentTrack?.videoId]);
+
+  const triggerNextTrack = () => {
+    if (endTriggeredRef.current) return;
+    endTriggeredRef.current = true;
     setCurrentTime(0);
     setIsLoading(false);
     if (isRepeat) {
+      endTriggeredRef.current = false;
       if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
         playerRef.current.seekTo(0, true);
         playerRef.current.playVideo();
@@ -141,6 +146,21 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     } else {
       onNext();
     }
+  };
+
+  const handleTimeUpdate = (current: number, total: number) => {
+    setCurrentTime(current);
+    setDuration(total);
+    
+    // Background watchdog: if we're near the end, trigger next track
+    // This catches cases where the onEnd event doesn't fire (background throttling)
+    if (total > 0 && current > 0 && (total - current) < 1.5 && isPlaying) {
+      triggerNextTrack();
+    }
+  };
+
+  const handleVideoEnd = () => {
+    triggerNextTrack();
   };
 
   useEffect(() => {
