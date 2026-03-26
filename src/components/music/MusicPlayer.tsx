@@ -125,15 +125,20 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [currentTrack, isPlaying, playerReady]);
 
-  const handleTimeUpdate = (current: number, total: number) => {
-    setCurrentTime(current);
-    setDuration(total);
-  };
+  const endTriggeredRef = useRef(false);
 
-  const handleVideoEnd = () => {
+  // Reset end-triggered flag when track changes
+  useEffect(() => {
+    endTriggeredRef.current = false;
+  }, [currentTrack?.videoId]);
+
+  const triggerNextTrack = () => {
+    if (endTriggeredRef.current) return;
+    endTriggeredRef.current = true;
     setCurrentTime(0);
     setIsLoading(false);
     if (isRepeat) {
+      endTriggeredRef.current = false;
       if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
         playerRef.current.seekTo(0, true);
         playerRef.current.playVideo();
@@ -141,6 +146,21 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     } else {
       onNext();
     }
+  };
+
+  const handleTimeUpdate = (current: number, total: number) => {
+    setCurrentTime(current);
+    setDuration(total);
+    
+    // Background watchdog: if we're near the end, trigger next track
+    // This catches cases where the onEnd event doesn't fire (background throttling)
+    if (total > 0 && current > 0 && (total - current) < 1.5 && isPlaying) {
+      triggerNextTrack();
+    }
+  };
+
+  const handleVideoEnd = () => {
+    triggerNextTrack();
   };
 
   useEffect(() => {
@@ -156,6 +176,46 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     window.addEventListener('music-action', handleMusicAction as EventListener);
     return () => window.removeEventListener('music-action', handleMusicAction as EventListener);
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
+
+  // Media Session API for lock screen / background controls
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentTrack) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        artwork: [{ src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
+      });
+      navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) onPlayPause(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) onPlayPause(); });
+      navigator.mediaSession.setActionHandler('nexttrack', () => onNext());
+      navigator.mediaSession.setActionHandler('previoustrack', () => onPrevious());
+    }
+  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious]);
+
+  // Background watchdog: check player state when tab regains visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isPlaying && playerRef.current && duration > 0) {
+        try {
+          const current = playerRef.current.getCurrentTime?.();
+          const state = playerRef.current.getPlayerState?.();
+          if (current && (duration - current) < 1.5) {
+            triggerNextTrack();
+          } else if (state === 0) {
+            // Player ended while in background
+            triggerNextTrack();
+          } else if (state === 2 || state === -1) {
+            // Player got paused/stopped in background, resume
+            playerRef.current.playVideo();
+          }
+        } catch (e) {
+          console.error('Visibility change check error:', e);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying, duration]);
 
   useEffect(() => {
     if (currentTrack && isPlaying) {
