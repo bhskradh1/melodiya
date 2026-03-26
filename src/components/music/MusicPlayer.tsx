@@ -59,6 +59,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const prevTrackIdRef = useRef<string | null>(null);
   const playerRef = useRef<any>(null);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { toast } = useToast();
   
   const { 
     canInstall, 
@@ -68,6 +70,46 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     showNotification,
     requestBackgroundSync 
   } = usePWA();
+
+  // Check if current track is liked
+  useEffect(() => {
+    const checkLiked = async () => {
+      if (!currentTrack || !user) { setIsLiked(false); return; }
+      const { data } = await supabase
+        .from('liked_songs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('youtube_video_id', currentTrack.videoId)
+        .maybeSingle();
+      setIsLiked(!!data);
+    };
+    checkLiked();
+  }, [currentTrack?.videoId, user]);
+
+  const handleToggleLike = useCallback(async () => {
+    if (!currentTrack || !user) return;
+    if (isLiked) {
+      await supabase
+        .from('liked_songs')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('youtube_video_id', currentTrack.videoId);
+      setIsLiked(false);
+      toast({ title: 'Removed from Liked Songs' });
+    } else {
+      await supabase
+        .from('liked_songs')
+        .insert({
+          user_id: user.id,
+          youtube_video_id: currentTrack.videoId,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          thumbnail_url: currentTrack.thumbnail,
+        });
+      setIsLiked(true);
+      toast({ title: 'Added to Liked Songs' });
+    }
+  }, [currentTrack, user, isLiked, toast]);
 
   // Auto-open Now Playing on mobile when a new track starts
   useEffect(() => {
