@@ -8,6 +8,7 @@ import { PlaylistsView } from './PlaylistsView';
 import { PlaylistDetailView } from './PlaylistDetailView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { TrendingView } from './TrendingView';
+import { SettingsView } from './SettingsView';
 import { AdminView } from '../admin/AdminView';
 import { InstallDialog } from './InstallDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -200,12 +201,7 @@ export const MelodiyaApp: React.FC = () => {
       case 'library':
         return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'settings':
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold mb-4">Settings</h1>
-            <p className="text-muted-foreground">App settings and preferences.</p>
-          </div>
-        );
+        return <SettingsView />;
       default:
         return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
     }

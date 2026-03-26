@@ -332,7 +332,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         isLiked={isLiked}
         onToggleRepeat={() => setIsRepeat(!isRepeat)}
         onToggleShuffle={() => setIsShuffle(!isShuffle)}
-        onToggleLike={() => setIsLiked(!isLiked)}
+        onToggleLike={handleToggleLike}
       />
 
       {/* Hidden YouTube Player */}
@@ -367,7 +367,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               variant="ghost"
               size="sm"
               className={`h-10 w-10 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-              onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
+              onClick={(e) => { e.stopPropagation(); handleToggleLike(); }}
             >
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
             </Button>
@@ -422,7 +422,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             variant="ghost"
             size="sm"
             className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-            onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
+            onClick={(e) => { e.stopPropagation(); handleToggleLike(); }}
           >
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
           </Button>
