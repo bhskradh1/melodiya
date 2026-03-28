@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Volume2,
@@ -19,9 +21,6 @@ import {
   User,
   LogOut,
   Trash2,
-  Download,
-  Smartphone,
-  Wifi,
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -34,6 +33,7 @@ interface UserPreferences {
 export const SettingsView: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const settings = useSettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: '', username: '' });
@@ -43,12 +43,11 @@ export const SettingsView: React.FC = () => {
     preferred_language: 'en',
     favorite_genres: [],
   });
-  const [darkMode, setDarkMode] = useState(true);
-  const [notifications, setNotifications] = useState(Notification.permission === 'granted');
-  const [crossfade, setCrossfade] = useState(false);
-  const [normalizeVolume, setNormalizeVolume] = useState(false);
-  const [showExplicit, setShowExplicit] = useState(true);
-  const [dataServerMode, setDataServerMode] = useState(false);
+  const [crossfadeSeconds, setCrossfadeSeconds] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('melodiya-crossfade-seconds') || '5');
+    } catch { return 5; }
+  });
 
   useEffect(() => {
     if (user) fetchData();
@@ -116,11 +115,15 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
-    if (enabled) {
+    if (enabled && 'Notification' in window) {
       const perm = await Notification.requestPermission();
-      setNotifications(perm === 'granted');
+      const granted = perm === 'granted';
+      settings.updateSetting('notifications', granted);
+      if (!granted) {
+        toast({ title: 'Notifications blocked', description: 'Please allow notifications in your browser settings', variant: 'destructive' });
+      }
     } else {
-      setNotifications(false);
+      settings.updateSetting('notifications', false);
     }
   };
 
@@ -134,6 +137,19 @@ export const SettingsView: React.FC = () => {
       toast({ title: 'History cleared' });
     } catch (e) {
       toast({ title: 'Error', description: 'Failed to clear history', variant: 'destructive' });
+    }
+  };
+
+  const handleClearLikedSongs = async () => {
+    try {
+      const { error } = await supabase
+        .from('liked_songs')
+        .delete()
+        .eq('user_id', user!.id);
+      if (error) throw error;
+      toast({ title: 'Liked songs cleared' });
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to clear liked songs', variant: 'destructive' });
     }
   };
 
@@ -209,12 +225,34 @@ export const SettingsView: React.FC = () => {
             />
           </div>
           <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Crossfade</Label>
-              <p className="text-xs text-muted-foreground">Smooth transition between songs</p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Crossfade</Label>
+                <p className="text-xs text-muted-foreground">Smooth transition between songs</p>
+              </div>
+              <Switch
+                checked={settings.crossfade}
+                onCheckedChange={(v) => settings.updateSetting('crossfade', v)}
+              />
             </div>
-            <Switch checked={crossfade} onCheckedChange={setCrossfade} />
+            {settings.crossfade && (
+              <div className="flex items-center gap-3 pl-1">
+                <span className="text-xs text-muted-foreground w-6">0s</span>
+                <Slider
+                  value={[crossfadeSeconds]}
+                  onValueChange={(v) => {
+                    setCrossfadeSeconds(v[0]);
+                    localStorage.setItem('melodiya-crossfade-seconds', String(v[0]));
+                  }}
+                  min={1}
+                  max={12}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-xs text-muted-foreground w-8">{crossfadeSeconds}s</span>
+              </div>
+            )}
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -222,7 +260,10 @@ export const SettingsView: React.FC = () => {
               <Label>Normalize Volume</Label>
               <p className="text-xs text-muted-foreground">Set the same volume level for all songs</p>
             </div>
-            <Switch checked={normalizeVolume} onCheckedChange={setNormalizeVolume} />
+            <Switch
+              checked={settings.normalizeVolume}
+              onCheckedChange={(v) => settings.updateSetting('normalizeVolume', v)}
+            />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -230,7 +271,10 @@ export const SettingsView: React.FC = () => {
               <Label>Show Explicit Content</Label>
               <p className="text-xs text-muted-foreground">Allow explicit songs to appear</p>
             </div>
-            <Switch checked={showExplicit} onCheckedChange={setShowExplicit} />
+            <Switch
+              checked={settings.showExplicit}
+              onCheckedChange={(v) => settings.updateSetting('showExplicit', v)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -271,7 +315,10 @@ export const SettingsView: React.FC = () => {
               <Label>Data Saver</Label>
               <p className="text-xs text-muted-foreground">Reduce data usage when streaming</p>
             </div>
-            <Switch checked={dataServerMode} onCheckedChange={setDataServerMode} />
+            <Switch
+              checked={settings.dataSaver}
+              onCheckedChange={(v) => settings.updateSetting('dataSaver', v)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -323,7 +370,7 @@ export const SettingsView: React.FC = () => {
               <Label>Now Playing Notifications</Label>
               <p className="text-xs text-muted-foreground">Show notifications when tracks change</p>
             </div>
-            <Switch checked={notifications} onCheckedChange={handleNotificationToggle} />
+            <Switch checked={settings.notifications} onCheckedChange={handleNotificationToggle} />
           </div>
         </CardContent>
       </Card>
@@ -342,7 +389,10 @@ export const SettingsView: React.FC = () => {
               <Label>Dark Mode</Label>
               <p className="text-xs text-muted-foreground">Use dark theme</p>
             </div>
-            <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+            <Switch
+              checked={settings.darkMode}
+              onCheckedChange={(v) => settings.updateSetting('darkMode', v)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -355,7 +405,7 @@ export const SettingsView: React.FC = () => {
             Privacy & Storage
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <Button
             variant="outline"
             className="w-full justify-start gap-2"
@@ -363,6 +413,14 @@ export const SettingsView: React.FC = () => {
           >
             <Trash2 className="w-4 h-4" />
             Clear Listening History
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={handleClearLikedSongs}
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear Liked Songs
           </Button>
         </CardContent>
       </Card>

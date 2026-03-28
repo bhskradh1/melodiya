@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -61,6 +62,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifications: notificationsEnabled, normalizeVolume } = useSettings();
   
   const { 
     canInstall, 
@@ -265,7 +267,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   useEffect(() => {
     if (currentTrack && isPlaying) {
       requestBackgroundSync('background-audio-sync');
-      if (Notification.permission === 'granted') {
+      if (notificationsEnabled && Notification.permission === 'granted') {
         showNotification(`Now Playing: ${currentTrack.title}`, {
           body: `by ${currentTrack.artist}`,
           icon: currentTrack.thumbnail,
@@ -275,7 +277,25 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         });
       }
     }
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack, isPlaying, notificationsEnabled]);
+
+  // Volume normalization: when enabled, set YouTube player to a fixed 75% volume
+  useEffect(() => {
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+      if (normalizeVolume) {
+        playerRef.current.setVolume(75);
+      } else {
+        playerRef.current.setVolume(isMuted ? 0 : volume[0]);
+      }
+    }
+  }, [normalizeVolume, currentTrack, playerReady]);
+
+  // Sync volume to YouTube player
+  useEffect(() => {
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function' && !normalizeVolume) {
+      playerRef.current.setVolume(isMuted ? 0 : volume[0]);
+    }
+  }, [volume, isMuted, normalizeVolume]);
 
   const handleFirstPlay = async () => {
     if (Notification.permission === 'default') {
