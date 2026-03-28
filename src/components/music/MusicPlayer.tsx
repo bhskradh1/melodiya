@@ -267,7 +267,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   useEffect(() => {
     if (currentTrack && isPlaying) {
       requestBackgroundSync('background-audio-sync');
-      if (Notification.permission === 'granted') {
+      if (notificationsEnabled && Notification.permission === 'granted') {
         showNotification(`Now Playing: ${currentTrack.title}`, {
           body: `by ${currentTrack.artist}`,
           icon: currentTrack.thumbnail,
@@ -277,7 +277,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         });
       }
     }
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack, isPlaying, notificationsEnabled]);
 
   const handleFirstPlay = async () => {
     if (Notification.permission === 'default') {
