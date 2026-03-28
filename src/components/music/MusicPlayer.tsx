@@ -279,6 +279,24 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [currentTrack, isPlaying, notificationsEnabled]);
 
+  // Volume normalization: when enabled, set YouTube player to a fixed 75% volume
+  useEffect(() => {
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+      if (normalizeVolume) {
+        playerRef.current.setVolume(75);
+      } else {
+        playerRef.current.setVolume(isMuted ? 0 : volume[0]);
+      }
+    }
+  }, [normalizeVolume, currentTrack, playerReady]);
+
+  // Sync volume to YouTube player
+  useEffect(() => {
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function' && !normalizeVolume) {
+      playerRef.current.setVolume(isMuted ? 0 : volume[0]);
+    }
+  }, [volume, isMuted, normalizeVolume]);
+
   const handleFirstPlay = async () => {
     if (Notification.permission === 'default') {
       await requestNotificationPermission();
