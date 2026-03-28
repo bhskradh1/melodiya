@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -61,6 +62,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifications: notificationsEnabled, normalizeVolume } = useSettings();
   
   const { 
     canInstall, 
