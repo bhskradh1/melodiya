@@ -14,7 +14,8 @@ import {
   Library,
   Clock,
   X,
-  Download
+  Download,
+  Share2
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePWA } from '@/hooks/use-pwa';
@@ -41,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
   const libraryItems = [
     { id: 'liked', label: 'Liked Songs', icon: Heart },
     { id: 'playlists', label: 'Your Playlists', icon: Music },
+    { id: 'shared-playlists', label: 'Shared with Me', icon: Share2 },
     { id: 'recently-played', label: 'Recently Played', icon: Clock },
   ];
 

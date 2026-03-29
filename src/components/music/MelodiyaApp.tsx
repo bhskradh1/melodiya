@@ -5,6 +5,7 @@ import { HomeView } from './HomeView';
 import { SearchView } from './SearchView';
 import { LikedSongsView } from './LikedSongsView';
 import { PlaylistsView } from './PlaylistsView';
+import { SharedPlaylistsView } from './SharedPlaylistsView';
 import { PlaylistDetailView } from './PlaylistDetailView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { TrendingView } from './TrendingView';
@@ -186,6 +187,8 @@ export const MelodiyaApp: React.FC = () => {
         return <LikedSongsView onPlayTrack={handlePlayTrack} />;
       case 'playlists':
         return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
+      case 'shared-playlists':
+        return <SharedPlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'playlist-detail':
         return selectedPlaylistId ? (
           <PlaylistDetailView 

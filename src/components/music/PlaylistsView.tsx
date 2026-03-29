@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Music, Plus, Play, MoreVertical, Trash2 } from 'lucide-react';
+import { Music, Plus, Play, MoreVertical, Trash2, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { SharePlaylistDialog } from './SharePlaylistDialog';
 
 interface Track {
   id: string;
@@ -272,7 +273,13 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-end mt-2">
+                  <div className="flex items-center justify-end gap-1 mt-2">
+                    <SharePlaylistDialog
+                      playlistId={playlist.id}
+                      playlistName={playlist.name}
+                      currentUserId={user?.id || ''}
+                      triggerClassName="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
