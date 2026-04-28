@@ -12,15 +12,15 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Share2, X, Search, Check } from 'lucide-react';
+import { Share2, X, Search, Check, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   sharePlaylist,
   unsharePlaylist,
   getPlaylistShares,
-  searchUsers,
   UserProfile,
 } from '@/lib/playlistSharing';
+import { getFriends } from '@/lib/friends';
 
 interface SharePlaylistDialogProps {
   playlistId: string;
@@ -37,17 +37,17 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [friends, setFriends] = useState<UserProfile[]>([]);
   const [sharedWith, setSharedWith] = useState<any[]>([]);
   const [sharedUserIds, setSharedUserIds] = useState<Set<string>>(new Set());
-  const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch initial shares when dialog opens
+  // Fetch shares + friends when dialog opens
   useEffect(() => {
     if (isOpen) {
       fetchShares();
+      fetchFriends();
     }
   }, [isOpen]);
 
@@ -64,44 +64,36 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
       }
     } catch (error) {
       console.error('Error fetching shares:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load shared users',
-        variant: 'destructive',
-      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-
-    if (query.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const excludeIds = Array.from(sharedUserIds);
-      excludeIds.push(currentUserId); // Exclude current user
-      
-      const result = await searchUsers(query, excludeIds);
-      if (result.success && result.data) {
-        setSearchResults(result.data);
-      }
-    } catch (error) {
-      console.error('Error searching users:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to search users',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSearching(false);
+  const fetchFriends = async () => {
+    const result = await getFriends(currentUserId);
+    if (result.data) {
+      const profiles: UserProfile[] = result.data
+        .filter((f) => !!f.profile)
+        .map((f) => ({
+          id: f.profile!.user_id,
+          username: f.profile!.username || '',
+          display_name: f.profile!.display_name || undefined,
+          avatar_url: f.profile!.avatar_url || undefined,
+        }));
+      setFriends(profiles);
     }
   };
+
+  // Filter friends by search query and already-shared status
+  const visibleFriends = friends.filter((f) => {
+    if (sharedUserIds.has(f.id)) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      f.username?.toLowerCase().includes(q) ||
+      f.display_name?.toLowerCase().includes(q)
+    );
+  });
 
   const handleShare = async (userId: string) => {
     try {
@@ -113,8 +105,8 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
           description: `Playlist shared successfully`,
         });
         setSearchQuery('');
-        setSearchResults([]);
         await fetchShares();
+        await fetchFriends();
       } else {
         throw new Error('Failed to share');
       }
@@ -145,7 +137,6 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
           description: 'Playlist unshared',
         });
         setSearchQuery('');
-        setSearchResults([]);
       } else {
         throw new Error('Failed to unshare');
       }
@@ -177,74 +168,75 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Search Users Section */}
+          {/* Friends list with search filter */}
           <div className="space-y-2">
-            <Label htmlFor="user-search">Share with users</Label>
+            <Label htmlFor="user-search" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Share with friends ({friends.length})
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              You can only share playlists with users you're friends with. Add friends from the Friends section.
+            </p>
             <div className="relative">
               <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="user-search"
-                placeholder="Search by username or name..."
+                placeholder="Filter friends..."
                 value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8"
               />
             </div>
 
-            {/* Search Results */}
-            {searchQuery.trim().length > 0 && (
-              <div className="border rounded-md bg-background">
-                {isSearching ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    Searching...
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  <ScrollArea className="h-48">
-                    <div className="space-y-1 p-2">
-                      {searchResults.map((user) => (
-                        <div
-                          key={user.id}
-                          className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
-                        >
-                          <div className="flex items-center gap-2 flex-1">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={user.avatar_url} />
-                              <AvatarFallback>
-                                {user.display_name?.[0] ||
-                                  user.username?.[0] ||
-                                  '?'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">
-                                {user.display_name || user.username}
+            <div className="border rounded-md bg-background">
+              {friends.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  You have no friends yet. Visit the Friends section to add some.
+                </div>
+              ) : visibleFriends.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  {searchQuery.trim() ? 'No friends match your search' : 'All friends already have access'}
+                </div>
+              ) : (
+                <ScrollArea className="h-48">
+                  <div className="space-y-1 p-2">
+                    {visibleFriends.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar_url} />
+                            <AvatarFallback>
+                              {user.display_name?.[0] || user.username?.[0] || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              {user.display_name || user.username}
+                            </p>
+                            {user.display_name && (
+                              <p className="text-xs text-muted-foreground">
+                                @{user.username}
                               </p>
-                              {user.display_name && (
-                                <p className="text-xs text-muted-foreground">
-                                  @{user.username}
-                                </p>
-                              )}
-                            </div>
+                            )}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleShare(user.id)}
-                            className="h-8"
-                          >
-                            Share
-                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                ) : (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No users found
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleShare(user.id)}
+                          className="h-8"
+                        >
+                          Share
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            )}
+                </ScrollArea>
+              )}
+            </div>
           </div>
 
           {/* Shared With Section */}

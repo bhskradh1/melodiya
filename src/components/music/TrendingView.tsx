@@ -25,17 +25,69 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
     fetchTrendingSongs();
   }, []);
 
-  const fetchTrendingSongs = async () => {
+  const getTodayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  };
+
+  const getDailyQuery = () => {
+    const d = new Date();
+    // Day-of-year to rotate seed queries daily
+    const start = new Date(d.getFullYear(), 0, 0);
+    const diff = d.getTime() - start.getTime();
+    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const seeds = [
+      'top trending songs today',
+      'viral hits this week',
+      'most played music right now',
+      'global top hits',
+      'trending pop songs',
+      'trending hip hop songs',
+      'new music releases this week',
+      'billboard hot 100 this week',
+      'tiktok viral songs',
+      'youtube music trending',
+    ];
+    const seed = seeds[dayOfYear % seeds.length];
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return `${seed} ${dateStr}`;
+  };
+
+  const fetchTrendingSongs = async (force = false) => {
     setLoading(true);
     try {
+      const todayKey = getTodayKey();
+      const cacheKey = `trending_cache_${todayKey}`;
+
+      // Use cached data for today unless forced refresh
+      if (!force) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as Track[];
+            if (Array.isArray(parsed) && parsed.length) {
+              setTrendingSongs(parsed);
+              setLoading(false);
+              return;
+            }
+          } catch {}
+        }
+        // Clear stale caches from previous days
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('trending_cache_') && k !== cacheKey)
+          .forEach((k) => localStorage.removeItem(k));
+      }
+
       const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: 'trending music songs this week 2025 top hits' }
+        body: { query: getDailyQuery() }
       });
       if (error || !data?.tracks) {
         console.error('Error fetching trending:', error);
         setTrendingSongs([]);
       } else {
-        setTrendingSongs(data.tracks as Track[]);
+        const tracks = data.tracks as Track[];
+        setTrendingSongs(tracks);
+        try { localStorage.setItem(cacheKey, JSON.stringify(tracks)); } catch {}
       }
     } catch (err) {
       console.error('Error fetching trending:', err);
@@ -110,7 +162,7 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
         <div className="text-center py-12">
           <Music className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">Could not load trending songs</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={fetchTrendingSongs}>Try Again</Button>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => fetchTrendingSongs(true)}>Try Again</Button>
         </div>
       )}
     </div>
