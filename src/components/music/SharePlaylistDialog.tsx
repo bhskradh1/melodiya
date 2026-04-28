@@ -37,17 +37,17 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [friends, setFriends] = useState<UserProfile[]>([]);
   const [sharedWith, setSharedWith] = useState<any[]>([]);
   const [sharedUserIds, setSharedUserIds] = useState<Set<string>>(new Set());
-  const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch initial shares when dialog opens
+  // Fetch shares + friends when dialog opens
   useEffect(() => {
     if (isOpen) {
       fetchShares();
+      fetchFriends();
     }
   }, [isOpen]);
 
@@ -64,44 +64,36 @@ export const SharePlaylistDialog: React.FC<SharePlaylistDialogProps> = ({
       }
     } catch (error) {
       console.error('Error fetching shares:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load shared users',
-        variant: 'destructive',
-      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-
-    if (query.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const excludeIds = Array.from(sharedUserIds);
-      excludeIds.push(currentUserId); // Exclude current user
-      
-      const result = await searchUsers(query, excludeIds);
-      if (result.success && result.data) {
-        setSearchResults(result.data);
-      }
-    } catch (error) {
-      console.error('Error searching users:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to search users',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSearching(false);
+  const fetchFriends = async () => {
+    const result = await getFriends(currentUserId);
+    if (result.data) {
+      const profiles: UserProfile[] = result.data
+        .filter((f) => !!f.profile)
+        .map((f) => ({
+          id: f.profile!.user_id,
+          username: f.profile!.username || '',
+          display_name: f.profile!.display_name || undefined,
+          avatar_url: f.profile!.avatar_url || undefined,
+        }));
+      setFriends(profiles);
     }
   };
+
+  // Filter friends by search query and already-shared status
+  const visibleFriends = friends.filter((f) => {
+    if (sharedUserIds.has(f.id)) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      f.username?.toLowerCase().includes(q) ||
+      f.display_name?.toLowerCase().includes(q)
+    );
+  });
 
   const handleShare = async (userId: string) => {
     try {
