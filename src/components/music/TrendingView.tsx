@@ -162,7 +162,7 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
         <div className="text-center py-12">
           <Music className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">Could not load trending songs</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={fetchTrendingSongs}>Try Again</Button>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => fetchTrendingSongs(true)}>Try Again</Button>
         </div>
       )}
     </div>
