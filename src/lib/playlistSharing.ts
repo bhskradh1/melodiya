@@ -136,13 +136,13 @@ export const searchUsers = async (query: string, excludeUserIds: (string | undef
     // Build the query
     let userQuery = supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url')
-      .or(`username.ilike.%${query}%, display_name.ilike.%${query}%`);
+      .select('id:user_id, username, display_name, avatar_url')
+      .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`);
 
-    // Exclude specified users
+    // Exclude specified users (by auth user_id)
     const validIds = excludeUserIds.filter((id): id is string => !!id);
     if (validIds.length > 0) {
-      userQuery = userQuery.not('id', 'in', `(${validIds.join(',')})`);
+      userQuery = userQuery.not('user_id', 'in', `(${validIds.join(',')})`);
     }
 
     const { data, error } = await userQuery.limit(10);
