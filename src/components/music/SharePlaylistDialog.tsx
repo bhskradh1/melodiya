@@ -12,15 +12,15 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Share2, X, Search, Check } from 'lucide-react';
+import { Share2, X, Search, Check, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   sharePlaylist,
   unsharePlaylist,
   getPlaylistShares,
-  searchUsers,
   UserProfile,
 } from '@/lib/playlistSharing';
+import { getFriends } from '@/lib/friends';
 
 interface SharePlaylistDialogProps {
   playlistId: string;
