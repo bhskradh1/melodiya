@@ -137,7 +137,7 @@ export const searchUsers = async (query: string, excludeUserIds: (string | undef
     let userQuery = supabase
       .from('profiles')
       .select('id:user_id, username, display_name, avatar_url')
-      .or(`username.ilike.%${query},display_name.ilike.%${query}%`);
+      .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`);
 
     // Exclude specified users (by auth user_id)
     const validIds = excludeUserIds.filter((id): id is string => !!id);
