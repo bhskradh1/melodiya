@@ -10,6 +10,7 @@ import { PlaylistDetailView } from './PlaylistDetailView';
 import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { TrendingView } from './TrendingView';
 import { SettingsView } from './SettingsView';
+import { FriendsView } from './FriendsView';
 import { AdminView } from '../admin/AdminView';
 import { InstallDialog } from './InstallDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -203,6 +204,8 @@ export const MelodiyaApp: React.FC = () => {
         return <AdminView />;
       case 'library':
         return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
+      case 'friends':
+        return <FriendsView />;
       case 'settings':
         return <SettingsView />;
       default:

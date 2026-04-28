@@ -15,7 +15,9 @@ import {
   Clock,
   X,
   Download,
-  Share2
+  Share2,
+  Users,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePWA } from '@/hooks/use-pwa';
@@ -36,6 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
   const navItems = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'search', label: 'Search', icon: Search },
+    { id: 'trending', label: 'Trending', icon: TrendingUp },
+    { id: 'friends', label: 'Friends', icon: Users },
     { id: 'library', label: 'Your Library', icon: Library },
   ];
 
