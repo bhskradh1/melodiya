@@ -44,6 +44,52 @@ export type Database = {
         }
         Relationships: []
       }
+      playlist_shares: {
+        Row: {
+          id: string
+          playlist_id: string
+          shared_at: string
+          shared_by_user_id: string
+          shared_with_user_id: string
+        }
+        Insert: {
+          id?: string
+          playlist_id: string
+          shared_at?: string
+          shared_by_user_id: string
+          shared_with_user_id: string
+        }
+        Update: {
+          id?: string
+          playlist_id?: string
+          shared_at?: string
+          shared_by_user_id?: string
+          shared_with_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_shares_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_shares_shared_by_user_id_fkey"
+            columns: ["shared_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "playlist_shares_shared_with_user_id_fkey"
+            columns: ["shared_with_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       playlist_songs: {
         Row: {
           added_at: string
