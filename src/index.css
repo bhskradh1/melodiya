@@ -100,23 +100,40 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
 
   body {
     @apply bg-background text-foreground font-sans;
+    background-image:
+      radial-gradient(60rem 40rem at 12% -10%, hsl(var(--primary) / 0.14), transparent 60%),
+      radial-gradient(50rem 35rem at 100% 0%, hsl(var(--accent) / 0.10), transparent 55%),
+      radial-gradient(45rem 40rem at 50% 120%, hsl(var(--primary) / 0.10), transparent 60%);
+    background-attachment: fixed;
   }
 }
 
 @layer components {
-  /* Music App Glass Effects */
+  /* ── Glassmorphism surfaces ── */
   .glass-card {
-    @apply bg-card/60 backdrop-blur-lg border border-border/30;
+    @apply relative bg-card/40 backdrop-blur-2xl border border-foreground/[0.08] shadow-[0_8px_32px_-12px_hsl(var(--background)/0.8)];
   }
-  
+
+  .glass-panel {
+    @apply relative rounded-2xl bg-card/35 backdrop-blur-2xl border border-foreground/[0.08]
+           shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.08),0_12px_40px_-16px_hsl(var(--background)/0.9)];
+  }
+
+  .glass-tile {
+    @apply relative rounded-xl bg-foreground/[0.04] backdrop-blur-xl border border-foreground/[0.07]
+           transition-all duration-300 hover:bg-foreground/[0.08] hover:border-primary/30;
+  }
+
   .glass-player {
-    @apply bg-[hsl(var(--player-bg))]/80 backdrop-blur-xl border-t border-border/30;
+    @apply bg-[hsl(var(--player-bg))]/55 backdrop-blur-2xl border-t border-foreground/[0.08]
+           shadow-[0_-8px_40px_-12px_hsl(var(--background)/0.9)];
   }
-  
+
   .glass-sidebar {
-    @apply bg-[hsl(var(--sidebar-bg))]/90 backdrop-blur-lg border-r border-border/30;
+    @apply bg-[hsl(var(--sidebar-bg))]/45 backdrop-blur-2xl border-r border-foreground/[0.08]
+           shadow-[inset_-1px_0_0_0_hsl(var(--foreground)/0.05)];
   }
-  
+
   /* Music App Hover Effects */
   .hover-lift {
     @apply transition-all duration-300 hover:scale-105 hover:shadow-lg;
