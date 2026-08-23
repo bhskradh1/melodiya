@@ -42,12 +42,12 @@ const KARAOKE_SEARCHES = [
 const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: number }> = ({ track, onPlay, index }) => (
   <button
     onClick={() => onPlay(track)}
-    className="group relative flex flex-col gap-3 rounded-2xl bg-card/40 p-3 backdrop-blur-md border border-border/20 hover:border-primary/30 transition-all duration-300 hover:bg-card/70 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_hsl(280_100%_70%/0.25)] text-left"
+    className="glass-panel group flex flex-col gap-3 p-3 hover:-translate-y-1 hover:border-primary/30 hover:bg-card/55 hover:shadow-[0_16px_44px_-16px_hsl(var(--primary)/0.45)] transition-all duration-300 text-left"
     style={{ animationDelay: `${index * 60}ms` }}
   >
     <div className="relative aspect-square w-full overflow-hidden rounded-xl">
       <img src={track.thumbnail} alt={track.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <div className="absolute bottom-2 right-2 h-10 w-10 flex items-center justify-center rounded-full bg-primary shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
         <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
       </div>
@@ -62,10 +62,10 @@ const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: num
 const QuickAction: React.FC<{ icon: React.ReactNode; label: string; sub: string; onClick: () => void; gradient?: string }> = ({ icon, label, sub, onClick, gradient }) => (
   <button
     onClick={onClick}
-    className={`group relative flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden ${gradient ?? 'bg-card/50 border border-border/20 hover:border-primary/30'}`}
+    className={`group relative flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden ${gradient ? gradient : 'glass-panel hover:border-primary/30'}`}
   >
-    {gradient && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_top_right,hsl(280_100%_70%/0.15),transparent_60%)]" />}
-    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${gradient ? 'bg-white/15' : 'bg-primary/10'}`}>
+    {gradient && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.2),transparent_60%)]" />}
+    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl backdrop-blur-md ${gradient ? 'bg-foreground/15' : 'bg-primary/15'}`}>
       {icon}
     </div>
     <div className="relative z-10 min-w-0 text-left">
