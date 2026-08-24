@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Play, Music, TrendingUp, Clock, Sparkles, Heart, Headphones, Radio, ChevronRight, Mic2, Loader2, Search } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, Mic2, Loader2, Search, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -27,64 +27,89 @@ const getGreeting = () => {
 };
 
 const KARAOKE_SEARCHES = [
-  { name: 'Pop Hits', emoji: '🎤', query: 'karaoke pop hits 2025', from: '340 80% 55%', to: '320 85% 45%' },
-  { name: 'Bollywood', emoji: '🎬', query: 'karaoke bollywood songs', from: '10 80% 55%', to: '25 90% 48%' },
-  { name: 'Rock Classics', emoji: '🎸', query: 'karaoke rock classics', from: '265 85% 55%', to: '280 80% 45%' },
-  { name: 'R&B / Soul', emoji: '🎶', query: 'karaoke r&b soul songs', from: '195 90% 50%', to: '210 95% 40%' },
-  { name: 'EDM / Dance', emoji: '🎹', query: 'karaoke edm dance', from: '38 90% 50%', to: '28 85% 42%' },
-  { name: 'Country', emoji: '🤠', query: 'karaoke country songs', from: '155 70% 45%', to: '140 75% 35%' },
-  { name: 'K-Pop', emoji: '💜', query: 'karaoke kpop songs', from: '275 75% 55%', to: '290 80% 42%' },
-  { name: 'Lo-Fi Chill', emoji: '🌙', query: 'karaoke lofi chill songs', from: '220 60% 50%', to: '235 55% 38%' },
+  { name: 'Pop Hits', emoji: '🎤', query: 'karaoke pop hits 2025' },
+  { name: 'Bollywood', emoji: '🎬', query: 'karaoke bollywood songs' },
+  { name: 'Rock Classics', emoji: '🎸', query: 'karaoke rock classics' },
+  { name: 'R&B / Soul', emoji: '🎶', query: 'karaoke r&b soul songs' },
+  { name: 'EDM / Dance', emoji: '🎹', query: 'karaoke edm dance' },
+  { name: 'Country', emoji: '🤠', query: 'karaoke country songs' },
+  { name: 'K-Pop', emoji: '💜', query: 'karaoke kpop songs' },
+  { name: 'Lo-Fi Chill', emoji: '🌙', query: 'karaoke lofi chill songs' },
 ] as const;
 
-/* ─────────── small sub-components ─────────── */
+/* ─────────── sub-components ─────────── */
 
 const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: number }> = ({ track, onPlay, index }) => (
   <button
     onClick={() => onPlay(track)}
-    className="glass-panel group flex flex-col gap-3 p-3 hover:-translate-y-1 hover:border-primary/30 hover:bg-card/55 hover:shadow-[0_16px_44px_-16px_hsl(var(--primary)/0.45)] transition-all duration-300 text-left"
-    style={{ animationDelay: `${index * 60}ms` }}
+    className="group w-[150px] sm:w-[168px] shrink-0 snap-start text-left"
+    style={{ animationDelay: `${index * 50}ms` }}
   >
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl">
-      <img src={track.thumbnail} alt={track.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className="absolute bottom-2 right-2 h-10 w-10 flex items-center justify-center rounded-full bg-primary shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-        <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+    <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-foreground/[0.07] bg-card/40 shadow-[0_10px_30px_-14px_hsl(var(--background))]">
+      <img
+        src={track.thumbnail}
+        alt={track.title}
+        loading="lazy"
+        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/10 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-90" />
+      <div className="absolute bottom-2.5 right-2.5 flex h-10 w-10 translate-y-3 items-center justify-center rounded-full bg-primary opacity-0 shadow-[0_8px_24px_-6px_hsl(var(--primary))] transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        <Play className="ml-0.5 h-4 w-4 fill-current text-primary-foreground" />
       </div>
     </div>
-    <div className="min-w-0">
-      <p className="truncate text-sm font-semibold">{track.title}</p>
+    <div className="mt-2.5 min-w-0 px-0.5">
+      <p className="truncate text-sm font-semibold leading-snug">{track.title}</p>
       <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
     </div>
   </button>
 );
 
-const QuickAction: React.FC<{ icon: React.ReactNode; label: string; sub: string; onClick: () => void; gradient?: string }> = ({ icon, label, sub, onClick, gradient }) => (
-  <button
-    onClick={onClick}
-    className={`group relative flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg overflow-hidden ${gradient ? gradient : 'glass-panel hover:border-primary/30'}`}
-  >
-    {gradient && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.2),transparent_60%)]" />}
-    <div className={`relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl backdrop-blur-md ${gradient ? 'bg-foreground/15' : 'bg-primary/15'}`}>
-      {icon}
+const Row: React.FC<{ title: string; subtitle?: string; onViewAll?: () => void; children: React.ReactNode }> = ({
+  title,
+  subtitle,
+  onViewAll,
+  children,
+}) => (
+  <section className="space-y-4">
+    <div className="flex items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
+      {onViewAll && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 rounded-full text-xs text-muted-foreground hover:text-foreground"
+          onClick={onViewAll}
+        >
+          View all <ChevronRight className="ml-1 h-3 w-3" />
+        </Button>
+      )}
     </div>
-    <div className="relative z-10 min-w-0 text-left">
-      <p className="text-sm font-semibold">{label}</p>
-      <p className={`text-xs ${gradient ? 'opacity-75' : 'text-muted-foreground'}`}>{sub}</p>
+    <div className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
+      {children}
     </div>
-    <ChevronRight className="relative z-10 ml-auto h-4 w-4 opacity-0 group-hover:opacity-60 transition-opacity" />
-  </button>
+  </section>
 );
 
-const SectionHeader: React.FC<{ title: string; onViewAll?: () => void }> = ({ title, onViewAll }) => (
-  <div className="flex items-center justify-between">
-    <h2 className="text-lg md:text-xl font-bold tracking-tight">{title}</h2>
-    {onViewAll && (
-      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={onViewAll}>
-        View all <ChevronRight className="ml-1 h-3 w-3" />
-      </Button>
-    )}
-  </div>
+const Chip: React.FC<{ icon: React.ReactNode; label: string; onClick: () => void; active?: boolean }> = ({
+  icon,
+  label,
+  onClick,
+  active,
+}) => (
+  <button
+    onClick={onClick}
+    className={`group flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
+      active
+        ? 'border-transparent bg-gradient-primary text-primary-foreground shadow-[0_10px_30px_-12px_hsl(var(--primary))]'
+        : 'border-foreground/[0.08] bg-foreground/[0.04] text-foreground hover:border-primary/40 hover:bg-foreground/[0.08]'
+    }`}
+  >
+    <span className={active ? '' : 'text-primary'}>{icon}</span>
+    {label}
+  </button>
 );
 
 /* ─────────── main component ─────────── */
@@ -92,7 +117,6 @@ const SectionHeader: React.FC<{ title: string; onViewAll?: () => void }> = ({ ti
 export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
   const [karaokeQuery, setKaraokeQuery] = useState('');
@@ -100,13 +124,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const { user } = useAuth();
   const greeting = useMemo(getGreeting, []);
 
+  const featured = trendingTracks[0] ?? null;
+  const restTrending = trendingTracks.slice(1);
+
   const handleKaraokeCustomSearch = useCallback(async () => {
     const q = karaokeQuery.trim();
     if (!q) return;
     setKaraokeSearchLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: `karaoke ${q}` }
+        body: { query: `karaoke ${q}` },
       });
       if (!error && data?.tracks && data.tracks.length > 0) {
         onPlayTrack(data.tracks[0], data.tracks);
@@ -120,7 +147,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
-    else setLoading(false);
     fetchTrending();
   }, [user]);
 
@@ -131,7 +157,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
         .select('*')
         .eq('user_id', user?.id)
         .order('played_at', { ascending: false })
-        .limit(6);
+        .limit(10);
 
       if (error) throw error;
 
@@ -146,8 +172,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
       );
     } catch (error) {
       console.error('Error fetching recently played:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -155,13 +179,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     setTrendingLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: 'trending music songs this week 2025' }
+        body: { query: 'trending music songs this week 2025' },
       });
       if (error || !data?.tracks) {
         console.error('Error fetching trending:', error);
         setTrendingTracks([]);
       } else {
-        setTrendingTracks((data.tracks as Track[]).slice(0, 6));
+        setTrendingTracks((data.tracks as Track[]).slice(0, 12));
       }
     } catch (err) {
       console.error('Error fetching trending:', err);
@@ -174,10 +198,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     setKaraokeLoading(search.name);
     try {
       const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: search.query }
+        body: { query: search.query },
       });
       if (!error && data?.tracks && data.tracks.length > 0) {
-        // Play first karaoke track and pass all as playlist
         onPlayTrack(data.tracks[0], data.tracks);
       }
     } catch (err) {
@@ -189,120 +212,158 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
 
   return (
     <div className="relative min-h-full">
-      {/* Ambient glow blobs */}
-      <div className="pointer-events-none absolute -top-32 left-1/3 h-[420px] w-[420px] rounded-full bg-primary/[0.06] blur-[120px]" />
-      <div className="pointer-events-none absolute top-20 right-0 h-[320px] w-[320px] rounded-full bg-accent/[0.05] blur-[100px]" />
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute -top-40 left-1/4 h-[460px] w-[460px] rounded-full bg-primary/20 blur-[140px]" />
+      <div className="pointer-events-none absolute top-32 right-0 h-[360px] w-[360px] rounded-full bg-accent/10 blur-[120px]" />
 
       <div className="relative z-10 mx-auto max-w-6xl space-y-10 p-5 md:p-8 pb-32">
-        {/* ── Hero greeting ── */}
-        <section className="space-y-1.5">
-          <p className="text-sm font-medium text-muted-foreground tracking-wide uppercase">{greeting}</p>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-            What do you want to
-            <span className="bg-gradient-primary bg-clip-text text-transparent"> listen</span> to?
-          </h1>
-        </section>
+        {/* ── Greeting ── */}
+        <header className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">{greeting}</p>
+            <h1 className="mt-1 text-3xl md:text-[2.6rem] font-bold leading-[1.05]">
+              What do you want to
+              <span className="bg-gradient-primary bg-clip-text text-transparent"> hear</span>?
+            </h1>
+          </div>
+        </header>
 
-        {/* ── Quick actions ── */}
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickAction
-            icon={<Music className="h-5 w-5 text-primary-foreground" />}
-            label="Your Library"
-            sub="Saved music"
-            onClick={() => onViewChange?.('library')}
-            gradient="bg-gradient-primary text-primary-foreground"
-          />
-          <QuickAction
-            icon={<TrendingUp className="h-5 w-5 text-accent-foreground" />}
-            label="Trending"
-            sub="Hot right now"
-            onClick={() => onViewChange?.('trending')}
-            gradient="bg-gradient-secondary text-accent-foreground"
-          />
-          <QuickAction
-            icon={<Heart className="h-5 w-5 text-primary" />}
-            label="Liked Songs"
-            sub="Your favorites"
-            onClick={() => onViewChange?.('liked')}
-          />
-          <QuickAction
-            icon={<Clock className="h-5 w-5 text-primary" />}
-            label="Recently Played"
-            sub="Pick up where you left"
-            onClick={() => onViewChange?.('recently-played')}
-          />
-        </section>
+        {/* ── Featured hero ── */}
+        <section className="relative overflow-hidden rounded-[28px] border border-foreground/[0.08] bg-card/40 backdrop-blur-2xl shadow-[0_28px_80px_-40px_hsl(var(--background))]">
+          {featured && (
+            <img
+              src={featured.thumbnail}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full scale-125 object-cover opacity-25 blur-2xl"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-background/60 to-background/90" />
 
-        {/* ── Recently played ── */}
-        {recentlyPlayed.length > 0 && (
-          <section className="space-y-5">
-            <SectionHeader title="Jump back in" onViewAll={() => onViewChange?.('recently-played')} />
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {recentlyPlayed.map((track, i) => (
-                <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
-              ))}
+          <div className="relative z-10 flex flex-col gap-6 p-6 md:flex-row md:items-center md:gap-8 md:p-9">
+            <div className="relative mx-auto aspect-square w-40 shrink-0 overflow-hidden rounded-2xl shadow-[0_24px_60px_-24px_hsl(var(--primary))] md:mx-0 md:w-48">
+              {trendingLoading || !featured ? (
+                <div className="h-full w-full animate-pulse bg-foreground/10" />
+              ) : (
+                <img src={featured.thumbnail} alt={featured.title} className="h-full w-full object-cover" />
+              )}
             </div>
-          </section>
+
+            <div className="min-w-0 flex-1 text-center md:text-left">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary backdrop-blur-xl">
+                <Sparkles className="h-3 w-3" /> Featured today
+              </span>
+              <h2 className="mt-3 truncate text-2xl md:text-4xl font-bold">
+                {featured ? featured.title : 'Loading picks…'}
+              </h2>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
+                {featured ? featured.artist : 'Fresh tracks are on the way'}
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+                <Button
+                  size="lg"
+                  disabled={!featured}
+                  onClick={() => featured && onPlayTrack(featured, trendingTracks)}
+                  className="rounded-full bg-gradient-primary px-7 font-semibold text-primary-foreground shadow-[0_14px_40px_-14px_hsl(var(--primary))] transition-transform hover:scale-[1.03]"
+                >
+                  <Play className="mr-2 h-4 w-4 fill-current" /> Play now
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => onViewChange?.('trending')}
+                  className="rounded-full border-foreground/15 bg-foreground/[0.04] px-6 backdrop-blur-xl hover:bg-foreground/[0.09]"
+                >
+                  Explore trending
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Quick chips ── */}
+        <div className="no-scrollbar -mx-5 flex gap-2.5 overflow-x-auto px-5 md:-mx-8 md:px-8">
+          <Chip icon={<Music className="h-4 w-4" />} label="Your Library" onClick={() => onViewChange?.('library')} active />
+          <Chip icon={<TrendingUp className="h-4 w-4" />} label="Trending" onClick={() => onViewChange?.('trending')} />
+          <Chip icon={<Heart className="h-4 w-4" />} label="Liked Songs" onClick={() => onViewChange?.('liked')} />
+          <Chip icon={<Clock className="h-4 w-4" />} label="Recently Played" onClick={() => onViewChange?.('recently-played')} />
+        </div>
+
+        {/* ── Jump back in ── */}
+        {recentlyPlayed.length > 0 && (
+          <Row title="Jump back in" subtitle="Pick up where you left off" onViewAll={() => onViewChange?.('recently-played')}>
+            {recentlyPlayed.map((track, i) => (
+              <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
+            ))}
+          </Row>
         )}
 
-        {/* ── Popular this week (YouTube Trending) ── */}
-        <section className="space-y-5">
-          <SectionHeader title="Popular this week" onViewAll={() => onViewChange?.('trending')} />
-          {trendingLoading ? (
-            <div className="flex items-center gap-3 py-8 justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading trending...</p>
-            </div>
-          ) : trendingTracks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {trendingTracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">Could not load trending songs</p>
-          )}
-        </section>
+        {/* ── Popular this week ── */}
+        <Row title="Popular this week" subtitle="What everyone is streaming" onViewAll={() => onViewChange?.('trending')}>
+          {trendingLoading
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="w-[150px] shrink-0 sm:w-[168px]">
+                  <div className="aspect-square w-full animate-pulse rounded-2xl bg-foreground/[0.06]" />
+                  <div className="mt-2.5 h-3 w-4/5 animate-pulse rounded bg-foreground/[0.06]" />
+                  <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-foreground/[0.05]" />
+                </div>
+              ))
+            : restTrending.length > 0
+            ? restTrending.map((track, i) => <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />)
+            : <p className="py-8 text-sm text-muted-foreground">Could not load trending songs</p>}
+        </Row>
 
         {/* ── Karaoke Zone ── */}
-        <section className="space-y-5">
-          <div className="flex items-center gap-2">
-            <Mic2 className="w-5 h-5 text-primary" />
-            <SectionHeader title="Karaoke Zone" />
+        <section className="space-y-5 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 backdrop-blur-2xl md:p-7">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
+              <Mic2 className="h-4 w-4 text-primary-foreground" />
+            </span>
+            <div>
+              <h2 className="text-xl font-bold">Karaoke Zone</h2>
+              <p className="text-xs text-muted-foreground">Sing along with synced lyrics</p>
+            </div>
           </div>
+
           <form
-            onSubmit={(e) => { e.preventDefault(); handleKaraokeCustomSearch(); }}
+            onSubmit={e => {
+              e.preventDefault();
+              handleKaraokeCustomSearch();
+            }}
             className="flex gap-2"
           >
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search any karaoke song..."
+                placeholder="Search any karaoke song…"
                 value={karaokeQuery}
-                onChange={(e) => setKaraokeQuery(e.target.value)}
-                className="pl-9 bg-card/50 border-border/30 focus-visible:ring-primary/40"
+                onChange={e => setKaraokeQuery(e.target.value)}
+                className="h-11 rounded-full border-foreground/[0.08] bg-foreground/[0.04] pl-10 backdrop-blur-xl focus-visible:ring-primary/40"
               />
             </div>
-            <Button type="submit" disabled={karaokeSearchLoading || !karaokeQuery.trim()} size="default" className="shrink-0">
+            <Button
+              type="submit"
+              disabled={karaokeSearchLoading || !karaokeQuery.trim()}
+              className="h-11 shrink-0 rounded-full bg-gradient-primary px-6 font-semibold text-primary-foreground"
+            >
               {karaokeSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
             </Button>
           </form>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {KARAOKE_SEARCHES.map((k) => (
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {KARAOKE_SEARCHES.map(k => (
               <button
                 key={k.name}
                 onClick={() => handleKaraokeSearch(k)}
                 disabled={karaokeLoading === k.name}
-                className="group relative h-24 md:h-28 overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-70"
-                style={{
-                  background: `linear-gradient(135deg, hsl(${k.from}), hsl(${k.to}))`,
-                }}
+                className="group relative flex h-24 flex-col justify-between overflow-hidden rounded-2xl border border-foreground/[0.08] bg-foreground/[0.04] p-3.5 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-foreground/[0.08] disabled:opacity-70 md:h-28"
               >
-                <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-150" />
-                <div className="relative z-10 flex h-full flex-col justify-between p-4">
-                  <span className="text-2xl">{karaokeLoading === k.name ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : k.emoji}</span>
-                  <span className="text-sm font-bold text-white drop-shadow-md">{k.name}</span>
-                </div>
+                <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/25 blur-2xl transition-transform duration-500 group-hover:scale-150" />
+                <span className="relative z-10 text-2xl">
+                  {karaokeLoading === k.name ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : k.emoji}
+                </span>
+                <span className="relative z-10 text-sm font-semibold">{k.name}</span>
               </button>
             ))}
           </div>
