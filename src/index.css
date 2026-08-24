@@ -108,7 +108,22 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
       radial-gradient(45rem 40rem at 50% 120%, hsl(var(--primary) / 0.10), transparent 60%);
     background-attachment: fixed;
   }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
 }
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 
 @layer components {
   /* ── Glassmorphism surfaces ── */
