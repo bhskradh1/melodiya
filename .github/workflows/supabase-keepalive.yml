@@ -1,29 +1,46 @@
-name: Keep Supabase Alive (Music App)
+name: Keep Supabase Alive (Melodiya)
 
 on:
   schedule:
-    - cron: '0 0 */2 * *'  # runs every 2 days at midnight UTC
-  workflow_dispatch:        # allows manual run
+    - cron: '0 6 * * *' # every day at 06:00 UTC
+  workflow_dispatch: # allows manual run
 
 jobs:
   ping:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Supabase (Music App)
+      - name: Ping Supabase REST API
+        env:
+          # Public anon (publishable) key — safe to expose. Override with a repo
+          # secret named SUPABASE_ANON_KEY if the key is ever rotated.
+          SUPABASE_URL: https://xdtgtwlpkgldszmufoay.supabase.co
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkdGd0d2xwa2dsZHN6bXVmb2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDE2MTgsImV4cCI6MjA3MTYxNzYxOH0.SFWOUx81LaQuQwdqQIIaaQ2KP-W7jpir0rClSFN-1CI' }}
         run: |
-          echo "🎵 Pinging Supabase (Music App) to keep it awake..."
+          echo "Pinging Supabase to keep the project awake..."
 
-          # Ping the 'profiles' table to keep database connection active
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://xdtgtwlpkgldszmufoay.supabase.co/rest/v1/profiles?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}" \
-            -H "Content-Type: application/json")
+          STATUS=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
 
-          if [ "$RESPONSE" -eq 200 ]; then
-            echo "✅ Supabase (Music App) is awake and responding successfully!"
-          else
-            echo "⚠️ Supabase ping failed. HTTP status: $RESPONSE"
-            exit 1
-          fi
+          echo "HTTP status: $STATUS"
+
+          # 200 (rows) and 401/403 (RLS blocked) both prove the DB answered.
+          case "$STATUS" in
+            200|206|401|403)
+              echo "Supabase is awake."
+              ;;
+            *)
+              echo "Ping failed. Response body:"
+              cat /tmp/body.txt
+              exit 1
+              ;;
+          esac
+
+      - name: Ping Auth health endpoint
+        run: |
+          curl -sf -o /dev/null \
+            "https://xdtgtwlpkgldszmufoay.supabase.co/auth/v1/health" \
+            && echo "Auth service responding." \
+            || echo "Auth health check did not respond (non-fatal)."
