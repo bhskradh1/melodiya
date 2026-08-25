@@ -9,6 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
 import { NowPlayingView } from './NowPlayingView';
 import { usePWA } from '@/hooks/use-pwa';
+import { useBackgroundAudio } from '@/hooks/use-background-audio';
+
 import { 
   Play, 
   Pause, 
