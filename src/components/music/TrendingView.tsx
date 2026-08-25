@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, TrendingUp, Music, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Play, TrendingUp, Music, Loader2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { fetchWeeklyTrending, getWeekKey } from '@/lib/trending';
 
 interface Track {
   id: string;
@@ -14,86 +14,32 @@ interface Track {
 }
 
 interface TrendingViewProps {
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, playlist?: Track[]) => void;
 }
 
 export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
   const [trendingSongs, setTrendingSongs] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
+  const railRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchTrendingSongs();
-  }, []);
-
-  const getTodayKey = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-  };
-
-  const getDailyQuery = () => {
-    const d = new Date();
-    // Day-of-year to rotate seed queries daily
-    const start = new Date(d.getFullYear(), 0, 0);
-    const diff = d.getTime() - start.getTime();
-    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const seeds = [
-      'top trending songs today',
-      'viral hits this week',
-      'most played music right now',
-      'global top hits',
-      'trending pop songs',
-      'trending hip hop songs',
-      'new music releases this week',
-      'billboard hot 100 this week',
-      'tiktok viral songs',
-      'youtube music trending',
-    ];
-    const seed = seeds[dayOfYear % seeds.length];
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    return `${seed} ${dateStr}`;
-  };
-
-  const fetchTrendingSongs = async (force = false) => {
+  const load = async (force = false) => {
     setLoading(true);
     try {
-      const todayKey = getTodayKey();
-      const cacheKey = `trending_cache_${todayKey}`;
-
-      // Use cached data for today unless forced refresh
-      if (!force) {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached) as Track[];
-            if (Array.isArray(parsed) && parsed.length) {
-              setTrendingSongs(parsed);
-              setLoading(false);
-              return;
-            }
-          } catch {}
-        }
-        // Clear stale caches from previous days
-        Object.keys(localStorage)
-          .filter((k) => k.startsWith('trending_cache_') && k !== cacheKey)
-          .forEach((k) => localStorage.removeItem(k));
-      }
-
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: getDailyQuery() }
-      });
-      if (error || !data?.tracks) {
-        console.error('Error fetching trending:', error);
-        setTrendingSongs([]);
-      } else {
-        const tracks = data.tracks as Track[];
-        setTrendingSongs(tracks);
-        try { localStorage.setItem(cacheKey, JSON.stringify(tracks)); } catch {}
-      }
+      setTrendingSongs(await fetchWeeklyTrending(force));
     } catch (err) {
       console.error('Error fetching trending:', err);
+      setTrendingSongs([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const scrollRail = (dir: 1 | -1) => {
+    railRef.current?.scrollBy({ left: dir * (railRef.current.clientWidth * 0.8), behavior: 'smooth' });
   };
 
   if (loading) {
@@ -101,68 +47,112 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
       <div className="p-6 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading trending songs...</p>
+          <p className="text-muted-foreground">Loading this week's trending songs...</p>
         </div>
       </div>
     );
   }
 
+  const top = trendingSongs.slice(0, 12);
+  const rest = trendingSongs.slice(12);
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-5 md:p-6 space-y-8 pb-32">
       {/* Header */}
-      <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Trending Now</h1>
-            <p className="text-muted-foreground">
-              The most popular songs this week on YouTube
+            <h1 className="text-2xl md:text-3xl font-bold">Trending This Week</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Chart week {getWeekKey()} · refreshes every Monday
             </p>
           </div>
         </div>
+        <Button variant="ghost" size="sm" className="rounded-full" onClick={() => load(true)}>
+          <RefreshCw className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Trending Songs Grid */}
       {trendingSongs.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          {trendingSongs.map((track, index) => (
-            <Card key={track.id} className="glass-card hover-lift group cursor-pointer">
-              <CardContent className="p-4">
-                <div className="relative mb-3">
-                  <img
-                    src={track.thumbnail}
-                    alt={track.title}
-                    className="w-full aspect-square rounded-lg object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Button
-                      size="sm"
-                      className="h-10 w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
-                      onClick={() => onPlayTrack(track)}
-                    >
-                      <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
-                    </Button>
+        <>
+          {/* Swipeable top chart */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Top of the week</h2>
+              <div className="hidden md:flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0" onClick={() => scrollRail(-1)}>
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0" onClick={() => scrollRail(1)}>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div
+              ref={railRef}
+              className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {top.map((track, index) => (
+                <button
+                  key={track.id}
+                  onClick={() => onPlayTrack(track, trendingSongs)}
+                  className="group w-[150px] shrink-0 snap-start text-left sm:w-[180px]"
+                >
+                  <div className="relative aspect-square overflow-hidden rounded-2xl border border-foreground/[0.07]">
+                    <img src={track.thumbnail} alt={track.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <div className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-xs font-bold text-white">
+                      {index + 1}
+                    </div>
+                    <div className="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100">
+                      <Play className="ml-0.5 h-4 w-4 fill-current text-primary-foreground" />
+                    </div>
                   </div>
-                  {/* Trending rank badge */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">{index + 1}</span>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm mb-1 truncate">{track.title}</h3>
-                  <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  <p className="mt-2.5 truncate text-sm font-semibold">{track.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Remaining songs */}
+          {rest.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-bold">More trending</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                {rest.map((track, index) => (
+                  <Card key={track.id} className="glass-card hover-lift group cursor-pointer" onClick={() => onPlayTrack(track, trendingSongs)}>
+                    <CardContent className="p-4">
+                      <div className="relative mb-3">
+                        <img src={track.thumbnail} alt={track.title} loading="lazy" className="w-full aspect-square rounded-lg object-cover" />
+                        <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
+                            <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                          </span>
+                        </div>
+                        <div className="absolute top-2 left-2 w-6 h-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">{index + 13}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-sm mb-1 truncate">{track.title}</h3>
+                        <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       ) : (
         <div className="text-center py-12">
           <Music className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">Could not load trending songs</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => fetchTrendingSongs(true)}>Try Again</Button>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => load(true)}>Try Again</Button>
         </div>
       )}
     </div>
