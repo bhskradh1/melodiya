@@ -9,6 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
 import { NowPlayingView } from './NowPlayingView';
 import { usePWA } from '@/hooks/use-pwa';
+import { useBackgroundAudio } from '@/hooks/use-background-audio';
+
 import { 
   Play, 
   Pause, 
@@ -224,45 +226,88 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return () => window.removeEventListener('music-action', handleMusicAction as EventListener);
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
 
-  // Media Session API for lock screen / background controls
+  // Keeps the WebView/browser audio session alive while minimised
+  useBackgroundAudio(isPlaying && !!currentTrack);
+
+  // Media Session API for lock screen / notification controls
   useEffect(() => {
     if ('mediaSession' in navigator && currentTrack) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
-        artwork: [{ src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
+        album: 'Melodiya',
+        artwork: [
+          { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        ],
       });
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
       navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) onPlayPause(); });
       navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) onPlayPause(); });
       navigator.mediaSession.setActionHandler('nexttrack', () => onNext());
       navigator.mediaSession.setActionHandler('previoustrack', () => onPrevious());
+      try {
+        navigator.mediaSession.setActionHandler('stop', () => { if (isPlaying) onPlayPause(); });
+        navigator.mediaSession.setActionHandler('seekto', (details: any) => {
+          if (details.seekTime != null && playerRef.current?.seekTo) {
+            playerRef.current.seekTo(details.seekTime, true);
+            setCurrentTime(details.seekTime);
+          }
+        });
+      } catch {
+        /* not all platforms support these */
+      }
     }
   }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious]);
 
-  // Background watchdog: check player state when tab regains visibility
+  // Keep the notification scrubber in sync
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && isPlaying && playerRef.current && duration > 0) {
-        try {
-          const current = playerRef.current.getCurrentTime?.();
-          const state = playerRef.current.getPlayerState?.();
-          if (current && (duration - current) < 1.5) {
-            triggerNextTrack();
-          } else if (state === 0) {
-            // Player ended while in background
-            triggerNextTrack();
-          } else if (state === 2 || state === -1) {
-            // Player got paused/stopped in background, resume
-            playerRef.current.playVideo();
-          }
-        } catch (e) {
-          console.error('Visibility change check error:', e);
+    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration,
+          position: Math.min(currentTime, duration),
+          playbackRate: 1,
+        });
+      } catch {
+        /* ignore invalid position state */
+      }
+    }
+  }, [currentTime, duration]);
+
+  // Background watchdog: keep YouTube playing while the app is hidden/minimised
+  useEffect(() => {
+    const resumeIfStalled = () => {
+      if (!isPlaying || !playerRef.current) return;
+      try {
+        const state = playerRef.current.getPlayerState?.();
+        const current = playerRef.current.getCurrentTime?.();
+        if (state === 0) {
+          triggerNextTrack();
+        } else if (duration > 0 && current && (duration - current) < 1.5) {
+          triggerNextTrack();
+        } else if (state === 2 || state === -1) {
+          playerRef.current.playVideo?.();
         }
+      } catch (e) {
+        console.error('Background watchdog error:', e);
       }
     };
+
+    const handleVisibilityChange = () => resumeIfStalled();
+    const interval = window.setInterval(resumeIfStalled, 2000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [isPlaying, duration]);
+
 
   useEffect(() => {
     if (currentTrack && isPlaying) {
