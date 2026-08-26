@@ -332,7 +332,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
         )}
 
         {/* ── Popular this week ── */}
-        <Row title="Popular this week" subtitle="What everyone is streaming" onViewAll={() => onViewChange?.('trending')}>
+        <Row title="Popular this week" subtitle="What everyone is streaming" showArrows onViewAll={() => onViewChange?.('trending')}>
           {trendingLoading
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="w-[150px] shrink-0 sm:w-[168px]">
