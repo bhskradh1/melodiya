@@ -312,7 +312,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   useEffect(() => {
     if (currentTrack && isPlaying) {
       requestBackgroundSync('background-audio-sync');
-      if (notificationsEnabled && Notification.permission === 'granted') {
+      if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         showNotification(`Now Playing: ${currentTrack.title}`, {
           body: `by ${currentTrack.artist}`,
           icon: currentTrack.thumbnail,
