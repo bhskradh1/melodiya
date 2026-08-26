@@ -216,17 +216,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const fetchTrending = async () => {
     setTrendingLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: 'trending music songs this week 2025' },
-      });
-      if (error || !data?.tracks) {
-        console.error('Error fetching trending:', error);
-        setTrendingTracks([]);
-      } else {
-        setTrendingTracks((data.tracks as Track[]).slice(0, 12));
-      }
+      const tracks = await fetchWeeklyTrending();
+      setTrendingTracks(tracks.slice(0, 20) as Track[]);
     } catch (err) {
       console.error('Error fetching trending:', err);
+      setTrendingTracks([]);
     } finally {
       setTrendingLoading(false);
     }
