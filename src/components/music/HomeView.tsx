@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, Mic2, Loader2, Search, Sparkles } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2, Loader2, Search, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchWeeklyTrending } from '@/lib/trending';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 interface Track {
