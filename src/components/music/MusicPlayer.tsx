@@ -312,7 +312,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   useEffect(() => {
     if (currentTrack && isPlaying) {
       requestBackgroundSync('background-audio-sync');
-      if (notificationsEnabled && Notification.permission === 'granted') {
+      if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         showNotification(`Now Playing: ${currentTrack.title}`, {
           body: `by ${currentTrack.artist}`,
           icon: currentTrack.thumbnail,
@@ -343,10 +343,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   }, [volume, isMuted, normalizeVolume]);
 
   const handleFirstPlay = async () => {
-    if (Notification.permission === 'default') {
-      await requestNotificationPermission();
-    }
+    // Always toggle playback first — notification permission must never block it.
     onPlayPause();
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        await requestNotificationPermission();
+      }
+    } catch (err) {
+      console.warn('Notification permission unavailable:', err);
+    }
   };
 
   const handleProgressChange = (value: number[]) => {

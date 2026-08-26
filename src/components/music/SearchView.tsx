@@ -31,21 +31,24 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const runSearch = React.useCallback(async (query: string, notify = false) => {
+    const q = query.trim();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
 
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: searchQuery.trim() }
+        body: { query: q }
       });
 
       if (error) throw error;
 
       setSearchResults(data.tracks || []);
-      
-      if (data.tracks?.length === 0) {
+
+      if (notify && data.tracks?.length === 0) {
         toast({
           title: "No results found",
           description: "Try searching with different keywords"
@@ -53,15 +56,35 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       }
     } catch (error) {
       console.error('Search error:', error);
-      toast({
-        title: "Search failed",
-        description: "Unable to search for music. Please try again.",
-        variant: "destructive"
-      });
+      if (notify) {
+        toast({
+          title: "Search failed",
+          description: "Unable to search for music. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
+  }, [toast]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch(searchQuery, true);
   };
+
+  // Live recommendations as you type (debounced)
+  React.useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      runSearch(q);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, runSearch]);
 
   const handlePlayTrack = (track: Track) => {
     onPlayTrack(track);
