@@ -64,34 +64,71 @@ const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: num
   </button>
 );
 
-const Row: React.FC<{ title: string; subtitle?: string; onViewAll?: () => void; children: React.ReactNode }> = ({
-  title,
-  subtitle,
-  onViewAll,
-  children,
-}) => (
-  <section className="space-y-4">
-    <div className="flex items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+const Row: React.FC<{
+  title: string;
+  subtitle?: string;
+  onViewAll?: () => void;
+  showArrows?: boolean;
+  children: React.ReactNode;
+}> = ({ title, subtitle, onViewAll, showArrows, children }) => {
+  const railRef = React.useRef<HTMLDivElement>(null);
+  const scrollRail = (dir: 1 | -1) => {
+    const el = railRef.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' });
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {showArrows && (
+            <div className="hidden md:flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Scroll left"
+                className="h-8 w-8 rounded-full p-0"
+                onClick={() => scrollRail(-1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Scroll right"
+                className="h-8 w-8 rounded-full p-0"
+                onClick={() => scrollRail(1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {onViewAll && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-xs text-muted-foreground hover:text-foreground"
+              onClick={onViewAll}
+            >
+              View all <ChevronRight className="ml-1 h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
-      {onViewAll && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 rounded-full text-xs text-muted-foreground hover:text-foreground"
-          onClick={onViewAll}
-        >
-          View all <ChevronRight className="ml-1 h-3 w-3" />
-        </Button>
-      )}
-    </div>
-    <div className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
-      {children}
-    </div>
-  </section>
-);
+      <div
+        ref={railRef}
+        className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {children}
+      </div>
+    </section>
+  );
+};
 
 const Chip: React.FC<{ icon: React.ReactNode; label: string; onClick: () => void; active?: boolean }> = ({
   icon,
