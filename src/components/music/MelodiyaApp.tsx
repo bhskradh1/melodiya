@@ -227,14 +227,22 @@ export const MelodiyaApp: React.FC = () => {
             >
               <Menu className="w-5 h-5" />
             </Button>
-            <div className="flex items-center gap-2 ml-4 flex-1">
+            <button
+              type="button"
+              aria-label="Go to home"
+              onClick={() => {
+                setActiveView('home');
+                setIsMobileSidebarOpen(false);
+              }}
+              className="flex items-center gap-2 ml-4 flex-1 justify-start transition-opacity active:opacity-70"
+            >
               <div className="w-6 h-6 bg-gradient-primary rounded-lg flex items-center justify-center">
                 <span className="text-xs font-bold text-white">M</span>
               </div>
               <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
                 Melodiya
               </span>
-            </div>
+            </button>
             
             {/* Install App Button - Mobile */}
             {!isInstalled && (

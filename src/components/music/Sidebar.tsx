@@ -59,14 +59,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
       {/* Brand */}
       <div className="p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="Go to home"
+            onClick={() => {
+              onViewChange('home');
+              onClose?.();
+            }}
+            className="flex items-center gap-3 transition-opacity hover:opacity-80"
+          >
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <Music className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Melodiya
             </span>
-          </div>
+          </button>
           {isMobile && onClose && (
             <Button
               variant="ghost"

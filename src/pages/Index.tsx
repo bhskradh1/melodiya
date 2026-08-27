@@ -3,6 +3,7 @@ import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AuthPage } from '@/components/auth/AuthPage';
 import { MelodiyaApp } from '@/components/music/MelodiyaApp';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { PreferencesProvider } from '@/contexts/PreferencesContext';
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
@@ -28,7 +29,9 @@ const AppContent: React.FC = () => {
 const Index = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <PreferencesProvider>
+        <AppContent />
+      </PreferencesProvider>
     </AuthProvider>
   );
 };
