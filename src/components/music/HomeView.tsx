@@ -431,6 +431,27 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
             : <p className="py-8 text-sm text-muted-foreground">Could not load trending songs</p>}
         </Row>
 
+        {/* ── Personalized rows ── */}
+        {personalLoading && personalRows.length === 0 ? (
+          <Row title="Made for you" subtitle="Tuning to your taste…" showArrows>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="w-[150px] shrink-0 sm:w-[168px]">
+                <div className="aspect-square w-full animate-pulse rounded-2xl bg-foreground/[0.06]" />
+                <div className="mt-2.5 h-3 w-4/5 animate-pulse rounded bg-foreground/[0.06]" />
+                <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-foreground/[0.05]" />
+              </div>
+            ))}
+          </Row>
+        ) : (
+          personalRows.map((row) => (
+            <Row key={row.key} title={row.title} subtitle={row.subtitle} showArrows onViewAll={() => onViewChange?.('settings')}>
+              {row.tracks.map((track, i) => (
+                <TrackCard key={`${row.key}-${track.id}`} track={track as Track} onPlay={(t) => onPlayTrack(t, row.tracks as Track[])} index={i} />
+              ))}
+            </Row>
+          ))
+        )}
+
         {/* ── Karaoke Zone ── */}
         <section className="space-y-5 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 backdrop-blur-2xl md:p-7">
           <div className="flex items-center gap-2.5">
