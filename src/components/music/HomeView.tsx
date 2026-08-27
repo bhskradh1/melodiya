@@ -159,11 +159,43 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
   const [karaokeQuery, setKaraokeQuery] = useState('');
   const [karaokeSearchLoading, setKaraokeSearchLoading] = useState(false);
+  const [personalRows, setPersonalRows] = useState<RecommendationRow[]>([]);
+  const [personalLoading, setPersonalLoading] = useState(true);
+  const [featIndex, setFeatIndex] = useState(0);
+  const touchStartX = React.useRef<number | null>(null);
   const { user } = useAuth();
+  const { preferences, version } = usePreferences();
   const greeting = useMemo(getGreeting, []);
 
-  const featured = trendingTracks[0] ?? null;
-  const restTrending = trendingTracks.slice(1);
+  const topFive = trendingTracks.slice(0, 5);
+  const featured = topFive[featIndex] ?? topFive[0] ?? null;
+  const restTrending = trendingTracks.slice(5);
+
+  const moveFeatured = useCallback(
+    (dir: 1 | -1) => {
+      setFeatIndex((i) => {
+        const len = Math.max(topFive.length, 1);
+        return (i + dir + len) % len;
+      });
+    },
+    [topFive.length]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setPersonalLoading(true);
+    fetchPersonalizedRows(preferences)
+      .then((rows) => {
+        if (!cancelled) setPersonalRows(rows);
+      })
+      .catch((e) => console.error('Personalized rows failed:', e))
+      .finally(() => {
+        if (!cancelled) setPersonalLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [preferences, version]);
 
   const handleKaraokeCustomSearch = useCallback(async () => {
     const q = karaokeQuery.trim();
