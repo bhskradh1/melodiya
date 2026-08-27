@@ -5,6 +5,8 @@ import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2,
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWeeklyTrending } from '@/lib/trending';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { fetchPersonalizedRows, type RecommendationRow } from '@/lib/recommendations';
 
 interface Track {
   id: string;
