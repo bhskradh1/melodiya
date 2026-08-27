@@ -304,6 +304,42 @@ export const SettingsView: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Favorite genres */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Music2 className="w-5 h-5 text-primary" />
+            Your Taste
+          </CardTitle>
+          <CardDescription>Pick genres you love — Home and Search adapt instantly</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {GENRE_OPTIONS.map((genre) => {
+              const active = (prefs.favorite_genres || []).includes(genre);
+              return (
+                <button
+                  key={genre}
+                  type="button"
+                  onClick={() => toggleGenre(genre)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all ${
+                    active
+                      ? 'border-transparent bg-gradient-primary text-primary-foreground'
+                      : 'border-foreground/10 bg-foreground/[0.04] text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {genre}
+                </button>
+              );
+            })}
+          </div>
+          {(prefs.favorite_genres || []).length === 0 && (
+            <p className="mt-3 text-xs text-muted-foreground">No genres selected yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+
       {/* Language */}
       <Card className="glass-card">
         <CardHeader>
