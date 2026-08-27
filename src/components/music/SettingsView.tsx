@@ -23,26 +23,14 @@ import {
   Trash2,
 } from 'lucide-react';
 
-interface UserPreferences {
-  auto_play: boolean;
-  sound_quality: string;
-  preferred_language: string;
-  favorite_genres: string[];
-}
-
 export const SettingsView: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
+  const { preferences: prefs, updatePreferences } = usePreferences();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: '', username: '' });
-  const [prefs, setPrefs] = useState<UserPreferences>({
-    auto_play: true,
-    sound_quality: 'high',
-    preferred_language: 'en',
-    favorite_genres: [],
-  });
   const [crossfadeSeconds, setCrossfadeSeconds] = useState(() => {
     try {
       return parseInt(localStorage.getItem('melodiya-crossfade-seconds') || '5');
@@ -51,26 +39,20 @@ export const SettingsView: React.FC = () => {
 
   useEffect(() => {
     if (user) fetchData();
+    else setLoading(false);
   }, [user]);
 
   const fetchData = async () => {
     try {
-      const [profileRes, prefsRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('user_id', user!.id).single(),
-        supabase.from('user_preferences').select('*').eq('user_id', user!.id).single(),
-      ]);
-      if (profileRes.data) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (data) {
         setProfile({
-          display_name: profileRes.data.display_name || '',
-          username: profileRes.data.username || '',
-        });
-      }
-      if (prefsRes.data) {
-        setPrefs({
-          auto_play: prefsRes.data.auto_play ?? true,
-          sound_quality: prefsRes.data.sound_quality || 'high',
-          preferred_language: prefsRes.data.preferred_language || 'en',
-          favorite_genres: prefsRes.data.favorite_genres || [],
+          display_name: data.display_name || '',
+          username: data.username || '',
         });
       }
     } catch (e) {
@@ -100,18 +82,16 @@ export const SettingsView: React.FC = () => {
   };
 
   const savePrefs = async (updates: Partial<UserPreferences>) => {
-    const newPrefs = { ...prefs, ...updates };
-    setPrefs(newPrefs);
-    try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .update(updates)
-        .eq('user_id', user!.id);
-      if (error) throw error;
-      toast({ title: 'Preference saved' });
-    } catch (e) {
-      toast({ title: 'Error', description: 'Failed to save preference', variant: 'destructive' });
-    }
+    await updatePreferences(updates);
+    toast({ title: 'Preference saved' });
+  };
+
+  const toggleGenre = (genre: string) => {
+    const current = prefs.favorite_genres || [];
+    const next = current.includes(genre)
+      ? current.filter((g) => g !== genre)
+      : [...current, genre];
+    savePrefs({ favorite_genres: next });
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
