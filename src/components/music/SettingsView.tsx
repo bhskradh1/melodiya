@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useSettings } from '@/contexts/SettingsContext';
+import { usePreferences, GENRE_OPTIONS, type UserPreferences } from '@/contexts/PreferencesContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Volume2,
