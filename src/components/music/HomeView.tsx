@@ -5,6 +5,8 @@ import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2,
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWeeklyTrending } from '@/lib/trending';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { fetchPersonalizedRows, type RecommendationRow } from '@/lib/recommendations';
 
 interface Track {
   id: string;
@@ -159,11 +161,43 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
   const [karaokeQuery, setKaraokeQuery] = useState('');
   const [karaokeSearchLoading, setKaraokeSearchLoading] = useState(false);
+  const [personalRows, setPersonalRows] = useState<RecommendationRow[]>([]);
+  const [personalLoading, setPersonalLoading] = useState(true);
+  const [featIndex, setFeatIndex] = useState(0);
+  const touchStartX = React.useRef<number | null>(null);
   const { user } = useAuth();
+  const { preferences, version } = usePreferences();
   const greeting = useMemo(getGreeting, []);
 
-  const featured = trendingTracks[0] ?? null;
-  const restTrending = trendingTracks.slice(1);
+  const topFive = trendingTracks.slice(0, 5);
+  const featured = topFive[featIndex] ?? topFive[0] ?? null;
+  const restTrending = trendingTracks.slice(5);
+
+  const moveFeatured = useCallback(
+    (dir: 1 | -1) => {
+      setFeatIndex((i) => {
+        const len = Math.max(topFive.length, 1);
+        return (i + dir + len) % len;
+      });
+    },
+    [topFive.length]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setPersonalLoading(true);
+    fetchPersonalizedRows(preferences)
+      .then((rows) => {
+        if (!cancelled) setPersonalRows(rows);
+      })
+      .catch((e) => console.error('Personalized rows failed:', e))
+      .finally(() => {
+        if (!cancelled) setPersonalLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [preferences, version]);
 
   const handleKaraokeCustomSearch = useCallback(async () => {
     const q = karaokeQuery.trim();
@@ -243,7 +277,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   };
 
   return (
-    <div className="relative min-h-full">
+    <div className="relative min-h-full overflow-x-hidden">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute -top-40 left-1/4 h-[460px] w-[460px] rounded-full bg-primary/20 blur-[140px]" />
       <div className="pointer-events-none absolute top-32 right-0 h-[360px] w-[360px] rounded-full bg-accent/10 blur-[120px]" />
@@ -260,8 +294,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
           </div>
         </header>
 
-        {/* ── Featured hero ── */}
-        <section className="relative overflow-hidden rounded-[28px] border border-foreground/[0.08] bg-card/40 backdrop-blur-2xl shadow-[0_28px_80px_-40px_hsl(var(--background))]">
+        {/* ── Featured hero slider (top 5 of the week) ── */}
+        <section
+          className="relative overflow-hidden rounded-[28px] border border-foreground/[0.08] bg-card/40 backdrop-blur-2xl shadow-[0_28px_80px_-40px_hsl(var(--background))]"
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 45) moveFeatured(dx < 0 ? 1 : -1);
+            touchStartX.current = null;
+          }}
+        >
           {featured && (
             <img
               src={featured.thumbnail}
@@ -282,9 +325,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
             </div>
 
             <div className="min-w-0 flex-1 text-center md:text-left">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary backdrop-blur-xl">
-                <Sparkles className="h-3 w-3" /> Featured today
-              </span>
+              <div className="flex items-center justify-center gap-2 md:justify-start">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary backdrop-blur-xl">
+                  <Sparkles className="h-3 w-3" /> Featured today
+                </span>
+                {topFive.length > 1 && (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {featIndex + 1}/{topFive.length}
+                  </span>
+                )}
+              </div>
               <h2 className="mt-3 truncate text-2xl md:text-4xl font-bold">
                 {featured ? featured.title : 'Loading picks…'}
               </h2>
@@ -310,9 +360,44 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
                   Explore trending
                 </Button>
               </div>
+
+              {topFive.length > 1 && (
+                <div className="mt-5 flex items-center justify-center gap-2 md:justify-start">
+                  {topFive.map((t, i) => (
+                    <button
+                      key={t.id}
+                      aria-label={`Show featured track ${i + 1}`}
+                      onClick={() => setFeatIndex(i)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === featIndex ? 'w-6 bg-primary' : 'w-1.5 bg-foreground/25 hover:bg-foreground/40'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          {topFive.length > 1 && (
+            <>
+              <button
+                aria-label="Previous featured track"
+                onClick={() => moveFeatured(-1)}
+                className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-foreground/10 bg-background/60 p-2 backdrop-blur-xl transition-colors hover:bg-background/80 md:flex"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                aria-label="Next featured track"
+                onClick={() => moveFeatured(1)}
+                className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-foreground/10 bg-background/60 p-2 backdrop-blur-xl transition-colors hover:bg-background/80 md:flex"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </section>
+
 
         {/* ── Quick chips ── */}
         <div className="no-scrollbar -mx-5 flex gap-2.5 overflow-x-auto px-5 md:-mx-8 md:px-8">
@@ -345,6 +430,27 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
             ? restTrending.map((track, i) => <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />)
             : <p className="py-8 text-sm text-muted-foreground">Could not load trending songs</p>}
         </Row>
+
+        {/* ── Personalized rows ── */}
+        {personalLoading && personalRows.length === 0 ? (
+          <Row title="Made for you" subtitle="Tuning to your taste…" showArrows>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="w-[150px] shrink-0 sm:w-[168px]">
+                <div className="aspect-square w-full animate-pulse rounded-2xl bg-foreground/[0.06]" />
+                <div className="mt-2.5 h-3 w-4/5 animate-pulse rounded bg-foreground/[0.06]" />
+                <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-foreground/[0.05]" />
+              </div>
+            ))}
+          </Row>
+        ) : (
+          personalRows.map((row) => (
+            <Row key={row.key} title={row.title} subtitle={row.subtitle} showArrows onViewAll={() => onViewChange?.('settings')}>
+              {row.tracks.map((track, i) => (
+                <TrackCard key={`${row.key}-${track.id}`} track={track as Track} onPlay={(t) => onPlayTrack(t, row.tracks as Track[])} index={i} />
+              ))}
+            </Row>
+          ))
+        )}
 
         {/* ── Karaoke Zone ── */}
         <section className="space-y-5 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 backdrop-blur-2xl md:p-7">

@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useSettings } from '@/contexts/SettingsContext';
+import { usePreferences, GENRE_OPTIONS, type UserPreferences } from '@/contexts/PreferencesContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   Volume2,
@@ -23,26 +24,14 @@ import {
   Trash2,
 } from 'lucide-react';
 
-interface UserPreferences {
-  auto_play: boolean;
-  sound_quality: string;
-  preferred_language: string;
-  favorite_genres: string[];
-}
-
 export const SettingsView: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const settings = useSettings();
+  const { preferences: prefs, updatePreferences } = usePreferences();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: '', username: '' });
-  const [prefs, setPrefs] = useState<UserPreferences>({
-    auto_play: true,
-    sound_quality: 'high',
-    preferred_language: 'en',
-    favorite_genres: [],
-  });
   const [crossfadeSeconds, setCrossfadeSeconds] = useState(() => {
     try {
       return parseInt(localStorage.getItem('melodiya-crossfade-seconds') || '5');
@@ -51,26 +40,20 @@ export const SettingsView: React.FC = () => {
 
   useEffect(() => {
     if (user) fetchData();
+    else setLoading(false);
   }, [user]);
 
   const fetchData = async () => {
     try {
-      const [profileRes, prefsRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('user_id', user!.id).single(),
-        supabase.from('user_preferences').select('*').eq('user_id', user!.id).single(),
-      ]);
-      if (profileRes.data) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (data) {
         setProfile({
-          display_name: profileRes.data.display_name || '',
-          username: profileRes.data.username || '',
-        });
-      }
-      if (prefsRes.data) {
-        setPrefs({
-          auto_play: prefsRes.data.auto_play ?? true,
-          sound_quality: prefsRes.data.sound_quality || 'high',
-          preferred_language: prefsRes.data.preferred_language || 'en',
-          favorite_genres: prefsRes.data.favorite_genres || [],
+          display_name: data.display_name || '',
+          username: data.username || '',
         });
       }
     } catch (e) {
@@ -100,18 +83,16 @@ export const SettingsView: React.FC = () => {
   };
 
   const savePrefs = async (updates: Partial<UserPreferences>) => {
-    const newPrefs = { ...prefs, ...updates };
-    setPrefs(newPrefs);
-    try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .update(updates)
-        .eq('user_id', user!.id);
-      if (error) throw error;
-      toast({ title: 'Preference saved' });
-    } catch (e) {
-      toast({ title: 'Error', description: 'Failed to save preference', variant: 'destructive' });
-    }
+    await updatePreferences(updates);
+    toast({ title: 'Preference saved' });
+  };
+
+  const toggleGenre = (genre: string) => {
+    const current = prefs.favorite_genres || [];
+    const next = current.includes(genre)
+      ? current.filter((g) => g !== genre)
+      : [...current, genre];
+    savePrefs({ favorite_genres: next });
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
@@ -322,6 +303,42 @@ export const SettingsView: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Favorite genres */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Music2 className="w-5 h-5 text-primary" />
+            Your Taste
+          </CardTitle>
+          <CardDescription>Pick genres you love — Home and Search adapt instantly</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {GENRE_OPTIONS.map((genre) => {
+              const active = (prefs.favorite_genres || []).includes(genre);
+              return (
+                <button
+                  key={genre}
+                  type="button"
+                  onClick={() => toggleGenre(genre)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all ${
+                    active
+                      ? 'border-transparent bg-gradient-primary text-primary-foreground'
+                      : 'border-foreground/10 bg-foreground/[0.04] text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {genre}
+                </button>
+              );
+            })}
+          </div>
+          {(prefs.favorite_genres || []).length === 0 && (
+            <p className="mt-3 text-xs text-muted-foreground">No genres selected yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
 
       {/* Language */}
       <Card className="glass-card">
