@@ -277,7 +277,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   };
 
   return (
-    <div className="relative min-h-full">
+    <div className="relative min-h-full overflow-x-hidden">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute -top-40 left-1/4 h-[460px] w-[460px] rounded-full bg-primary/20 blur-[140px]" />
       <div className="pointer-events-none absolute top-32 right-0 h-[360px] w-[360px] rounded-full bg-accent/10 blur-[120px]" />
