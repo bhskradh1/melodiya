@@ -294,8 +294,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
           </div>
         </header>
 
-        {/* ── Featured hero ── */}
-        <section className="relative overflow-hidden rounded-[28px] border border-foreground/[0.08] bg-card/40 backdrop-blur-2xl shadow-[0_28px_80px_-40px_hsl(var(--background))]">
+        {/* ── Featured hero slider (top 5 of the week) ── */}
+        <section
+          className="relative overflow-hidden rounded-[28px] border border-foreground/[0.08] bg-card/40 backdrop-blur-2xl shadow-[0_28px_80px_-40px_hsl(var(--background))]"
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 45) moveFeatured(dx < 0 ? 1 : -1);
+            touchStartX.current = null;
+          }}
+        >
           {featured && (
             <img
               src={featured.thumbnail}
@@ -316,9 +325,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
             </div>
 
             <div className="min-w-0 flex-1 text-center md:text-left">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary backdrop-blur-xl">
-                <Sparkles className="h-3 w-3" /> Featured today
-              </span>
+              <div className="flex items-center justify-center gap-2 md:justify-start">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary backdrop-blur-xl">
+                  <Sparkles className="h-3 w-3" /> Featured today
+                </span>
+                {topFive.length > 1 && (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {featIndex + 1}/{topFive.length}
+                  </span>
+                )}
+              </div>
               <h2 className="mt-3 truncate text-2xl md:text-4xl font-bold">
                 {featured ? featured.title : 'Loading picks…'}
               </h2>
@@ -344,9 +360,44 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
                   Explore trending
                 </Button>
               </div>
+
+              {topFive.length > 1 && (
+                <div className="mt-5 flex items-center justify-center gap-2 md:justify-start">
+                  {topFive.map((t, i) => (
+                    <button
+                      key={t.id}
+                      aria-label={`Show featured track ${i + 1}`}
+                      onClick={() => setFeatIndex(i)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === featIndex ? 'w-6 bg-primary' : 'w-1.5 bg-foreground/25 hover:bg-foreground/40'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          {topFive.length > 1 && (
+            <>
+              <button
+                aria-label="Previous featured track"
+                onClick={() => moveFeatured(-1)}
+                className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-foreground/10 bg-background/60 p-2 backdrop-blur-xl transition-colors hover:bg-background/80 md:flex"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                aria-label="Next featured track"
+                onClick={() => moveFeatured(1)}
+                className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-foreground/10 bg-background/60 p-2 backdrop-blur-xl transition-colors hover:bg-background/80 md:flex"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </section>
+
 
         {/* ── Quick chips ── */}
         <div className="no-scrollbar -mx-5 flex gap-2.5 overflow-x-auto px-5 md:-mx-8 md:px-8">
