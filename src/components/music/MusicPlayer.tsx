@@ -375,11 +375,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   if (!currentTrack) {
-    return (
-      <div className="glass-player h-20 px-4 flex items-center justify-center">
-        <p className="text-muted-foreground">No track selected</p>
-      </div>
-    );
+    return null;
   }
 
   return (
