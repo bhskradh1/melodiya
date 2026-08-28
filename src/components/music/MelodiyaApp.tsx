@@ -24,7 +24,7 @@ const bottomNavItems = [
   { id: 'trending', label: 'Trending', icon: TrendingUp },
   { id: 'library', label: 'Library', icon: Library },
 ];
-import { usePWA } from '@/hooks/use-pwa';
+
 
 interface Track {
   id: string;
@@ -44,10 +44,8 @@ export const MelodiyaApp: React.FC = () => {
   const [isPlaylistMode, setIsPlaylistMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
-  const [showInstallDialog, setShowInstallDialog] = useState(false);
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { canInstall, installPWA, isInstalled } = usePWA();
 
   // Accept optional playlist argument
   const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
@@ -316,14 +314,6 @@ export const MelodiyaApp: React.FC = () => {
           })}
         </nav>
       )}
-
-      {/* Install Dialog */}
-      <InstallDialog
-        open={showInstallDialog}
-        onOpenChange={setShowInstallDialog}
-        onNativeInstall={installPWA}
-        canNativeInstall={canInstall}
-      />
     </div>
   );
 };
