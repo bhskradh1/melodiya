@@ -35,13 +35,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
   const { canInstall, installPWA, isInstalled } = usePWA();
   const [showInstallDialog, setShowInstallDialog] = useState(false);
 
-  const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'search', label: 'Search', icon: Search },
-    { id: 'trending', label: 'Trending', icon: TrendingUp },
-    { id: 'friends', label: 'Friends', icon: Users },
-    { id: 'library', label: 'Your Library', icon: Library },
-  ];
+  // On mobile, Home/Search/Trending/Library live in the bottom nav bar,
+  // so they should not appear in the hamburger drawer.
+  const navItems = isMobile
+    ? [{ id: 'friends', label: 'Friends', icon: Users }]
+    : [
+        { id: 'home', label: 'Home', icon: Home },
+        { id: 'search', label: 'Search', icon: Search },
+        { id: 'trending', label: 'Trending', icon: TrendingUp },
+        { id: 'friends', label: 'Friends', icon: Users },
+        { id: 'library', label: 'Your Library', icon: Library },
+      ];
 
   const libraryItems = [
     { id: 'liked', label: 'Liked Songs', icon: Heart },
@@ -168,18 +172,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
 
       {/* Bottom Actions */}
       <div className="p-3 space-y-2">
-        {/* Install App Button - Desktop */}
-        {!isInstalled && (
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10 hover:bg-primary/20 hover:text-primary text-primary"
-            onClick={() => setShowInstallDialog(true)}
-          >
-            <Download className="w-5 h-5" />
-            Install App
-          </Button>
-        )}
-        
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 h-10 hover:bg-hover-bg"
@@ -197,14 +189,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
           Sign Out
         </Button>
       </div>
-
-      {/* Install Dialog */}
-      <InstallDialog
-        open={showInstallDialog}
-        onOpenChange={setShowInstallDialog}
-        onNativeInstall={installPWA}
-        canNativeInstall={canInstall}
-      />
     </div>
   );
 };
