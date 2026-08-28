@@ -12,12 +12,11 @@ import { TrendingView } from './TrendingView';
 import { SettingsView } from './SettingsView';
 import { FriendsView } from './FriendsView';
 import { AdminView } from '../admin/AdminView';
-import { InstallDialog } from './InstallDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Download, Home, Search, TrendingUp, Library } from 'lucide-react';
+import { Menu, X, Home, Search, TrendingUp, Library } from 'lucide-react';
 
 const bottomNavItems = [
   { id: 'home', label: 'Home', icon: Home },
