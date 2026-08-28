@@ -293,6 +293,15 @@ export const MelodiyaApp: React.FC = () => {
         </div>
       </div>
       
+      {/* Music Player (above mobile bottom nav) */}
+      <MusicPlayer
+        currentTrack={currentTrack}
+        isPlaying={isPlaying}
+        onPlayPause={handlePlayPause}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+      />
+
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <nav className="md:hidden glass-player border-t border-border/30 flex items-stretch justify-around flex-shrink-0">
@@ -320,15 +329,6 @@ export const MelodiyaApp: React.FC = () => {
           })}
         </nav>
       )}
-
-      {/* Music Player */}
-      <MusicPlayer
-        currentTrack={currentTrack}
-        isPlaying={isPlaying}
-        onPlayPause={handlePlayPause}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-      />
 
       {/* Install Dialog */}
       <InstallDialog
