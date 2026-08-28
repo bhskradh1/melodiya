@@ -12,12 +12,11 @@ import { TrendingView } from './TrendingView';
 import { SettingsView } from './SettingsView';
 import { FriendsView } from './FriendsView';
 import { AdminView } from '../admin/AdminView';
-import { InstallDialog } from './InstallDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Download, Home, Search, TrendingUp, Library } from 'lucide-react';
+import { Menu, X, Home, Search, TrendingUp, Library } from 'lucide-react';
 
 const bottomNavItems = [
   { id: 'home', label: 'Home', icon: Home },
@@ -25,7 +24,7 @@ const bottomNavItems = [
   { id: 'trending', label: 'Trending', icon: TrendingUp },
   { id: 'library', label: 'Library', icon: Library },
 ];
-import { usePWA } from '@/hooks/use-pwa';
+
 
 interface Track {
   id: string;
@@ -45,10 +44,8 @@ export const MelodiyaApp: React.FC = () => {
   const [isPlaylistMode, setIsPlaylistMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
-  const [showInstallDialog, setShowInstallDialog] = useState(false);
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { canInstall, installPWA, isInstalled } = usePWA();
 
   // Accept optional playlist argument
   const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
@@ -251,18 +248,6 @@ export const MelodiyaApp: React.FC = () => {
               </span>
             </button>
             
-            {/* Install App Button - Mobile */}
-            {!isInstalled && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-primary hover:text-primary/80"
-                onClick={() => setShowInstallDialog(true)}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Install
-              </Button>
-            )}
           </div>
         )}
 
@@ -329,14 +314,6 @@ export const MelodiyaApp: React.FC = () => {
           })}
         </nav>
       )}
-
-      {/* Install Dialog */}
-      <InstallDialog
-        open={showInstallDialog}
-        onOpenChange={setShowInstallDialog}
-        onNativeInstall={installPWA}
-        canNativeInstall={canInstall}
-      />
     </div>
   );
 };

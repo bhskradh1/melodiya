@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -14,14 +14,11 @@ import {
   Library,
   Clock,
   X,
-  Download,
   Share2,
   Users,
   TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { usePWA } from '@/hooks/use-pwa';
-import { InstallDialog } from './InstallDialog';
 
 interface SidebarProps {
   activeView: string;
@@ -32,8 +29,6 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onClose, isMobile }) => {
   const { signOut, isAdmin } = useAuth();
-  const { canInstall, installPWA, isInstalled } = usePWA();
-  const [showInstallDialog, setShowInstallDialog] = useState(false);
 
   // On mobile, Home/Search/Trending/Library live in the bottom nav bar,
   // so they should not appear in the hamburger drawer.
