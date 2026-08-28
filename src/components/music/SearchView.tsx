@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Search, Play, Plus, Clock, Loader2, Heart, MoreVertical, ListPlus } from 'lucide-react';
+import { Search, Play, Plus, Clock, Loader2, Heart, MoreVertical, ListPlus, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { fetchPreferenceSuggestions, type RecTrack } from '@/lib/recommendations';
 
 interface Track {
   id: string;
@@ -28,8 +30,11 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const [loading, setLoading] = useState(false);
   const [likedSongs, setLikedSongs] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Array<{id: string, name: string}>>([]);
+  const [suggestions, setSuggestions] = useState<RecTrack[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { preferences, version } = usePreferences();
 
   const runSearch = React.useCallback(async (query: string, notify = false) => {
     const q = query.trim();
@@ -227,6 +232,28 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     }
   }, [user]);
 
+  // Load personalized recommendations when the query box is empty.
+  // Re-fetches whenever preferences change (version increments).
+  useEffect(() => {
+    if (!user) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    fetchPreferenceSuggestions(preferences)
+      .then((tracks) => {
+        if (!cancelled) setSuggestions(tracks);
+      })
+      .catch((e) => console.error('Failed to load recommendations:', e))
+      .finally(() => {
+        if (!cancelled) setSuggestionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, preferences, version]);
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Search Header */}
@@ -354,12 +381,76 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       )}
 
       {!loading && !searchQuery && (
-        <div className="flex flex-col items-center justify-center py-8 md:py-12 space-y-4">
-          <Search className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground" />
-          <div className="text-center">
-            <h3 className="text-base md:text-lg font-medium">Search for music</h3>
-            <p className="text-sm md:text-base text-muted-foreground">Find songs, artists, and albums</p>
-          </div>
+        <div className="space-y-6">
+          {/* Recommended for you */}
+          {user && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                <h2 className="text-lg md:text-xl font-semibold">Recommended for you</h2>
+              </div>
+
+              {suggestionsLoading ? (
+                <div className="flex items-center gap-3 py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-muted-foreground text-sm">Curating your picks...</span>
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {suggestions.map((track) => (
+                    <Card key={track.videoId} className="glass-card hover-lift overflow-hidden">
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handlePlayTrack(track as unknown as Track)}
+                            className="relative shrink-0 group"
+                            aria-label={`Play ${track.title}`}
+                          >
+                            <img
+                              src={track.thumbnail}
+                              alt={track.title}
+                              className="w-14 h-14 md:w-16 md:h-16 rounded-lg object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                            </div>
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm truncate">{track.title}</h3>
+                            <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-8 w-8 p-0 shrink-0 ${likedSongs.has(track.videoId) ? 'text-red-500' : 'text-muted-foreground'}`}
+                            onClick={() => toggleLike(track as unknown as Track)}
+                          >
+                            <Heart className={`w-4 h-4 ${likedSongs.has(track.videoId) ? 'fill-current' : ''}`} />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Pick your favourite genres in Settings to get personalized picks.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!user && (
+            <div className="flex flex-col items-center justify-center py-8 md:py-12 space-y-4">
+              <Search className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground" />
+              <div className="text-center">
+                <h3 className="text-base md:text-lg font-medium">Search for music</h3>
+                <p className="text-sm md:text-base text-muted-foreground">Find songs, artists, and albums</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
