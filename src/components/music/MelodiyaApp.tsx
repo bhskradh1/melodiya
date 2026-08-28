@@ -251,18 +251,6 @@ export const MelodiyaApp: React.FC = () => {
               </span>
             </button>
             
-            {/* Install App Button - Mobile */}
-            {!isInstalled && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-primary hover:text-primary/80"
-                onClick={() => setShowInstallDialog(true)}
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Install
-              </Button>
-            )}
           </div>
         )}
 
