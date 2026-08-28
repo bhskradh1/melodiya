@@ -30,8 +30,11 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const [loading, setLoading] = useState(false);
   const [likedSongs, setLikedSongs] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Array<{id: string, name: string}>>([]);
+  const [suggestions, setSuggestions] = useState<RecTrack[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { preferences, version } = usePreferences();
 
   const runSearch = React.useCallback(async (query: string, notify = false) => {
     const q = query.trim();
