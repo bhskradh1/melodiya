@@ -17,7 +17,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Download } from 'lucide-react';
+import { Menu, X, Download, Home, Search, TrendingUp, Library } from 'lucide-react';
+
+const bottomNavItems = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'search', label: 'Search', icon: Search },
+  { id: 'trending', label: 'Trending', icon: TrendingUp },
+  { id: 'library', label: 'Library', icon: Library },
+];
 import { usePWA } from '@/hooks/use-pwa';
 
 interface Track {
@@ -286,6 +293,34 @@ export const MelodiyaApp: React.FC = () => {
         </div>
       </div>
       
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <nav className="md:hidden glass-player border-t border-border/30 flex items-stretch justify-around flex-shrink-0">
+          {bottomNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              activeView === item.id ||
+              (item.id === 'library' &&
+                ['library', 'liked', 'playlists', 'shared-playlists', 'recently-played', 'playlist-detail'].includes(activeView));
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveView(item.id)}
+                className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                }`}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
       {/* Music Player */}
       <MusicPlayer
         currentTrack={currentTrack}
