@@ -232,6 +232,28 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     }
   }, [user]);
 
+  // Load personalized recommendations when the query box is empty.
+  // Re-fetches whenever preferences change (version increments).
+  useEffect(() => {
+    if (!user) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    fetchPreferenceSuggestions(preferences)
+      .then((tracks) => {
+        if (!cancelled) setSuggestions(tracks);
+      })
+      .catch((e) => console.error('Failed to load recommendations:', e))
+      .finally(() => {
+        if (!cancelled) setSuggestionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, preferences, version]);
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Search Header */}
