@@ -17,7 +17,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Download } from 'lucide-react';
+import { Menu, X, Download, Home, Search, TrendingUp, Library } from 'lucide-react';
+
+const bottomNavItems = [
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'search', label: 'Search', icon: Search },
+  { id: 'trending', label: 'Trending', icon: TrendingUp },
+  { id: 'library', label: 'Library', icon: Library },
+];
 import { usePWA } from '@/hooks/use-pwa';
 
 interface Track {
