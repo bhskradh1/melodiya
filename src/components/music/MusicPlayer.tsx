@@ -50,6 +50,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   onPrevious
 }) => {
   const [volume, setVolume] = useState([75]);
+  const volumeInitRef = useRef(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -64,7 +65,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { notifications: notificationsEnabled, normalizeVolume } = useSettings();
+  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume } = useSettings();
+
+  // Apply the saved default volume once on mount
+  useEffect(() => {
+    if (!volumeInitRef.current) {
+      volumeInitRef.current = true;
+      setVolume([defaultVolume]);
+    }
+  }, [defaultVolume]);
   
   const { 
     canInstall, 
@@ -119,11 +128,11 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   useEffect(() => {
     if (currentTrack && currentTrack.id !== prevTrackIdRef.current) {
       prevTrackIdRef.current = currentTrack.id;
-      if (isMobile) {
+      if (isMobile && autoOpenNowPlaying) {
         setShowNowPlaying(true);
       }
     }
-  }, [currentTrack, isMobile]);
+  }, [currentTrack, isMobile, autoOpenNowPlaying]);
 
   const handlePlayerReady = () => {
     setPlayerReady(true);
