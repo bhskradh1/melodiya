@@ -33,14 +33,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
   // On mobile, Home/Search/Trending/Library live in the bottom nav bar,
   // so they should not appear in the hamburger drawer.
   const navItems = isMobile
-    ? [{ id: 'friends', label: 'Friends', icon: Users }]
+    ? [
+        { id: 'karaoke', label: 'Karaoke', icon: Mic2 },
+        { id: 'friends', label: 'Friends', icon: Users },
+      ]
     : [
         { id: 'home', label: 'Home', icon: Home },
         { id: 'search', label: 'Search', icon: Search },
         { id: 'trending', label: 'Trending', icon: TrendingUp },
+        { id: 'karaoke', label: 'Karaoke', icon: Mic2 },
         { id: 'friends', label: 'Friends', icon: Users },
         { id: 'library', label: 'Your Library', icon: Library },
       ];
+
 
   const libraryItems = [
     { id: 'liked', label: 'Liked Songs', icon: Heart },
