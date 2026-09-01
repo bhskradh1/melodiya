@@ -65,7 +65,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume } = useSettings();
+  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume, backgroundPlayback } = useSettings();
 
   // Apply the saved default volume once on mount
   useEffect(() => {
@@ -236,7 +236,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
 
   // Keeps the WebView/browser audio session alive while minimised
-  useBackgroundAudio(isPlaying && !!currentTrack);
+  useBackgroundAudio(isPlaying && !!currentTrack && backgroundPlayback);
 
   // Media Session API for lock screen / notification controls
   useEffect(() => {

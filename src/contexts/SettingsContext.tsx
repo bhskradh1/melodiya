@@ -10,7 +10,7 @@ interface AppSettings {
   autoOpenNowPlaying: boolean;
   defaultVolume: number;
   reduceMotion: boolean;
-  showLyrics: boolean;
+  lyricsAutoScroll: boolean;
   backgroundPlayback: boolean;
 }
 
@@ -28,7 +28,7 @@ const defaultSettings: AppSettings = {
   autoOpenNowPlaying: true,
   defaultVolume: 75,
   reduceMotion: false,
-  showLyrics: true,
+  lyricsAutoScroll: true,
   backgroundPlayback: true,
 };
 
