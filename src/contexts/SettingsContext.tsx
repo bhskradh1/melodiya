@@ -7,6 +7,11 @@ interface AppSettings {
   showExplicit: boolean;
   dataSaver: boolean;
   notifications: boolean;
+  autoOpenNowPlaying: boolean;
+  defaultVolume: number;
+  reduceMotion: boolean;
+  lyricsAutoScroll: boolean;
+  backgroundPlayback: boolean;
 }
 
 interface SettingsContextType extends AppSettings {
@@ -20,6 +25,11 @@ const defaultSettings: AppSettings = {
   showExplicit: true,
   dataSaver: false,
   notifications: false,
+  autoOpenNowPlaying: true,
+  defaultVolume: 75,
+  reduceMotion: false,
+  lyricsAutoScroll: true,
+  backgroundPlayback: true,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -49,6 +59,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       document.documentElement.classList.add('light');
     }
   }, [settings.darkMode]);
+
+  // Apply reduced-motion class
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', settings.reduceMotion);
+  }, [settings.reduceMotion]);
 
   // Persist to localStorage
   useEffect(() => {

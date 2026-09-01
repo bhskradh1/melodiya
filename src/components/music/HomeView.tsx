@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2, Loader2, Search, Sparkles } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWeeklyTrending } from '@/lib/trending';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -29,16 +28,6 @@ const getGreeting = () => {
   return 'Good evening';
 };
 
-const KARAOKE_SEARCHES = [
-  { name: 'Pop Hits', emoji: '🎤', query: 'karaoke pop hits 2025' },
-  { name: 'Bollywood', emoji: '🎬', query: 'karaoke bollywood songs' },
-  { name: 'Rock Classics', emoji: '🎸', query: 'karaoke rock classics' },
-  { name: 'R&B / Soul', emoji: '🎶', query: 'karaoke r&b soul songs' },
-  { name: 'EDM / Dance', emoji: '🎹', query: 'karaoke edm dance' },
-  { name: 'Country', emoji: '🤠', query: 'karaoke country songs' },
-  { name: 'K-Pop', emoji: '💜', query: 'karaoke kpop songs' },
-  { name: 'Lo-Fi Chill', emoji: '🌙', query: 'karaoke lofi chill songs' },
-] as const;
 
 /* ─────────── sub-components ─────────── */
 
@@ -158,9 +147,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
-  const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
-  const [karaokeQuery, setKaraokeQuery] = useState('');
-  const [karaokeSearchLoading, setKaraokeSearchLoading] = useState(false);
   const [personalRows, setPersonalRows] = useState<RecommendationRow[]>([]);
   const [personalLoading, setPersonalLoading] = useState(true);
   const [featIndex, setFeatIndex] = useState(0);
@@ -199,23 +185,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     };
   }, [preferences, version]);
 
-  const handleKaraokeCustomSearch = useCallback(async () => {
-    const q = karaokeQuery.trim();
-    if (!q) return;
-    setKaraokeSearchLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: `karaoke ${q}` },
-      });
-      if (!error && data?.tracks && data.tracks.length > 0) {
-        onPlayTrack(data.tracks[0], data.tracks);
-      }
-    } catch (err) {
-      console.error('Karaoke search error:', err);
-    } finally {
-      setKaraokeSearchLoading(false);
-    }
-  }, [karaokeQuery, onPlayTrack]);
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
@@ -260,21 +229,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     }
   };
 
-  const handleKaraokeSearch = async (search: typeof KARAOKE_SEARCHES[number]) => {
-    setKaraokeLoading(search.name);
-    try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: search.query },
-      });
-      if (!error && data?.tracks && data.tracks.length > 0) {
-        onPlayTrack(data.tracks[0], data.tracks);
-      }
-    } catch (err) {
-      console.error('Error fetching karaoke:', err);
-    } finally {
-      setKaraokeLoading(null);
-    }
-  };
 
   return (
     <div className="relative min-h-full overflow-x-hidden">
@@ -452,60 +406,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
           ))
         )}
 
-        {/* ── Karaoke Zone ── */}
-        <section className="space-y-5 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 backdrop-blur-2xl md:p-7">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
-              <Mic2 className="h-4 w-4 text-primary-foreground" />
-            </span>
-            <div>
-              <h2 className="text-xl font-bold">Karaoke Zone</h2>
-              <p className="text-xs text-muted-foreground">Sing along with synced lyrics</p>
-            </div>
+        {/* ── Karaoke shortcut ── */}
+        <button
+          type="button"
+          onClick={() => onViewChange?.('karaoke')}
+          className="flex w-full items-center gap-3 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 text-left backdrop-blur-2xl transition-transform hover:-translate-y-0.5 md:p-7"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
+            <Mic2 className="h-4 w-4 text-primary-foreground" />
+          </span>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Karaoke Zone</h2>
+            <p className="text-xs text-muted-foreground">Sing along with synced lyrics</p>
           </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </button>
 
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              handleKaraokeCustomSearch();
-            }}
-            className="flex gap-2"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search any karaoke song…"
-                value={karaokeQuery}
-                onChange={e => setKaraokeQuery(e.target.value)}
-                className="h-11 rounded-full border-foreground/[0.08] bg-foreground/[0.04] pl-10 backdrop-blur-xl focus-visible:ring-primary/40"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={karaokeSearchLoading || !karaokeQuery.trim()}
-              className="h-11 shrink-0 rounded-full bg-gradient-primary px-6 font-semibold text-primary-foreground"
-            >
-              {karaokeSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
-            </Button>
-          </form>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {KARAOKE_SEARCHES.map(k => (
-              <button
-                key={k.name}
-                onClick={() => handleKaraokeSearch(k)}
-                disabled={karaokeLoading === k.name}
-                className="group relative flex h-24 flex-col justify-between overflow-hidden rounded-2xl border border-foreground/[0.08] bg-foreground/[0.04] p-3.5 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-foreground/[0.08] disabled:opacity-70 md:h-28"
-              >
-                <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/25 blur-2xl transition-transform duration-500 group-hover:scale-150" />
-                <span className="relative z-10 text-2xl">
-                  {karaokeLoading === k.name ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : k.emoji}
-                </span>
-                <span className="relative z-10 text-sm font-semibold">{k.name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );

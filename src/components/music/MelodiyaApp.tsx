@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { MusicPlayer } from './MusicPlayer';
 import { HomeView } from './HomeView';
@@ -11,6 +11,7 @@ import { RecentlyPlayedView } from './RecentlyPlayedView';
 import { TrendingView } from './TrendingView';
 import { SettingsView } from './SettingsView';
 import { FriendsView } from './FriendsView';
+import { KaraokeView } from './KaraokeView';
 import { AdminView } from '../admin/AdminView';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -46,6 +47,12 @@ export const MelodiyaApp: React.FC = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  // Always land at the top of a view when switching sections
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeView]);
 
   // Accept optional playlist argument
   const handlePlayTrack = async (track: Track, newPlaylist?: Track[]) => {
@@ -210,6 +217,8 @@ export const MelodiyaApp: React.FC = () => {
         return <PlaylistsView onPlayTrack={handlePlayTrack} onViewPlaylist={handleViewPlaylist} />;
       case 'friends':
         return <FriendsView />;
+      case 'karaoke':
+        return <KaraokeView onPlayTrack={handlePlayTrack} />;
       case 'settings':
         return <SettingsView />;
       default:
@@ -273,7 +282,7 @@ export const MelodiyaApp: React.FC = () => {
         )}
         
         {/* Main Content */}
-        <div className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14' : ''}`}>
+        <div ref={mainRef} className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14' : ''}`}>
           {renderView()}
         </div>
       </div>

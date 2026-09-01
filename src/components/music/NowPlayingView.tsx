@@ -1,3 +1,4 @@
+import { useSettings } from '@/contexts/SettingsContext';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -84,7 +85,8 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const { lyricsAutoScroll } = useSettings();
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(lyricsAutoScroll);
   const [scrollSpeed, setScrollSpeed] = useState(1); // 1x default
   const [showSpeedControl, setShowSpeedControl] = useState(false);
   const plainScrollRef = useRef<number | null>(null);
