@@ -12,7 +12,11 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { usePreferences, GENRE_OPTIONS, type UserPreferences } from '@/contexts/PreferencesContext';
 import { useToast } from '@/hooks/use-toast';
+import { getOfflineTracks, clearOfflineLibrary } from '@/lib/offlineLibrary';
 import {
+  Smartphone,
+  Mic2,
+  WifiOff,
   Volume2,
   Music2,
   Globe,
@@ -32,6 +36,7 @@ export const SettingsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: '', username: '' });
+  const [offlineCount, setOfflineCount] = useState(() => getOfflineTracks().length);
   const [crossfadeSeconds, setCrossfadeSeconds] = useState(() => {
     try {
       return parseInt(localStorage.getItem('melodiya-crossfade-seconds') || '5');
@@ -105,6 +110,23 @@ export const SettingsView: React.FC = () => {
       }
     } else {
       settings.updateSetting('notifications', false);
+    }
+  };
+
+  const handleClearOffline = async () => {
+    await clearOfflineLibrary();
+    setOfflineCount(0);
+    toast({ title: 'Offline library cleared' });
+  };
+
+  const handleClearCaches = async () => {
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('melodiya_recs_') || k.startsWith('melodiya_trending'))
+        .forEach((k) => localStorage.removeItem(k));
+      toast({ title: 'Recommendation cache cleared', description: 'Home and Search will refresh with new picks' });
+    } catch {
+      toast({ title: 'Error', description: 'Could not clear cache', variant: 'destructive' });
     }
   };
 
@@ -257,6 +279,31 @@ export const SettingsView: React.FC = () => {
               onCheckedChange={(v) => settings.updateSetting('showExplicit', v)}
             />
           </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Background Playback</Label>
+              <p className="text-xs text-muted-foreground">Keep music playing when the app is minimised</p>
+            </div>
+            <Switch
+              checked={settings.backgroundPlayback}
+              onCheckedChange={(v) => settings.updateSetting('backgroundPlayback', v)}
+            />
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Default Volume</Label>
+              <span className="text-xs text-muted-foreground">{settings.defaultVolume}%</span>
+            </div>
+            <Slider
+              value={[settings.defaultVolume]}
+              onValueChange={(v) => settings.updateSetting('defaultVolume', v[0])}
+              min={0}
+              max={100}
+              step={1}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -367,6 +414,7 @@ export const SettingsView: React.FC = () => {
                 <SelectItem value="ja">Japanese</SelectItem>
                 <SelectItem value="ko">Korean</SelectItem>
                 <SelectItem value="pt">Portuguese</SelectItem>
+                <SelectItem value="ne">Nepali</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -411,6 +459,85 @@ export const SettingsView: React.FC = () => {
               onCheckedChange={(v) => settings.updateSetting('darkMode', v)}
             />
           </div>
+          <Separator className="my-4" />
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Reduce Motion</Label>
+              <p className="text-xs text-muted-foreground">Minimise animations and transitions</p>
+            </div>
+            <Switch
+              checked={settings.reduceMotion}
+              onCheckedChange={(v) => settings.updateSetting('reduceMotion', v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Now Playing & Lyrics */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Mic2 className="w-5 h-5 text-primary" />
+            Now Playing & Lyrics
+          </CardTitle>
+          <CardDescription>Full-screen player and karaoke behaviour</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Auto-open Now Playing</Label>
+              <p className="text-xs text-muted-foreground">Open the full player on mobile when a song starts</p>
+            </div>
+            <Switch
+              checked={settings.autoOpenNowPlaying}
+              onCheckedChange={(v) => settings.updateSetting('autoOpenNowPlaying', v)}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Auto-scroll Lyrics</Label>
+              <p className="text-xs text-muted-foreground">Follow the song line by line while singing</p>
+            </div>
+            <Switch
+              checked={settings.lyricsAutoScroll}
+              onCheckedChange={(v) => settings.updateSetting('lyricsAutoScroll', v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Offline library */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <WifiOff className="w-5 h-5 text-primary" />
+            Offline Library
+          </CardTitle>
+          <CardDescription>{offlineCount} saved {offlineCount === 1 ? 'song' : 'songs'} browsable without a connection</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" className="w-full justify-start gap-2" onClick={handleClearOffline} disabled={offlineCount === 0}>
+            <Trash2 className="w-4 h-4" />
+            Clear Offline Library
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* App */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Smartphone className="w-5 h-5 text-primary" />
+            App
+          </CardTitle>
+          <CardDescription>Cached recommendations and installed app data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" className="w-full justify-start gap-2" onClick={handleClearCaches}>
+            <Trash2 className="w-4 h-4" />
+            Refresh Recommendations Cache
+          </Button>
         </CardContent>
       </Card>
 

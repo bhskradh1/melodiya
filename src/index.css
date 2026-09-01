@@ -217,3 +217,13 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* Reduced motion (user setting) */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
