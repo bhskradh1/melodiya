@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2, Loader2, Search, Sparkles } from 'lucide-react';
+import { Play, Music, TrendingUp, Clock, Heart, ChevronRight, ChevronLeft, Mic2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchWeeklyTrending } from '@/lib/trending';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -29,16 +28,6 @@ const getGreeting = () => {
   return 'Good evening';
 };
 
-const KARAOKE_SEARCHES = [
-  { name: 'Pop Hits', emoji: '🎤', query: 'karaoke pop hits 2025' },
-  { name: 'Bollywood', emoji: '🎬', query: 'karaoke bollywood songs' },
-  { name: 'Rock Classics', emoji: '🎸', query: 'karaoke rock classics' },
-  { name: 'R&B / Soul', emoji: '🎶', query: 'karaoke r&b soul songs' },
-  { name: 'EDM / Dance', emoji: '🎹', query: 'karaoke edm dance' },
-  { name: 'Country', emoji: '🤠', query: 'karaoke country songs' },
-  { name: 'K-Pop', emoji: '💜', query: 'karaoke kpop songs' },
-  { name: 'Lo-Fi Chill', emoji: '🌙', query: 'karaoke lofi chill songs' },
-] as const;
 
 /* ─────────── sub-components ─────────── */
 
@@ -158,9 +147,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
-  const [karaokeLoading, setKaraokeLoading] = useState<string | null>(null);
-  const [karaokeQuery, setKaraokeQuery] = useState('');
-  const [karaokeSearchLoading, setKaraokeSearchLoading] = useState(false);
   const [personalRows, setPersonalRows] = useState<RecommendationRow[]>([]);
   const [personalLoading, setPersonalLoading] = useState(true);
   const [featIndex, setFeatIndex] = useState(0);
@@ -199,23 +185,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     };
   }, [preferences, version]);
 
-  const handleKaraokeCustomSearch = useCallback(async () => {
-    const q = karaokeQuery.trim();
-    if (!q) return;
-    setKaraokeSearchLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: `karaoke ${q}` },
-      });
-      if (!error && data?.tracks && data.tracks.length > 0) {
-        onPlayTrack(data.tracks[0], data.tracks);
-      }
-    } catch (err) {
-      console.error('Karaoke search error:', err);
-    } finally {
-      setKaraokeSearchLoading(false);
-    }
-  }, [karaokeQuery, onPlayTrack]);
 
   useEffect(() => {
     if (user) fetchRecentlyPlayed();
@@ -260,21 +229,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     }
   };
 
-  const handleKaraokeSearch = async (search: typeof KARAOKE_SEARCHES[number]) => {
-    setKaraokeLoading(search.name);
-    try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: search.query },
-      });
-      if (!error && data?.tracks && data.tracks.length > 0) {
-        onPlayTrack(data.tracks[0], data.tracks);
-      }
-    } catch (err) {
-      console.error('Error fetching karaoke:', err);
-    } finally {
-      setKaraokeLoading(null);
-    }
-  };
 
   return (
     <div className="relative min-h-full overflow-x-hidden">
