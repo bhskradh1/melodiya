@@ -452,60 +452,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
           ))
         )}
 
-        {/* ── Karaoke Zone ── */}
-        <section className="space-y-5 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 backdrop-blur-2xl md:p-7">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
-              <Mic2 className="h-4 w-4 text-primary-foreground" />
-            </span>
-            <div>
-              <h2 className="text-xl font-bold">Karaoke Zone</h2>
-              <p className="text-xs text-muted-foreground">Sing along with synced lyrics</p>
-            </div>
+        {/* ── Karaoke shortcut ── */}
+        <button
+          type="button"
+          onClick={() => onViewChange?.('karaoke')}
+          className="flex w-full items-center gap-3 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 text-left backdrop-blur-2xl transition-transform hover:-translate-y-0.5 md:p-7"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
+            <Mic2 className="h-4 w-4 text-primary-foreground" />
+          </span>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Karaoke Zone</h2>
+            <p className="text-xs text-muted-foreground">Sing along with synced lyrics</p>
           </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </button>
 
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              handleKaraokeCustomSearch();
-            }}
-            className="flex gap-2"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search any karaoke song…"
-                value={karaokeQuery}
-                onChange={e => setKaraokeQuery(e.target.value)}
-                className="h-11 rounded-full border-foreground/[0.08] bg-foreground/[0.04] pl-10 backdrop-blur-xl focus-visible:ring-primary/40"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={karaokeSearchLoading || !karaokeQuery.trim()}
-              className="h-11 shrink-0 rounded-full bg-gradient-primary px-6 font-semibold text-primary-foreground"
-            >
-              {karaokeSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
-            </Button>
-          </form>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {KARAOKE_SEARCHES.map(k => (
-              <button
-                key={k.name}
-                onClick={() => handleKaraokeSearch(k)}
-                disabled={karaokeLoading === k.name}
-                className="group relative flex h-24 flex-col justify-between overflow-hidden rounded-2xl border border-foreground/[0.08] bg-foreground/[0.04] p-3.5 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-foreground/[0.08] disabled:opacity-70 md:h-28"
-              >
-                <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/25 blur-2xl transition-transform duration-500 group-hover:scale-150" />
-                <span className="relative z-10 text-2xl">
-                  {karaokeLoading === k.name ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : k.emoji}
-                </span>
-                <span className="relative z-10 text-sm font-semibold">{k.name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );
