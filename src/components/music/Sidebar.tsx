@@ -16,7 +16,9 @@ import {
   X,
   Share2,
   Users,
-  TrendingUp
+  TrendingUp,
+  Mic2
+
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
