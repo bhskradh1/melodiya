@@ -34,6 +34,8 @@ interface Track {
   thumbnail: string;
   videoId: string;
   duration?: string;
+  audioUrl?: string;
+  audio_url?: string;
 }
 
 export const MelodiyaApp: React.FC = () => {

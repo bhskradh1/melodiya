@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -20,6 +24,12 @@ void main() async {
     systemNavigationBarColor: Color(0xFF0A0A0A),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.melodiya.melodiya_app.audio',
+    androidNotificationChannelName: 'Melodiya playback',
+    androidNotificationChannelDescription: 'Controls for Melodiya music playback',
+    androidNotificationOngoing: true,
+  );
   runApp(const MelodiyaApp());
 }
 
@@ -54,6 +64,15 @@ class _MelodiyaHome extends StatefulWidget {
 
 class _MelodiyaHomeState extends State<_MelodiyaHome> {
   late final WebViewController _web;
+  late final AudioPlayer _nativeAudioPlayer;
+  StreamSubscription? _nativePlayerStateSubscription;
+  StreamSubscription? _nativeErrorSubscription;
+  Timer? _nativeStateTimer;
+  bool _nativeAudioActive = false;
+  bool _nativeEndedNotified = false;
+  bool _nativeRequestedPlaying = false;
+  String? _activeNativeUrl;
+  DateTime? _lastWebAudioCommandAt;
   HttpServer? _server;
   bool _loading = true;
   bool _canGoBack = false;
@@ -63,6 +82,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
   @override
   void initState() {
     super.initState();
+    _nativeAudioPlayer = AudioPlayer();
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0A0A0A))
@@ -73,6 +93,12 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
           if (mounted && value != _canGoBack) {
             setState(() => _canGoBack = value);
           }
+        },
+      )
+      ..addJavaScriptChannel(
+        'MelodiyaNativeAudio',
+        onMessageReceived: (message) {
+          unawaited(_handleNativeAudioMessage(message.message));
         },
       )
       ..setNavigationDelegate(
@@ -120,6 +146,23 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
           },
         ),
       );
+    _nativePlayerStateSubscription = _nativeAudioPlayer.playerStateStream.listen((state) {
+      if (!_nativeAudioActive) return;
+      if (state.processingState == ProcessingState.completed) {
+        if (!_nativeEndedNotified) {
+          _nativeEndedNotified = true;
+          _publishNativeAudioState(event: 'ended');
+        }
+      } else {
+        _publishNativeAudioState();
+      }
+    });
+    _nativeErrorSubscription = _nativeAudioPlayer.errorStream.listen((error) {
+      if (_nativeAudioActive) _publishNativeAudioState(event: 'error', message: error.toString());
+    });
+    _nativeStateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_nativeAudioActive) _publishNativeAudioState();
+    });
     unawaited(_start());
   }
 
@@ -147,6 +190,122 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
         _error = 'Could not start the bundled app: $error';
       });
     }
+  }
+
+  Future<void> _handleNativeAudioMessage(String rawMessage) async {
+    try {
+      final decoded = jsonDecode(rawMessage);
+      if (decoded is! Map) return;
+      final message = Map<String, dynamic>.from(decoded);
+      final command = message['command'] as String?;
+      if (command == null) return;
+      _lastWebAudioCommandAt = DateTime.now();
+
+      switch (command) {
+        case 'load':
+          final rawUrl = message['url'] as String?;
+          final uri = rawUrl == null ? null : Uri.tryParse(rawUrl);
+          if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) {
+            throw const FormatException('Native playback requires a direct HTTPS audio URL.');
+          }
+          final title = (message['title'] as String?)?.trim();
+          final artist = (message['artist'] as String?)?.trim();
+          final rawArtwork = message['artwork'] as String?;
+          final parsedArtwork = rawArtwork == null ? null : Uri.tryParse(rawArtwork);
+          final artworkUri = parsedArtwork != null &&
+                  (parsedArtwork.scheme == 'https' || parsedArtwork.scheme == 'http')
+              ? parsedArtwork
+              : null;
+
+          _nativeAudioActive = true;
+          _nativeEndedNotified = false;
+          _activeNativeUrl = uri.toString();
+          _nativeRequestedPlaying = message['autoplay'] == true;
+          await _nativeAudioPlayer.setAudioSource(
+            AudioSource.uri(
+              uri,
+              tag: MediaItem(
+                id: uri.toString(),
+                album: 'Melodiya',
+                title: title == null || title.isEmpty ? 'Unknown track' : title,
+                artist: artist == null || artist.isEmpty ? 'Unknown artist' : artist,
+                artUri: artworkUri,
+              ),
+            ),
+          );
+          if (_nativeRequestedPlaying) {
+            unawaited(_nativeAudioPlayer.play().catchError((Object error) {
+              _publishNativeAudioState(event: 'error', message: error.toString());
+            }));
+          }
+          _publishNativeAudioState();
+          break;
+
+        case 'play':
+          if (_activeNativeUrl != null) {
+            _nativeRequestedPlaying = true;
+            unawaited(_nativeAudioPlayer.play().catchError((Object error) {
+              _publishNativeAudioState(event: 'error', message: error.toString());
+            }));
+          }
+          break;
+
+        case 'pause':
+          _nativeRequestedPlaying = false;
+          await _nativeAudioPlayer.pause();
+          _publishNativeAudioState();
+          break;
+
+        case 'stop':
+          _nativeRequestedPlaying = false;
+          _nativeAudioActive = false;
+          _activeNativeUrl = null;
+          await _nativeAudioPlayer.stop();
+          _publishNativeAudioState(event: 'stopped', force: true);
+          break;
+
+        case 'seek':
+          final rawPosition = message['position'];
+          if (rawPosition is num) {
+            await _nativeAudioPlayer.seek(
+              Duration(milliseconds: (rawPosition.clamp(0, 86400) * 1000).round()),
+            );
+          }
+          _publishNativeAudioState();
+          break;
+
+        case 'volume':
+          final rawVolume = message['volume'];
+          if (rawVolume is num) {
+            await _nativeAudioPlayer.setVolume(
+              rawVolume.toDouble().clamp(0.0, 1.0).toDouble(),
+            );
+          }
+          break;
+      }
+    } catch (error) {
+      _publishNativeAudioState(event: 'error', message: error.toString(), force: true);
+    }
+  }
+
+  void _publishNativeAudioState({String? event, String? message, bool force = false}) {
+    if (!force && !_nativeAudioActive) return;
+    final playerState = _nativeAudioPlayer.playerState;
+    final lastCommand = _lastWebAudioCommandAt;
+    final syncPlaying = lastCommand == null ||
+        DateTime.now().difference(lastCommand) > const Duration(seconds: 2);
+    final payload = <String, dynamic>{
+      'event': event ?? 'state',
+      'playing': playerState.playing,
+      'position': _nativeAudioPlayer.position.inMilliseconds / 1000.0,
+      'duration': (_nativeAudioPlayer.duration?.inMilliseconds ?? 0) / 1000.0,
+      'processingState': playerState.processingState.name,
+      'syncPlaying': syncPlaying,
+    };
+    if (message != null) payload['message'] = message;
+    final script =
+        'window.dispatchEvent(new CustomEvent("melodiya-native-audio-state", {detail: ${jsonEncode(payload)}}));';
+    unawaited(_web.runJavaScript(script).catchError((_) {}));
   }
 
   Future<void> _serveAsset(HttpRequest request) async {
@@ -296,6 +455,10 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
   void dispose() {
     final server = _server;
     if (server != null) unawaited(server.close(force: true));
+    _nativeStateTimer?.cancel();
+    if (_nativePlayerStateSubscription != null) unawaited(_nativePlayerStateSubscription!.cancel());
+    if (_nativeErrorSubscription != null) unawaited(_nativeErrorSubscription!.cancel());
+    unawaited(_nativeAudioPlayer.dispose());
     super.dispose();
   }
 

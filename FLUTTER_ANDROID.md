@@ -35,5 +35,8 @@ The build uses `MELODIYA_AUTH_REDIRECT_URL` if configured as a GitHub Actions re
 
 - The bundled UI launches locally, but Supabase authentication, database calls, and YouTube features still require internet access.
 - Only the public Supabase anon/publishable key belongs in client code. Never add a Supabase service-role key or other private credentials to this repository.
-- The wrapper supports WebView JavaScript, Android system back navigation, and opening external links in their associated Android apps. Background audio/lock-screen behavior needs physical-device testing and is not a replacement for a native Android media service.
+- The wrapper supports WebView JavaScript, Android system back navigation, and opening external links in their associated Android apps.
+- Native playback uses `just_audio` + `just_audio_background`, with an Android media playback service, media notification, and lock-screen/headset controls. The React player uses this path when a track includes `audioUrl` (or `audio_url`) containing a direct, accessible HTTPS audio stream URL.
+- The existing discovery/search catalog returns YouTube video IDs only, which are not audio stream URLs. YouTube playback stays in the embedded YouTube player and is not routed through the native audio player. Do not extract or separate YouTube audio. Native background playback requires licensed audio files/streams to be made available to the app.
+- Test direct-stream background playback on a physical Android device, including screen lock, notification play/pause, seeking, and network interruptions.
 - This branch adds the Android packaging path without deleting or replacing the existing web app.

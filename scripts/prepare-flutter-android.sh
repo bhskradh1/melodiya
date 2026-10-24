@@ -30,13 +30,20 @@ if not manifest.exists():
     raise SystemExit('Flutter Android manifest was not generated.')
 
 text = manifest.read_text()
-permissions = []
-if 'android.permission.INTERNET' not in text:
-    permissions.append('    <uses-permission android:name="android.permission.INTERNET" />')
-if 'android.permission.WAKE_LOCK' not in text:
-    permissions.append('    <uses-permission android:name="android.permission.WAKE_LOCK" />')
-if permissions:
-    text = text.replace('<application', '\n'.join(permissions) + '\n\n    <application', 1)
+permissions = [
+    'android.permission.INTERNET',
+    'android.permission.WAKE_LOCK',
+    'android.permission.FOREGROUND_SERVICE',
+    'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+]
+for permission in permissions:
+    token = f'android:name="{permission}"'
+    if token not in text:
+        text = text.replace(
+            '<application',
+            f'    <uses-permission android:name="{permission}" />\n\n    <application',
+            1,
+        )
 
 text = re.sub(r'android:label="[^"]*"', 'android:label="Melodiya"', text, count=1)
 if 'android:usesCleartextTraffic=' not in text:
@@ -45,6 +52,35 @@ if 'android:usesCleartextTraffic=' not in text:
         'android:name="${applicationName}" android:usesCleartextTraffic="true"',
         1,
     )
+
+text, activity_count = re.subn(
+    r'android:name="(?:\.MainActivity|[A-Za-z0-9_.$]*MainActivity)"',
+    'android:name="com.ryanheise.audioservice.AudioServiceActivity"',
+    text,
+    count=1,
+)
+if activity_count == 0 and 'android:name="com.ryanheise.audioservice.AudioServiceActivity"' not in text:
+    raise SystemExit('Could not find the generated Android main activity in AndroidManifest.xml.')
+
+audio_components = """
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+"""
+if 'android:name="com.ryanheise.audioservice.AudioService"' not in text:
+    text = text.replace('</application>', audio_components + '    </application>', 1)
 manifest.write_text(text)
 
 for name in ('build.gradle.kts', 'build.gradle'):

@@ -9,7 +9,6 @@ import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
 import { NowPlayingView } from './NowPlayingView';
 import { usePWA } from '@/hooks/use-pwa';
-import { useBackgroundAudio } from '@/hooks/use-background-audio';
 
 import { 
   Play, 
@@ -32,6 +31,14 @@ interface Track {
   artist: string;
   thumbnail: string;
   videoId: string;
+  audioUrl?: string;
+  audio_url?: string;
+}
+
+declare global {
+  interface Window {
+    MelodiyaNativeAudio?: { postMessage: (message: string) => void };
+  }
 }
 
 interface MusicPlayerProps {
@@ -54,6 +61,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [nativeCurrentTime, setNativeCurrentTime] = useState(0);
+  const [nativeDuration, setNativeDuration] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
@@ -61,11 +70,24 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const prevTrackIdRef = useRef<string | null>(null);
+  const previousNativeAudioUrlRef = useRef<string | null>(null);
+  const lastNativeExternalPlayingRef = useRef<boolean | null>(null);
   const playerRef = useRef<any>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume, backgroundPlayback } = useSettings();
+  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume } = useSettings();
+  const nativeAudioUrl = currentTrack?.audioUrl ?? currentTrack?.audio_url ?? null;
+  const useNativeAudio = Boolean(nativeAudioUrl && typeof window !== 'undefined' && window.MelodiyaNativeAudio);
+  const sendNativeAudioCommand = useCallback((payload: Record<string, unknown>) => {
+    try {
+      if (!window.MelodiyaNativeAudio) return false;
+      window.MelodiyaNativeAudio.postMessage(JSON.stringify(payload));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Apply the saved default volume once on mount
   useEffect(() => {
@@ -162,6 +184,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   useEffect(() => {
+    if (useNativeAudio) return;
     if (currentTrack && playerReady) {
       setIsLoading(true);
       if (isPlaying && playerRef.current && typeof playerRef.current.getVideoData === 'function') {
@@ -181,7 +204,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         }
       }
     }
-  }, [currentTrack, isPlaying, playerReady]);
+  }, [currentTrack, isPlaying, playerReady, useNativeAudio]);
 
   const endTriggeredRef = useRef(false);
 
@@ -222,6 +245,87 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   useEffect(() => {
+    const previousUrl = previousNativeAudioUrlRef.current;
+    if (!useNativeAudio || !nativeAudioUrl || !currentTrack) {
+      if (previousUrl) sendNativeAudioCommand({ command: 'stop' });
+      previousNativeAudioUrlRef.current = null;
+      lastNativeExternalPlayingRef.current = null;
+      return;
+    }
+
+    if (previousUrl !== nativeAudioUrl) {
+      previousNativeAudioUrlRef.current = nativeAudioUrl;
+      setNativeCurrentTime(0);
+      setNativeDuration(0);
+      setIsLoading(true);
+      sendNativeAudioCommand({
+        command: 'load',
+        url: nativeAudioUrl,
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        artwork: currentTrack.thumbnail,
+        autoplay: isPlaying,
+      });
+    } else {
+      sendNativeAudioCommand({ command: isPlaying ? 'play' : 'pause' });
+    }
+  }, [
+    useNativeAudio,
+    nativeAudioUrl,
+    currentTrack?.title,
+    currentTrack?.artist,
+    currentTrack?.thumbnail,
+    isPlaying,
+    sendNativeAudioCommand,
+  ]);
+
+  useEffect(() => {
+    if (!useNativeAudio) return;
+    const handleNativeAudioState = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        event?: string;
+        playing?: boolean;
+        position?: number;
+        duration?: number;
+        processingState?: string;
+        syncPlaying?: boolean;
+        message?: string;
+      }>).detail;
+      if (!detail) return;
+
+      if (detail.event === 'ended') {
+        triggerNextTrack();
+        return;
+      }
+      if (detail.event === 'error') {
+        setIsLoading(false);
+        toast({
+          title: 'Native audio could not be played',
+          description: detail.message || 'Check that the audio URL is a valid, accessible HTTPS stream.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (typeof detail.position === 'number') setNativeCurrentTime(detail.position);
+      if (typeof detail.duration === 'number') setNativeDuration(detail.duration);
+      setIsLoading(detail.processingState === 'loading' || detail.processingState === 'buffering');
+
+      if (detail.syncPlaying && typeof detail.playing === 'boolean') {
+        if (detail.playing === isPlaying) {
+          lastNativeExternalPlayingRef.current = null;
+        } else if (lastNativeExternalPlayingRef.current !== detail.playing) {
+          lastNativeExternalPlayingRef.current = detail.playing;
+          onPlayPause();
+        }
+      }
+    };
+
+    window.addEventListener('melodiya-native-audio-state', handleNativeAudioState);
+    return () => window.removeEventListener('melodiya-native-audio-state', handleNativeAudioState);
+  }, [useNativeAudio, isPlaying, onPlayPause, toast, triggerNextTrack]);
+
+  useEffect(() => {
     const handleMusicAction = (event: CustomEvent) => {
       const { action } = event.detail;
       switch (action) {
@@ -235,12 +339,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return () => window.removeEventListener('music-action', handleMusicAction as EventListener);
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
 
-  // Keeps the WebView/browser audio session alive while minimised
-  useBackgroundAudio(isPlaying && !!currentTrack && backgroundPlayback);
-
   // Media Session API for lock screen / notification controls
   useEffect(() => {
-    if ('mediaSession' in navigator && currentTrack) {
+    if ('mediaSession' in navigator && currentTrack && !useNativeAudio) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
@@ -268,11 +369,11 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         /* not all platforms support these */
       }
     }
-  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious]);
+  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, useNativeAudio]);
 
   // Keep the notification scrubber in sync
   useEffect(() => {
-    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
+    if (!useNativeAudio && 'mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
       try {
         navigator.mediaSession.setPositionState({
           duration,
@@ -283,7 +384,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         /* ignore invalid position state */
       }
     }
-  }, [currentTime, duration]);
+  }, [currentTime, duration, useNativeAudio]);
 
   // Background watchdog: keep YouTube playing while the app is hidden/minimised
   useEffect(() => {
@@ -344,12 +445,19 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [normalizeVolume, currentTrack, playerReady]);
 
+  // Send volume changes to the native player for direct streams.
+  useEffect(() => {
+    if (!useNativeAudio) return;
+    sendNativeAudioCommand({ command: 'volume', volume: (isMuted ? 0 : volume[0]) / 100 });
+  }, [useNativeAudio, volume, isMuted, sendNativeAudioCommand]);
+
   // Sync volume to YouTube player
   useEffect(() => {
+    if (useNativeAudio) return;
     if (playerRef.current && typeof playerRef.current.setVolume === 'function' && !normalizeVolume) {
       playerRef.current.setVolume(isMuted ? 0 : volume[0]);
     }
-  }, [volume, isMuted, normalizeVolume]);
+  }, [volume, isMuted, normalizeVolume, useNativeAudio]);
 
   const handleFirstPlay = async () => {
     // Always toggle playback first — notification permission must never block it.
@@ -364,6 +472,12 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   };
 
   const handleProgressChange = (value: number[]) => {
+    if (useNativeAudio && nativeDuration > 0) {
+      const newTime = (value[0] / 100) * nativeDuration;
+      sendNativeAudioCommand({ command: 'seek', position: newTime });
+      setNativeCurrentTime(newTime);
+      return;
+    }
     if (playerRef.current && duration > 0) {
       const newTime = (value[0] / 100) * duration;
       try {
@@ -375,7 +489,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   };
 
-  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const displayedCurrentTime = useNativeAudio ? nativeCurrentTime : currentTime;
+  const displayedDuration = useNativeAudio ? nativeDuration : duration;
+  const progressPercentage = displayedDuration > 0 ? (displayedCurrentTime / displayedDuration) * 100 : 0;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -399,8 +515,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onPlayPause={onPlayPause}
         onNext={onNext}
         onPrevious={onPrevious}
-        currentTime={currentTime}
-        duration={duration}
+        currentTime={displayedCurrentTime}
+        duration={displayedDuration}
         onSeek={handleProgressChange}
         isRepeat={isRepeat}
         isShuffle={isShuffle}
@@ -411,15 +527,17 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       />
 
       {/* Hidden YouTube Player */}
-      <YouTubePlayer
-        ref={playerRef}
-        videoId={currentTrack?.videoId || null}
-        isPlaying={isPlaying}
-        onReady={handlePlayerReady}
-        onStateChange={handleStateChange}
-        onEnd={handleVideoEnd}
-        onTimeUpdate={handleTimeUpdate}
-      />
+      {!useNativeAudio && (
+        <YouTubePlayer
+          ref={playerRef}
+          videoId={currentTrack?.videoId || null}
+          isPlaying={isPlaying}
+          onReady={handlePlayerReady}
+          onStateChange={handleStateChange}
+          onEnd={handleVideoEnd}
+          onTimeUpdate={handleTimeUpdate}
+        />
+      )}
       
       {/* Mobile Layout */}
       <div className="md:hidden glass-player px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-1 flex-shrink-0">
@@ -539,9 +657,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             </Button>
           </div>
           <div className="flex items-center gap-2 w-full">
-            <span className="text-xs text-muted-foreground">{formatTime(currentTime)}</span>
+            <span className="text-xs text-muted-foreground">{formatTime(displayedCurrentTime)}</span>
             <Slider value={[progressPercentage]} onValueChange={handleProgressChange} max={100} step={0.1} className="flex-1" />
-            <span className="text-xs text-muted-foreground">{formatTime(duration)}</span>
+            <span className="text-xs text-muted-foreground">{formatTime(displayedDuration)}</span>
           </div>
         </div>
 
