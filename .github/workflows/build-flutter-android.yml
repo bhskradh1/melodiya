@@ -44,6 +44,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Reconcile npm lockfile with package.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
       - name: Install web dependencies
         run: npm ci
 
