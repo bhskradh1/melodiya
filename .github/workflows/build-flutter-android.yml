@@ -1,0 +1,85 @@
+name: Build Melodiya Android APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'flutter_app/**'
+      - 'scripts/prepare-flutter-android.sh'
+      - '.github/workflows/build-flutter-android.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'flutter_app/**'
+      - 'scripts/prepare-flutter-android.sh'
+      - '.github/workflows/build-flutter-android.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Build web application for Android
+        env:
+          VITE_AUTH_REDIRECT_URL: ${{ vars.MELODIYA_AUTH_REDIRECT_URL || 'https://melodiya-your-sound.vercel.app/' }}
+        run: npm run build
+
+      - name: Set up Java for Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-dependency-path: flutter_app/pubspec.yaml
+
+      - name: Bundle the web app and generate Android project
+        run: bash scripts/prepare-flutter-android.sh
+
+      - name: Resolve Flutter dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: flutter_app
+        run: flutter build apk --release --build-number=${{ github.run_number }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: melodiya-android-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
