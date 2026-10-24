@@ -13,6 +13,7 @@ on:
       - 'vite.config.ts'
       - 'flutter_app/**'
       - 'scripts/prepare-flutter-android.sh'
+      - 'scripts/configure-android-signing.py'
       - '.github/workflows/build-flutter-android.yml'
   push:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - 'vite.config.ts'
       - 'flutter_app/**'
       - 'scripts/prepare-flutter-android.sh'
+      - 'scripts/configure-android-signing.py'
       - '.github/workflows/build-flutter-android.yml'
 
 permissions:
@@ -71,13 +73,59 @@ jobs:
       - name: Bundle the web app and generate Android project
         run: bash scripts/prepare-flutter-android.sh
 
+      - name: Restore Android release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in ANDROID_KEYSTORE_BASE64 ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD ANDROID_STORE_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Missing required repository secret: ${secret_name}"
+              exit 1
+            fi
+          done
+          mkdir -p flutter_app/android/app
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > flutter_app/android/app/melodiya-upload-key.p12
+          test -s flutter_app/android/app/melodiya-upload-key.p12
+          keytool -list -keystore flutter_app/android/app/melodiya-upload-key.p12 -storetype PKCS12 -storepass "$ANDROID_STORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          def escape_property(value):
+              value = value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r')
+              for char in (':', '=', '#', '!'):
+                  value = value.replace(char, '\\' + char)
+              if value.startswith(' '):
+                  value = '\\' + value
+              return value
+
+          values = {
+              'storeFile': 'app/melodiya-upload-key.p12',
+              'storePassword': os.environ['ANDROID_STORE_PASSWORD'],
+              'keyAlias': os.environ['ANDROID_KEY_ALIAS'],
+              'keyPassword': os.environ['ANDROID_KEY_PASSWORD'],
+          }
+          target = Path('flutter_app/android/key.properties')
+          target.write_text(''.join(f'{key}={escape_property(value)}\n' for key, value in values.items()), encoding='utf-8')
+          PY
+          chmod 600 flutter_app/android/key.properties flutter_app/android/app/melodiya-upload-key.p12
+
       - name: Resolve Flutter dependencies
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Build release APK
+      - name: Build signed release APK
         working-directory: flutter_app
         run: flutter build apk --release --build-number=${{ github.run_number }}
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f flutter_app/android/key.properties flutter_app/android/app/melodiya-upload-key.p12
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
