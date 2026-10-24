@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Flutter/Dart build output and local configuration
+flutter_app/.dart_tool/
+flutter_app/build/
+flutter_app/android/.gradle/
+flutter_app/android/local.properties
+flutter_app/android/key.properties
+flutter_app/android/app/*.p12
+*.jks
+*.keystore
