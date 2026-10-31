@@ -38,6 +38,7 @@ interface Track {
 declare global {
   interface Window {
     MelodiyaNativeAudio?: { postMessage: (message: string) => void };
+    MelodiyaNativeMedia?: { postMessage: (message: string) => void };
   }
 }
 
@@ -391,53 +392,43 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, [currentTime, duration, useNativeAudio]);
 
-  // Background watchdog: keep YouTube playing while the app is hidden/minimised
+  // Keep Android's native media notification in sync with the YouTube track.
+  // The native handler clears it when the app leaves the foreground.
   useEffect(() => {
-    const resumeIfStalled = () => {
-      if (!isPlaying || !playerRef.current) return;
-      try {
-        const state = playerRef.current.getPlayerState?.();
-        const current = playerRef.current.getCurrentTime?.();
-        if (state === 0) {
-          triggerNextTrack();
-        } else if (duration > 0 && current && (duration - current) < 1.5) {
-          triggerNextTrack();
-        } else if (state === 2 || state === -1) {
-          playerRef.current.playVideo?.();
-        }
-      } catch (e) {
-        console.error('Background watchdog error:', e);
-      }
-    };
-
-    const handleVisibilityChange = () => resumeIfStalled();
-    const interval = window.setInterval(resumeIfStalled, 2000);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, [isPlaying, duration]);
-
-
-  useEffect(() => {
-    if (currentTrack && isPlaying) {
-      requestBackgroundSync('background-audio-sync');
-      if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        showNotification(`Now Playing: ${currentTrack.title}`, {
-          body: `by ${currentTrack.artist}`,
-          icon: currentTrack.thumbnail,
-          tag: 'music-player',
-          requireInteraction: false,
-          silent: true
-        });
-      }
+    if (!currentTrack || useNativeAudio || !window.MelodiyaNativeMedia) return;
+    try {
+      window.MelodiyaNativeMedia.postMessage(JSON.stringify({
+        command: 'update',
+        videoId: currentTrack.videoId,
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        artwork: currentTrack.thumbnail,
+        playing: isPlaying,
+      }));
+    } catch (error) {
+      console.warn('Could not sync Android media notification:', error);
     }
-  }, [currentTrack, isPlaying, notificationsEnabled]);
+  }, [currentTrack?.videoId, currentTrack?.title, currentTrack?.artist, currentTrack?.thumbnail, isPlaying, useNativeAudio]);
+
+  // Do not force an embedded YouTube player to continue after the app backgrounds.
+  useEffect(() => {
+    const pauseForBackground = () => {
+      if (useNativeAudio) return;
+      if (isPlaying) {
+        try { playerRef.current?.pauseVideo?.(); } catch {}
+        onPlayPause();
+      }
+      try {
+        window.MelodiyaNativeMedia?.postMessage(JSON.stringify({ command: 'clear' }));
+      } catch {}
+    };
+    window.addEventListener('melodiya-app-background', pauseForBackground);
+    return () => window.removeEventListener('melodiya-app-background', pauseForBackground);
+  }, [isPlaying, onPlayPause, useNativeAudio]);
+
+  useEffect(() => {
+    if (currentTrack && isPlaying) requestBackgroundSync('music-playback');
+  }, [currentTrack?.videoId, isPlaying]);
 
   // Volume normalization: when enabled, set YouTube player to a fixed 75% volume
   useEffect(() => {
