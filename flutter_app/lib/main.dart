@@ -510,7 +510,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
       function notifyNative() {
         try {
           var state = window.history.state;
-          var canReturnToAppView = !!(state && state.__melodiyaAppNavigation === true);
+          var canReturnToAppView = !!(state && state.__melodiyaAppNavigation === true && Number(state.depth || 0) > 0);
           if (window.MelodiyaBridge) {
             window.MelodiyaBridge.postMessage(String(canReturnToAppView));
           }
@@ -546,7 +546,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
     var canGoBack = _canGoBack;
     try {
       final browserState = await _web.runJavaScriptReturningResult(
-        'Boolean(window.history.state && window.history.state.__melodiyaAppNavigation === true)',
+        'Boolean(window.history.state && window.history.state.__melodiyaAppNavigation === true && Number(window.history.state.depth || 0) > 0)',
       );
       canGoBack = canGoBack || browserState.toString() == 'true';
     } catch (_) {}
