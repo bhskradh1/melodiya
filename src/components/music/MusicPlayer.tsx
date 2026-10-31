@@ -347,7 +347,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   // Media Session API for lock screen / notification controls
   useEffect(() => {
-    if ('mediaSession' in navigator && currentTrack && !useNativeAudio) {
+    if ('mediaSession' in navigator && currentTrack && !useNativeAudio && !window.MelodiyaNativeMedia) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
@@ -379,7 +379,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   // Keep the notification scrubber in sync
   useEffect(() => {
-    if (!useNativeAudio && 'mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
+    if (!useNativeAudio && !window.MelodiyaNativeMedia && 'mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
       try {
         navigator.mediaSession.setPositionState({
           duration,
