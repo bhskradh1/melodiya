@@ -73,6 +73,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const previousNativeAudioUrlRef = useRef<string | null>(null);
   const lastNativeExternalPlayingRef = useRef<boolean | null>(null);
   const playerRef = useRef<any>(null);
+  const playerLoadTimeoutRef = useRef<number | null>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -158,26 +159,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   const handlePlayerReady = () => {
     setPlayerReady(true);
-    if (currentTrack && isPlaying) {
-      setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-          playerRef.current.playVideo();
-        }
-      }, 500);
-    }
   };
 
   const handleStateChange = (state: number) => {
     if (state === 1) {
       setIsLoading(false);
+      if (playerLoadTimeoutRef.current !== null) window.clearTimeout(playerLoadTimeoutRef.current);
+      playerLoadTimeoutRef.current = null;
     } else if (state === 3) {
       setIsLoading(true);
-    } else if (state === -1 && currentTrack && isPlaying) {
-      setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-          playerRef.current.playVideo();
-        }
-      }, 1000);
     } else if (state === 2 || state === 0) {
       setIsLoading(false);
     }
@@ -205,6 +195,21 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       }
     }
   }, [currentTrack, isPlaying, playerReady, useNativeAudio]);
+
+  useEffect(() => {
+    if (playerLoadTimeoutRef.current !== null) window.clearTimeout(playerLoadTimeoutRef.current);
+    if (!currentTrack || useNativeAudio) return;
+    setIsLoading(true);
+    playerLoadTimeoutRef.current = window.setTimeout(() => {
+      setIsLoading(false);
+      toast({ title: 'Song is taking too long to load', description: 'Check your connection or choose another version.', variant: 'destructive' });
+      playerLoadTimeoutRef.current = null;
+    }, 30000);
+    return () => {
+      if (playerLoadTimeoutRef.current !== null) window.clearTimeout(playerLoadTimeoutRef.current);
+      playerLoadTimeoutRef.current = null;
+    };
+  }, [currentTrack?.videoId, useNativeAudio, toast]);
 
   const endTriggeredRef = useRef(false);
 
