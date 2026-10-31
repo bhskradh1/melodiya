@@ -229,8 +229,8 @@ export const MelodiyaApp: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <div className="flex flex-1 overflow-hidden">
+    <div className="h-[100dvh] min-h-0 w-full max-w-full overflow-hidden flex flex-col bg-background">
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
         {/* Mobile Header */}
         {isMobile && (
           <div className="absolute top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border/30 flex items-center px-4">
@@ -284,7 +284,7 @@ export const MelodiyaApp: React.FC = () => {
         )}
         
         {/* Main Content */}
-        <div ref={mainRef} className={`flex-1 overflow-y-auto ${isMobile ? 'pt-14' : ''}`}>
+        <div ref={mainRef} className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain ${isMobile ? 'pt-14' : ''}`}>
           {renderView()}
         </div>
       </div>
@@ -300,7 +300,7 @@ export const MelodiyaApp: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <nav className="md:hidden glass-player border-t border-border/30 flex items-stretch justify-around flex-shrink-0">
+        <nav className="md:hidden glass-player border-t border-border/30 flex items-stretch justify-around flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
           {bottomNavItems.map((item) => {
             const Icon = item.icon;
             const isActive =
