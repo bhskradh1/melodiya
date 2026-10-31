@@ -2,36 +2,6 @@ name: Build Melodiya Android APK
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vite.config.ts'
-      - 'flutter_app/**'
-      - 'scripts/prepare-flutter-android.sh'
-      - 'scripts/configure-android-signing.py'
-      - '.github/workflows/build-flutter-android.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vite.config.ts'
-      - 'flutter_app/**'
-      - 'scripts/prepare-flutter-android.sh'
-      - 'scripts/configure-android-signing.py'
-      - '.github/workflows/build-flutter-android.yml'
-
-concurrency:
-  group: melodiya-android-build
-  cancel-in-progress: true
 
 permissions:
   contents: read
