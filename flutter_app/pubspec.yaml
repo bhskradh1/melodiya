@@ -29,4 +29,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    # Vite writes index.html and public files directly under dist/.
     - assets/web/
+    # The generated JS/CSS bundles live in dist/assets/ and are required
+    # by index.html at runtime. Flutter does not recursively bundle them
+    # unless this subdirectory is declared explicitly.
+    - assets/web/assets/

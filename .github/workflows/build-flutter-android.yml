@@ -97,7 +97,7 @@ jobs:
           from pathlib import Path
 
           def escape_property(value):
-              value = value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r')
+              value = value.replace('\\', '\\\\').replace('\\n', '\\n').replace('\\r', '\\r')
               for char in (':', '=', '#', '!'):
                   value = value.replace(char, '\\' + char)
               if value.startswith(' '):
@@ -111,7 +111,7 @@ jobs:
               'keyPassword': os.environ['ANDROID_KEY_PASSWORD'],
           }
           target = Path('flutter_app/android/key.properties')
-          target.write_text(''.join(f'{key}={escape_property(value)}\n' for key, value in values.items()), encoding='utf-8')
+          target.write_text(''.join(f'{key}={escape_property(value)}\\n' for key, value in values.items()), encoding='utf-8')
           PY
           chmod 600 flutter_app/android/key.properties flutter_app/android/app/melodiya-upload-key.p12
 
@@ -122,6 +122,32 @@ jobs:
       - name: Build signed release APK
         working-directory: flutter_app
         run: flutter build apk --release --build-number=${{ github.run_number }}
+
+      - name: Verify bundled web entry-point assets
+        run: |
+          python3 - <<'PY'
+          import re
+          import zipfile
+          from pathlib import Path
+
+          apk = Path('flutter_app/build/app/outputs/flutter-apk/app-release.apk')
+          prefix = 'assets/flutter_assets/assets/web/'
+          with zipfile.ZipFile(apk) as archive:
+              names = set(archive.namelist())
+              html = archive.read(prefix + 'index.html').decode('utf-8')
+              references = re.findall(r'(?:src|href)="(/assets/[^"]+)"', html)
+              required = [prefix + item.lstrip('/') for item in references]
+              missing = [item for item in required if item not in names]
+              if missing:
+                  raise SystemExit('APK is missing web entry-point assets: ' + ', '.join(missing))
+              if not any(item.endswith('.js') for item in required):
+                  raise SystemExit('No JavaScript bundle was referenced by index.html.')
+              if not any(item.endswith('.css') for item in required):
+                  raise SystemExit('No CSS bundle was referenced by index.html.')
+              print('Verified bundled web assets:')
+              for item in required:
+                  print(' - ' + item)
+          PY
 
       - name: Remove signing material
         if: always()
