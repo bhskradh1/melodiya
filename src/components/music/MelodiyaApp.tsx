@@ -172,8 +172,10 @@ export const MelodiyaApp: React.FC = () => {
       if (state?.__melodiyaAppNavigation && state.__melodiyaRoot) {
         const now = Date.now();
         if (now - lastRootBackAtRef.current <= 2000) {
-          // Let the browser close the installed PWA on the second Back press.
+          // We are already back on the root entry. Move back once more so
+          // Android/the browser can close the standalone PWA when supported.
           lastRootBackAtRef.current = 0;
+          window.history.back();
           return;
         }
 
@@ -194,6 +196,7 @@ export const MelodiyaApp: React.FC = () => {
       const now = Date.now();
       if (now - lastRootBackAtRef.current <= 2000) {
         lastRootBackAtRef.current = 0;
+        window.history.back();
         return;
       }
 
