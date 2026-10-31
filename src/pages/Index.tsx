@@ -9,12 +9,10 @@ const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
+    // Same look as the splash in index.html so there is no visible jump
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading Melodiya...</p>
-        </div>
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <img src="/icon-192x192.png" alt="" className="h-24 w-24 animate-pulse" />
       </div>
     );
   }
