@@ -40,6 +40,7 @@ interface Track {
 
 export const MelodiyaApp: React.FC = () => {
   const [activeView, setActiveView] = useState('home');
+  const suppressHistoryPushRef = useRef(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
@@ -50,6 +51,40 @@ export const MelodiyaApp: React.FC = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const mainRef = useRef<HTMLDivElement>(null);
+
+  // Mirror React section changes into browser history so Android Back returns
+  // to the previous Melodiya section instead of closing the WebView.
+  useEffect(() => {
+    const initialState = { __melodiyaAppNavigation: true, activeView: 'home', selectedPlaylistId: null };
+    if (!window.history.state?.__melodiyaAppNavigation) {
+      window.history.replaceState(initialState, '', window.location.href);
+    }
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state;
+      if (!state?.__melodiyaAppNavigation) {
+        setActiveView('home');
+        setSelectedPlaylistId(null);
+        return;
+      }
+      suppressHistoryPushRef.current = true;
+      setSelectedPlaylistId(state.selectedPlaylistId ?? null);
+      setActiveView(state.activeView ?? 'home');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (suppressHistoryPushRef.current) {
+      suppressHistoryPushRef.current = false;
+      return;
+    }
+    window.history.pushState({
+      __melodiyaAppNavigation: true,
+      activeView,
+      selectedPlaylistId,
+    }, '', window.location.href);
+  }, [activeView, selectedPlaylistId]);
 
   // Always land at the top of a view when switching sections
   useEffect(() => {
