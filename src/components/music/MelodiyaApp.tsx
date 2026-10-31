@@ -52,6 +52,7 @@ export const MelodiyaApp: React.FC = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const { preferences } = usePreferences();
   const mainRef = useRef<HTMLDivElement>(null);
 
   // Mirror React section changes into browser history so Android Back returns
@@ -158,12 +159,20 @@ export const MelodiyaApp: React.FC = () => {
 
   const fetchRelatedTracks = async (track: Track): Promise<Track[]> => {
     try {
-      const query = `${track.artist} ${track.title} similar songs`;
       const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query }
+        body: {
+          related: {
+            videoId: track.videoId,
+            title: track.title,
+            artist: track.artist,
+            language: LANGUAGE_LABELS[preferences.preferred_language] || '',
+            genres: preferences.favorite_genres || [],
+            // everything already queued/played, so no song repeats
+            excludeTitles: playlist.map(t => t.title),
+          },
+        },
       });
       if (error || !data?.tracks) return [];
-      // Filter out the current track and any already in playlist
       const existingIds = new Set(playlist.map(t => t.videoId));
       existingIds.add(track.videoId);
       return (data.tracks as Track[]).filter(t => !existingIds.has(t.videoId));
