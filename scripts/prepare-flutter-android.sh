@@ -33,6 +33,7 @@ if not manifest.exists():
 text = manifest.read_text()
 permissions = [
     'android.permission.INTERNET',
+    'android.permission.POST_NOTIFICATIONS',
     'android.permission.WAKE_LOCK',
     'android.permission.FOREGROUND_SERVICE',
     'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
