@@ -78,7 +78,7 @@ class _MelodiyaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
   void clear() {
     _hasTrack = false;
     mediaItem.add(null);
-    playbackState.add(const PlaybackState(
+    playbackState.add(PlaybackState(
       processingState: AudioProcessingState.idle,
       playing: false,
     ));
