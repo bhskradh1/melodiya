@@ -417,9 +417,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         try { playerRef.current?.pauseVideo?.(); } catch {}
         onPlayPause();
       }
-      try {
-        window.MelodiyaNativeMedia?.postMessage(JSON.stringify({ command: 'clear' }));
-      } catch {}
     };
     window.addEventListener('melodiya-app-background', pauseForBackground);
     return () => window.removeEventListener('melodiya-app-background', pauseForBackground);
