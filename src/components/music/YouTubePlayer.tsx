@@ -10,6 +10,7 @@ declare global {
 interface YouTubePlayerProps {
   videoId: string | null;
   isPlaying: boolean;
+  isVisible?: boolean;
   onReady?: () => void;
   onStateChange?: (state: number) => void;
   onEnd?: () => void;
@@ -19,6 +20,7 @@ interface YouTubePlayerProps {
 export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
   videoId,
   isPlaying,
+  isVisible = false,
   onReady,
   onStateChange,
   onEnd,
@@ -75,8 +77,8 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
         videoId: videoId || '',
         playerVars: {
           autoplay: 0,
-          controls: 0,
-          disablekb: 1,
+          controls: 1,
+          disablekb: 0,
           enablejsapi: 1,
           fs: 0,
           iv_load_policy: 3,
@@ -191,20 +193,23 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
       ref={containerRef}
       style={{ 
         position: 'fixed',
-        top: '-100vh', 
-        left: '-100vw',
-        width: '200px',
-        height: '200px',
-        opacity: 0.01,
-        visibility: 'visible',
-        zIndex: -9999,
-        pointerEvents: 'none',
+        top: 'calc(env(safe-area-inset-top) + 4.25rem)',
+        left: '50%',
+        transform: 'translateX(-50%) translateZ(0)',
+        WebkitTransform: 'translateX(-50%) translateZ(0)',
+        width: 'min(92vw, 480px)',
+        height: 'min(52vw, 270px)',
+        minWidth: '200px',
+        minHeight: '200px',
+        maxHeight: '32dvh',
+        opacity: isVisible ? 1 : 0,
+        visibility: isVisible ? 'visible' : 'hidden',
+        zIndex: isVisible ? 85 : -1,
+        pointerEvents: isVisible ? 'auto' : 'none',
         overflow: 'hidden',
-        transform: 'translateZ(0)', // Force hardware acceleration
-        WebkitTransform: 'translateZ(0)', // iOS Safari specific
-        display: 'block', // Ensure it's not affecting layout
-        maxWidth: '200px',
-        maxHeight: '200px'
+        borderRadius: '16px',
+        background: '#000',
+        display: isVisible ? 'block' : 'none',
       }}
     />
   );
