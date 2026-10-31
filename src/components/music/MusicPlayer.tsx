@@ -152,9 +152,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   useEffect(() => {
     if (currentTrack && currentTrack.id !== prevTrackIdRef.current) {
       prevTrackIdRef.current = currentTrack.id;
-      if (isMobile && autoOpenNowPlaying) {
-        setShowNowPlaying(true);
-      }
+      // The official YouTube embed must remain visible while it is playing.
+      if (isMobile || autoOpenNowPlaying) setShowNowPlaying(true);
     }
   }, [currentTrack, isMobile, autoOpenNowPlaying]);
 
@@ -504,7 +503,13 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       {/* Now Playing Full Screen View */}
       <NowPlayingView
         isVisible={showNowPlaying}
-        onClose={() => setShowNowPlaying(false)}
+        onClose={() => {
+          if (!useNativeAudio && isPlaying) {
+            try { playerRef.current?.pauseVideo?.(); } catch {}
+            onPlayPause();
+          }
+          setShowNowPlaying(false);
+        }}
         currentTrack={currentTrack}
         isPlaying={isPlaying}
         isLoading={isLoading}
@@ -520,6 +525,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         onToggleRepeat={() => setIsRepeat(!isRepeat)}
         onToggleShuffle={() => setIsShuffle(!isShuffle)}
         onToggleLike={handleToggleLike}
+        isVideoVisible={!useNativeAudio}
       />
 
       {/* Hidden YouTube Player */}
@@ -528,6 +534,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           ref={playerRef}
           videoId={currentTrack?.videoId || null}
           isPlaying={isPlaying}
+          isVisible={showNowPlaying}
           onReady={handlePlayerReady}
           onStateChange={handleStateChange}
           onEnd={handleVideoEnd}
