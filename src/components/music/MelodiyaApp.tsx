@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Menu, X, Home, Search, TrendingUp, Library } from 'lucide-react';
 import { usePreferences, LANGUAGE_LABELS } from '@/contexts/PreferencesContext';
+import { toast } from 'sonner';
 
 const bottomNavItems = [
   { id: 'home', label: 'Home', icon: Home },
@@ -41,8 +42,9 @@ interface Track {
 
 export const MelodiyaApp: React.FC = () => {
   const [activeView, setActiveView] = useState('home');
-  const suppressHistoryPushRef = useRef(false);
   const historyInitializedRef = useRef(false);
+  const lastRootBackAtRef = useRef(0);
+  const mobileSidebarOpenRef = useRef(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
@@ -55,45 +57,156 @@ export const MelodiyaApp: React.FC = () => {
   const { preferences } = usePreferences();
   const mainRef = useRef<HTMLDivElement>(null);
 
-  // Mirror React section changes into browser history so Android Back returns
-  // to the previous Melodiya section instead of closing the WebView.
-  useEffect(() => {
-    const initialState = { __melodiyaAppNavigation: true, depth: 0, activeView: 'home', selectedPlaylistId: null };
-    if (!window.history.state?.__melodiyaAppNavigation) {
-      window.history.replaceState(initialState, '', window.location.href);
+  // Keep a real browser-history entry for each in-app screen. Installed
+  // Android PWAs use this stack for the system Back gesture/button.
+  const navigateToView = (view: string, playlistId: string | null = null) => {
+    const currentState = window.history.state as {
+      __melodiyaAppNavigation?: boolean;
+      __melodiyaSidebarOverlay?: boolean;
+      activeView?: string;
+      selectedPlaylistId?: string | null;
+      depth?: number;
+    } | null;
+
+    const isClosingSidebar = mobileSidebarOpenRef.current && currentState?.__melodiyaSidebarOverlay;
+    if (!isClosingSidebar &&
+        currentState?.__melodiyaAppNavigation &&
+        currentState.activeView === view &&
+        (currentState.selectedPlaylistId ?? null) === playlistId) {
+      return;
     }
+
+    const nextState = {
+      __melodiyaAppNavigation: true,
+      depth: Number(currentState?.depth ?? 0) + 1,
+      activeView: view,
+      selectedPlaylistId: playlistId,
+    };
+
+    // Choosing an item in the open drawer replaces its temporary overlay
+    // entry, so Back returns to the screen that opened the drawer.
+    if (isClosingSidebar) {
+      window.history.replaceState(nextState, '', window.location.href);
+      mobileSidebarOpenRef.current = false;
+      setIsMobileSidebarOpen(false);
+    } else {
+      window.history.pushState(nextState, '', window.location.href);
+    }
+
+    lastRootBackAtRef.current = 0;
+    setSelectedPlaylistId(playlistId);
+    setActiveView(view);
+  };
+
+  const openMobileSidebar = () => {
+    if (mobileSidebarOpenRef.current) return;
+
+    const currentState = window.history.state as Record<string, unknown> | null;
+    const baseState = currentState ?? {
+      __melodiyaAppNavigation: true,
+      depth: 0,
+      activeView,
+      selectedPlaylistId,
+    };
+
+    window.history.pushState(
+      { ...baseState, __melodiyaSidebarOverlay: true },
+      '',
+      window.location.href,
+    );
+    mobileSidebarOpenRef.current = true;
+    setIsMobileSidebarOpen(true);
+  };
+
+  const closeMobileSidebar = () => {
+    const currentState = window.history.state as { __melodiyaSidebarOverlay?: boolean } | null;
+    if (mobileSidebarOpenRef.current && currentState?.__melodiyaSidebarOverlay) {
+      // The popstate handler closes the drawer without changing the screen.
+      window.history.back();
+      return;
+    }
+
+    mobileSidebarOpenRef.current = false;
+    setIsMobileSidebarOpen(false);
+  };
+
+  useEffect(() => {
+    const rootState = {
+      __melodiyaAppNavigation: true,
+      __melodiyaRoot: true,
+      depth: 0,
+      activeView: 'home',
+      selectedPlaylistId: null,
+    };
+    const exitGuardState = {
+      __melodiyaAppNavigation: true,
+      __melodiyaExitGuard: true,
+      depth: 0,
+      activeView: 'home',
+      selectedPlaylistId: null,
+    };
+
+    // React StrictMode may re-run effects in development; initialize the
+    // history stack once but always attach the listener for the current mount.
+    if (!historyInitializedRef.current) {
+      historyInitializedRef.current = true;
+      window.history.replaceState(rootState, '', window.location.href);
+      window.history.pushState(exitGuardState, '', window.location.href);
+    }
+
     const handlePopState = (event: PopStateEvent) => {
-      const state = event.state;
-      if (!state?.__melodiyaAppNavigation) {
-        setActiveView('home');
-        setSelectedPlaylistId(null);
+      // Android Back should dismiss the mobile drawer before navigating away.
+      if (mobileSidebarOpenRef.current) {
+        mobileSidebarOpenRef.current = false;
+        setIsMobileSidebarOpen(false);
         return;
       }
-      suppressHistoryPushRef.current = true;
-      setSelectedPlaylistId(state.selectedPlaylistId ?? null);
-      setActiveView(state.activeView ?? 'home');
+
+      const state = event.state as {
+        __melodiyaAppNavigation?: boolean;
+        __melodiyaRoot?: boolean;
+        activeView?: string;
+        selectedPlaylistId?: string | null;
+      } | null;
+
+      if (state?.__melodiyaAppNavigation && state.__melodiyaRoot) {
+        const now = Date.now();
+        if (now - lastRootBackAtRef.current <= 2000) {
+          // Let the browser close the installed PWA on the second Back press.
+          lastRootBackAtRef.current = 0;
+          return;
+        }
+
+        lastRootBackAtRef.current = now;
+        toast('Press back again to exit Melodiya');
+        window.history.pushState(exitGuardState, '', window.location.href);
+        return;
+      }
+
+      if (state?.__melodiyaAppNavigation) {
+        lastRootBackAtRef.current = 0;
+        setSelectedPlaylistId(state.selectedPlaylistId ?? null);
+        setActiveView(state.activeView ?? 'home');
+        return;
+      }
+
+      // Recover safely if the browser reports an unexpected/null history state.
+      const now = Date.now();
+      if (now - lastRootBackAtRef.current <= 2000) {
+        lastRootBackAtRef.current = 0;
+        return;
+      }
+
+      lastRootBackAtRef.current = now;
+      setSelectedPlaylistId(null);
+      setActiveView('home');
+      toast('Press back again to exit Melodiya');
+      window.history.pushState(exitGuardState, '', window.location.href);
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
-  useEffect(() => {
-    if (!historyInitializedRef.current) {
-      historyInitializedRef.current = true;
-      return;
-    }
-    if (suppressHistoryPushRef.current) {
-      suppressHistoryPushRef.current = false;
-      return;
-    }
-    const previousDepth = Number(window.history.state?.depth ?? 0);
-    window.history.pushState({
-      __melodiyaAppNavigation: true,
-      depth: previousDepth + 1,
-      activeView,
-      selectedPlaylistId,
-    }, '', window.location.href);
-  }, [activeView, selectedPlaylistId]);
 
   // Always land at the top of a view when switching sections
   useEffect(() => {
@@ -231,19 +344,26 @@ export const MelodiyaApp: React.FC = () => {
   };
 
   const handleViewPlaylist = (playlistId: string) => {
-    setSelectedPlaylistId(playlistId);
-    setActiveView('playlist-detail');
+    navigateToView('playlist-detail', playlistId);
   };
 
   const handleBackFromPlaylist = () => {
-    setSelectedPlaylistId(null);
-    setActiveView('playlists');
+    const currentState = window.history.state as {
+      __melodiyaAppNavigation?: boolean;
+      depth?: number;
+    } | null;
+
+    if (currentState?.__melodiyaAppNavigation && Number(currentState.depth ?? 0) > 0) {
+      window.history.back();
+    } else {
+      navigateToView('playlists');
+    }
   };
 
   const renderView = () => {
     switch (activeView) {
       case 'home':
-        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} />;
       case 'search':
         return <SearchView onPlayTrack={handlePlayTrack} />;
       case 'trending':
@@ -289,7 +409,7 @@ export const MelodiyaApp: React.FC = () => {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setIsMobileSidebarOpen(true)}
+              onClick={openMobileSidebar}
             >
               <Menu className="w-5 h-5" />
             </Button>
@@ -297,8 +417,8 @@ export const MelodiyaApp: React.FC = () => {
               type="button"
               aria-label="Go to home"
               onClick={() => {
-                setActiveView('home');
-                setIsMobileSidebarOpen(false);
+                navigateToView('home');
+                closeMobileSidebar();
               }}
               className="flex items-center gap-2 ml-4 flex-1 justify-start transition-opacity active:opacity-70"
             >
@@ -317,11 +437,8 @@ export const MelodiyaApp: React.FC = () => {
         <div className={`${isMobile ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden') : 'relative w-64'}`}>
           <Sidebar 
             activeView={activeView} 
-            onViewChange={(view) => {
-              setActiveView(view);
-              if (isMobile) setIsMobileSidebarOpen(false);
-            }}
-            onClose={() => setIsMobileSidebarOpen(false)}
+            onViewChange={navigateToView}
+            onClose={closeMobileSidebar}
             isMobile={isMobile}
           />
         </div>
@@ -330,7 +447,7 @@ export const MelodiyaApp: React.FC = () => {
         {isMobile && isMobileSidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setIsMobileSidebarOpen(false)}
+            onClick={closeMobileSidebar}
           />
         )}
         
@@ -362,7 +479,7 @@ export const MelodiyaApp: React.FC = () => {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveView(item.id)}
+                onClick={() => navigateToView(item.id)}
                 className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 }`}
