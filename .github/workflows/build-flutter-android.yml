@@ -160,3 +160,61 @@ jobs:
           path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish in-app update to Supabase Storage
+        if: github.event_name != 'pull_request'
+        env:
+          SUPABASE_URL: https://xdtgtwlpkgldszmufoay.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${SUPABASE_SERVICE_KEY:?Missing repository secret SUPABASE_SERVICE_KEY}"
+          APK="flutter_app/build/app/outputs/flutter-apk/app-release.apk"
+          test -s "$APK"
+          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          pubspec = Path('flutter_app/pubspec.yaml').read_text()
+          match = re.search(r'^version:\\s*([^\\s]+)', pubspec, re.MULTILINE)
+          if not match:
+              raise SystemExit('Could not read the app version from pubspec.yaml.')
+          version = match.group(1).split('+', 1)[0]
+          build = int(os.environ['BUILD_NUMBER'])
+          apk_name = 'melodiya-' + version + '-' + str(build) + '.apk'
+          base = os.environ['SUPABASE_URL'].rstrip('/')
+          manifest = {
+              'appId': 'com.melodiya.melodiya_app',
+              'version': version,
+              'buildNumber': build,
+              'apkUrl': base + '/storage/v1/object/public/melodiya-app-updates/' + apk_name,
+              'sha256': os.environ['APK_SHA256'],
+              'releaseNotes': 'Melodiya branding improvements, startup polish, and verified in-app updates.',
+              'mandatory': False,
+          }
+          Path('melodiya-version.json').write_text(json.dumps(manifest, indent=2) + '\\n')
+          print('Prepared update manifest for build ' + str(build) + '.')
+          PY
+          APK_NAME="melodiya-$(python3 -c "import json; print(json.load(open('melodiya-version.json'))['version'])")-$BUILD_NUMBER.apk"
+          curl --fail --show-error --silent \
+            -X POST "$SUPABASE_URL/storage/v1/object/melodiya-app-updates/$APK_NAME" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "x-upsert: true" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@$APK"
+          # Publish the manifest last so clients only see a build after its APK is uploaded.
+          curl --fail --show-error --silent \
+            -X POST "$SUPABASE_URL/storage/v1/object/melodiya-app-updates/version.json" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "x-upsert: true" \
+            -H "Content-Type: application/json" \
+            -H "Cache-Control: no-store" \
+            --data-binary "@melodiya-version.json"
+          echo "Published Melodiya build $BUILD_NUMBER to Supabase Storage."

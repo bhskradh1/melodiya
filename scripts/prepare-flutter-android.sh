@@ -24,6 +24,7 @@ python3 scripts/configure-android-signing.py
 python3 - <<'PY'
 from pathlib import Path
 import re
+import shutil
 
 manifest = Path('flutter_app/android/app/src/main/AndroidManifest.xml')
 if not manifest.exists():
@@ -35,6 +36,7 @@ permissions = [
     'android.permission.WAKE_LOCK',
     'android.permission.FOREGROUND_SERVICE',
     'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+    'android.permission.REQUEST_INSTALL_PACKAGES',
 ]
 for permission in permissions:
     token = f'android:name="{permission}"'
@@ -82,6 +84,25 @@ audio_components = """
 if 'android:name="com.ryanheise.audioservice.AudioService"' not in text:
     text = text.replace('</application>', audio_components + '    </application>', 1)
 manifest.write_text(text)
+
+# Use the same mark as the website for the Android launcher icon.
+icon_source = Path('flutter_app/assets/web/icon-512x512.png')
+if not icon_source.exists():
+    icon_source = Path('flutter_app/assets/web/icon-192x192.png')
+if not icon_source.exists():
+    raise SystemExit('The Melodiya web icon was not found in the bundled assets.')
+res_dir = Path('flutter_app/android/app/src/main/res')
+for density in ('mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'):
+    mipmap = res_dir / ('mipmap-' + density)
+    mipmap.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(icon_source, mipmap / 'ic_launcher.png')
+    shutil.copyfile(icon_source, mipmap / 'ic_launcher_round.png')
+# Remove generated adaptive-icon references so Android consistently uses
+# the actual web-app mark supplied above on supported launchers.
+for adaptive_name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
+    adaptive = res_dir / 'mipmap-anydpi-v26' / adaptive_name
+    if adaptive.exists():
+        adaptive.unlink()
 
 for name in ('build.gradle.kts', 'build.gradle'):
     gradle = Path('flutter_app/android/app') / name
