@@ -49,7 +49,6 @@ interface NowPlayingViewProps {
   onToggleRepeat: () => void;
   onToggleShuffle: () => void;
   onToggleLike: () => void;
-  isVideoVisible?: boolean;
 }
 
 const SCROLL_SPEEDS = [
@@ -77,7 +76,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   onToggleRepeat,
   onToggleShuffle,
   onToggleLike,
-  isVideoVisible = false,
 }) => {
   const [showLyrics, setShowLyrics] = useState(false);
   const [syncedLines, setSyncedLines] = useState<SyncedLine[] | null>(null);
@@ -353,9 +351,9 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col h-[100dvh] min-h-0 pt-[env(safe-area-inset-top)]">
+      <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between px-4 py-2 sm:px-6 sm:py-3">
+        <div className="flex items-center justify-between px-6 py-4">
           <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-foreground/70 hover:text-foreground rounded-full" onClick={onClose}>
             <ChevronDown className="w-6 h-6" />
           </Button>
@@ -368,10 +366,10 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-h-0 flex flex-col md:flex-row items-center md:justify-center justify-start px-4 sm:px-6 py-2 gap-3 sm:gap-6 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 gap-6 overflow-hidden min-h-0">
           {/* Album Art / Left Side */}
-          <div className={`shrink-0 flex flex-col items-center gap-3 sm:gap-5 ${showLyrics ? 'md:w-1/2 w-full' : 'w-full'} transition-all duration-500`}>
-            <div className={`relative shrink-0 ${showLyrics ? 'w-36 h-36 sm:w-48 sm:h-48 md:w-72 md:h-72' : 'w-[min(58vw,15rem)] h-[min(58vw,15rem)] max-h-[26dvh] max-w-[26dvh] md:w-80 md:h-80'} ${isVideoVisible ? 'invisible' : 'visible'} transition-all duration-500`}>
+          <div className={`flex flex-col items-center gap-6 ${showLyrics ? 'md:w-1/2 w-full' : 'w-full'} transition-all duration-500`}>
+            <div className={`relative ${showLyrics ? 'w-48 h-48 md:w-72 md:h-72' : 'w-64 h-64 md:w-80 md:h-80'} transition-all duration-500`}>
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
@@ -509,7 +507,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         </div>
 
         {/* Bottom Controls */}
-        <div className="shrink-0 px-4 sm:px-6 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2 sm:space-y-3">
+        <div className="px-6 pb-8 pt-4 space-y-4">
           <div className="space-y-2">
             <Slider value={[progressPercentage]} onValueChange={onSeek} max={100} step={0.1} className="w-full" />
             <div className="flex justify-between">
