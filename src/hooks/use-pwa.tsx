@@ -9,6 +9,7 @@ interface PWAState {
   isInstalled: boolean;
   isOnline: boolean;
   canInstall: boolean;
+  isIOS: boolean;
   deferredPrompt: BeforeInstallPromptEvent | null;
 }
 
@@ -40,13 +41,17 @@ export const usePWA = () => {
     isInstalled: false,
     isOnline: getInitialOnlineStatus(),
     canInstall: false,
+    isIOS: typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent),
     deferredPrompt: null,
   });
 
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   const checkIfInstalled = useCallback(() => {
-    if (window.matchMedia?.('(display-mode: standalone)').matches) {
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as any).standalone === true;
+    if (standalone) {
       setPwaState((prev) => ({ ...prev, isInstalled: true }));
     }
   }, []);
@@ -62,6 +67,10 @@ export const usePWA = () => {
       canInstall: true,
       deferredPrompt: e as BeforeInstallPromptEvent,
     }));
+  }, []);
+
+  const handleAppInstalled = useCallback(() => {
+    setPwaState((prev) => ({ ...prev, isInstalled: true, canInstall: false, deferredPrompt: null }));
   }, []);
 
   const installPWA = useCallback(async () => {
@@ -111,17 +120,11 @@ export const usePWA = () => {
         });
       });
 
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data.type === 'MUSIC_ACTION') {
-          handleMusicAction(event.data.action);
-        }
-      });
-
       console.log('Service Worker registered successfully');
     } catch (error) {
       console.error('Service Worker registration failed:', error);
     }
-  }, [handleMusicAction]);
+  }, []);
 
   const requestBackgroundSync = useCallback(
     async (tag: string) => {
@@ -152,11 +155,23 @@ export const usePWA = () => {
     return permission === 'granted';
   }, []);
 
-  const showNotification = useCallback((title: string, options?: NotificationOptions) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      return new Notification(title, options);
+  const showNotification = useCallback(async (title: string, options?: NotificationOptions) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return null;
+    try {
+      // Android Chrome only allows notifications through the service worker
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(title, options);
+        return null;
+      }
+    } catch {
+      // fall through to the plain Notification API
     }
-    return null;
+    try {
+      return new Notification(title, options);
+    } catch {
+      return null;
+    }
   }, []);
 
   useEffect(() => {
@@ -166,13 +181,23 @@ export const usePWA = () => {
     window.addEventListener('online', handleOnlineStatus);
     window.addEventListener('offline', handleOnlineStatus);
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    const onSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'MUSIC_ACTION') {
+        handleMusicAction(event.data.action);
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
 
     return () => {
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
       window.removeEventListener('online', handleOnlineStatus);
       window.removeEventListener('offline', handleOnlineStatus);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, [checkIfInstalled, registerServiceWorker, handleOnlineStatus, handleBeforeInstallPrompt]);
+  }, [checkIfInstalled, registerServiceWorker, handleOnlineStatus, handleBeforeInstallPrompt, handleAppInstalled, handleMusicAction]);
 
   return {
     ...pwaState,
