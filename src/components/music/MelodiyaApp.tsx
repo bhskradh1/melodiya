@@ -169,6 +169,8 @@ export const MelodiyaApp: React.FC = () => {
             genres: preferences.favorite_genres || [],
             // everything already queued/played, so no song repeats
             excludeTitles: playlist.map(t => t.title),
+            excludeVideoIds: playlist.map(t => t.videoId),
+            excludeArtists: [track.artist, ...playlist.map(t => t.artist)],
           },
         },
       });
@@ -207,11 +209,8 @@ export const MelodiyaApp: React.FC = () => {
         setIsPlaying(true);
         console.log('Auto-playing related track:', nextTrack.title);
       } else {
-        if (playlist.length > 0) {
-          setCurrentIndex(0);
-          setCurrentTrack(playlist[0]);
-          setIsPlaying(true);
-        }
+        console.info('No new eligible recommendations. Stopping instead of replaying previous songs.');
+        setIsPlaying(false);
       }
     }
   };
