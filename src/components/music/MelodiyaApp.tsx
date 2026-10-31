@@ -18,6 +18,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Menu, X, Home, Search, TrendingUp, Library } from 'lucide-react';
+import { usePreferences, LANGUAGE_LABELS } from '@/contexts/PreferencesContext';
 
 const bottomNavItems = [
   { id: 'home', label: 'Home', icon: Home },
