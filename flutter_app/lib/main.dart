@@ -8,7 +8,7 @@ import 'update_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -16,6 +16,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 const _appName = 'Melodiya';
 const _port = 43110;
 const _origin = 'http://127.0.0.1:$_port';
+late _MelodiyaAudioHandler _audioHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,13 +26,114 @@ void main() async {
     systemNavigationBarColor: Color(0xFF0A0A0A),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.melodiya.melodiya_app.audio',
-    androidNotificationChannelName: 'Melodiya playback',
-    androidNotificationChannelDescription: 'Controls for Melodiya music playback',
-    androidNotificationOngoing: true,
-  );
+  _audioHandler = await AudioService.init(
+    builder: _MelodiyaAudioHandler.new,
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.melodiya.melodiya_app.audio',
+      androidNotificationChannelName: 'Melodiya playback',
+      androidNotificationChannelDescription: 'Now playing controls for Melodiya',
+      androidNotificationOngoing: true,
+    ),
+  ) as _MelodiyaAudioHandler;
   runApp(const MelodiyaApp());
+}
+
+class _MelodiyaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
+  Future<void> Function(String action)? onMediaAction;
+  bool _foreground = true;
+  bool _hasTrack = false;
+
+  void updateTrack({
+    required String videoId,
+    required String title,
+    required String artist,
+    required String artworkUrl,
+    required bool playing,
+  }) {
+    if (!_foreground || videoId.isEmpty) return;
+    _hasTrack = true;
+    final artwork = Uri.tryParse(artworkUrl);
+    mediaItem.add(MediaItem(
+      id: 'youtube:$videoId',
+      album: 'Melodiya · YouTube',
+      title: title.isEmpty ? 'Unknown track' : title,
+      artist: artist.isEmpty ? 'Unknown artist' : artist,
+      artUri: artwork != null && (artwork.scheme == 'https' || artwork.scheme == 'http')
+          ? artwork
+          : null,
+    ));
+    _publish(playing: playing);
+  }
+
+  void updatePlaying(bool playing) {
+    if (!_foreground || !_hasTrack) return;
+    _publish(playing: playing);
+  }
+
+  void setAppForeground(bool foreground) {
+    _foreground = foreground;
+    if (!foreground) clear();
+  }
+
+  void clear() {
+    _hasTrack = false;
+    mediaItem.add(null);
+    playbackState.add(const PlaybackState(
+      processingState: AudioProcessingState.idle,
+      playing: false,
+    ));
+  }
+
+  void _publish({required bool playing}) {
+    playbackState.add(PlaybackState(
+      controls: [
+        MediaControl.skipToPrevious,
+        playing ? MediaControl.pause : MediaControl.play,
+        MediaControl.skipToNext,
+      ],
+      androidCompactActionIndices: const [0, 1, 2],
+      processingState: AudioProcessingState.ready,
+      playing: playing,
+      updatePosition: Duration.zero,
+      bufferedPosition: Duration.zero,
+      speed: 1.0,
+    ));
+  }
+
+  @override
+  Future<void> play() async {
+    if (!_foreground || !_hasTrack) return;
+    await onMediaAction?.call('play');
+    _publish(playing: true);
+  }
+
+  @override
+  Future<void> pause() async {
+    if (!_foreground || !_hasTrack) return;
+    await onMediaAction?.call('pause');
+    _publish(playing: false);
+  }
+
+  @override
+  Future<void> skipToNext() async {
+    if (!_foreground || !_hasTrack) return;
+    await onMediaAction?.call('next');
+  }
+
+  @override
+  Future<void> skipToPrevious() async {
+    if (!_foreground || !_hasTrack) return;
+    await onMediaAction?.call('previous');
+  }
+
+  @override
+  Future<void> stop() async {
+    if (_foreground && _hasTrack) await onMediaAction?.call('pause');
+    clear();
+  }
+
+  @override
+  Future<void> onNotificationDeleted() async => clear();
 }
 
 class MelodiyaApp extends StatelessWidget {
@@ -63,7 +165,7 @@ class _MelodiyaHome extends StatefulWidget {
   State<_MelodiyaHome> createState() => _MelodiyaHomeState();
 }
 
-class _MelodiyaHomeState extends State<_MelodiyaHome> {
+class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserver {
   late final WebViewController _web;
   late final AudioPlayer _nativeAudioPlayer;
   StreamSubscription? _nativePlayerStateSubscription;
@@ -77,12 +179,16 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
   HttpServer? _server;
   bool _loading = true;
   bool _canGoBack = false;
+  bool _appForeground = true;
+  bool _notificationPermissionRequested = false;
   String? _error;
   int _progress = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _audioHandler.onMediaAction = _dispatchNativeMediaAction;
     _nativeAudioPlayer = AudioPlayer();
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -103,6 +209,12 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
         },
       )
       ..addJavaScriptChannel(
+        'MelodiyaNativeMedia',
+        onMessageReceived: (message) {
+          unawaited(_handleNativeMediaMessage(message.message));
+        },
+      )
+      ..addJavaScriptChannel(
         'MelodiyaUpdateBridge',
         onMessageReceived: (_) => MelodiyaUpdateRequests.checkNow(),
       )
@@ -114,7 +226,6 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
               _progress = progress;
               _loading = progress < 100;
             });
-            unawaited(_updateBackState());
           },
           onPageStarted: (_) {
             if (mounted) setState(() => _loading = true);
@@ -398,8 +509,10 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
       window.__melodiyaBackBridgeInstalled = true;
       function notifyNative() {
         try {
+          var state = window.history.state;
+          var canReturnToAppView = !!(state && state.__melodiyaAppNavigation === true);
           if (window.MelodiyaBridge) {
-            window.MelodiyaBridge.postMessage(String(window.history.length > 1));
+            window.MelodiyaBridge.postMessage(String(canReturnToAppView));
           }
         } catch (_) {}
       }
@@ -421,13 +534,6 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
     }
   }
 
-  Future<void> _updateBackState() async {
-    try {
-      final value = await _web.canGoBack();
-      if (mounted && value != _canGoBack) setState(() => _canGoBack = value);
-    } catch (_) {}
-  }
-
   Future<void> _openExternal(Uri uri) async {
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -437,11 +543,38 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
   }
 
   Future<bool> _onBack() async {
-    if (_canGoBack) {
+    var canGoBack = _canGoBack;
+    try {
+      final browserState = await _web.runJavaScriptReturningResult(
+        'Boolean(window.history.state && window.history.state.__melodiyaAppNavigation === true)',
+      );
+      canGoBack = canGoBack || browserState.toString() == 'true';
+    } catch (_) {}
+
+    if (canGoBack) {
       await _web.goBack();
       return false;
     }
-    return true;
+
+    if (!mounted) return false;
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exit Melodiya?'),
+        content: const Text('Do you want to close the app?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+    return shouldExit ?? false;
   }
 
   Future<void> _retry() async {
@@ -456,8 +589,75 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
     }
   }
 
+  Future<void> _requestNotificationPermission() async {
+    if (!Platform.isAndroid || _notificationPermissionRequested) return;
+    _notificationPermissionRequested = true;
+    try {
+      final status = await Permission.notification.request();
+      if (!status.isGranted) {
+        debugPrint('Melodiya notification permission was not granted.');
+      }
+    } catch (error) {
+      debugPrint('Could not request notification permission: $error');
+    }
+  }
+
+  Future<void> _handleNativeMediaMessage(String rawMessage) async {
+    try {
+      final decoded = jsonDecode(rawMessage);
+      if (decoded is! Map) return;
+      final message = Map<String, dynamic>.from(decoded);
+      final command = message['command'] as String?;
+      if (command == 'clear') {
+        _audioHandler.clear();
+        return;
+      }
+      if (command != 'update' || !_appForeground) return;
+
+      final videoId = (message['videoId'] as String?)?.trim() ?? '';
+      if (videoId.isEmpty) {
+        _audioHandler.clear();
+        return;
+      }
+      final playing = message['playing'] == true;
+      if (playing) await _requestNotificationPermission();
+      _audioHandler.updateTrack(
+        videoId: videoId,
+        title: (message['title'] as String?)?.trim() ?? '',
+        artist: (message['artist'] as String?)?.trim() ?? '',
+        artworkUrl: (message['artwork'] as String?)?.trim() ?? '',
+        playing: playing,
+      );
+    } catch (error) {
+      debugPrint('Could not update the Android media notification: $error');
+    }
+  }
+
+  void _dispatchNativeMediaAction(String action) {
+    if (!mounted || !_appForeground) return;
+    final detail = jsonEncode({'action': action});
+    final script = 'window.dispatchEvent(new CustomEvent("music-action", {detail: $detail}));';
+    unawaited(_web.runJavaScript(script).catchError((_) {}));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _appForeground = true;
+      _audioHandler.setAppForeground(true);
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _appForeground = false;
+      _audioHandler.setAppForeground(false);
+      unawaited(_web.runJavaScript(
+        'window.dispatchEvent(new Event("melodiya-app-background"));',
+      ).catchError((_) {}));
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _audioHandler.onMediaAction = null;
     final server = _server;
     if (server != null) unawaited(server.close(force: true));
     _nativeStateTimer?.cancel();
@@ -473,8 +673,8 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
       onWillPop: _onBack,
       child: Scaffold(
         body: SafeArea(
-          top: false,
-          bottom: false,
+          top: true,
+          bottom: true,
           child: Stack(
             children: [
               WebViewWidget(controller: _web),
