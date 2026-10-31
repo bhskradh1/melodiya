@@ -4,19 +4,19 @@ import { X, Download, Smartphone } from 'lucide-react';
 import { usePWA } from '@/hooks/use-pwa';
 
 export const PWAInstallPrompt: React.FC = () => {
-  const { canInstall, installPWA, isInstalled } = usePWA();
+  const { canInstall, installPWA, isInstalled, isIOS } = usePWA();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     // Show prompt after a delay if app can be installed
-    if (canInstall && !isInstalled) {
+    if ((canInstall || isIOS) && !isInstalled) {
       const timer = setTimeout(() => {
         setIsVisible(true);
       }, 3000); // Show after 3 seconds
 
       return () => clearTimeout(timer);
     }
-  }, [canInstall, isInstalled]);
+  }, [canInstall, isIOS, isInstalled]);
 
   const handleInstall = async () => {
     try {
@@ -48,7 +48,9 @@ export const PWAInstallPrompt: React.FC = () => {
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm">Install Melodiya</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Install our app for a better experience and background music playback
+            {isIOS && !canInstall
+              ? 'Tap the Share button, then "Add to Home Screen" for a full-screen app'
+              : 'Install our app for a better experience and background music playback'}
           </p>
         </div>
         
@@ -63,14 +65,16 @@ export const PWAInstallPrompt: React.FC = () => {
       </div>
       
       <div className="flex gap-2 mt-3">
-        <Button
-          size="sm"
-          className="flex-1 bg-primary hover:bg-primary/90"
-          onClick={handleInstall}
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Install
-        </Button>
+        {canInstall && (
+          <Button
+            size="sm"
+            className="flex-1 bg-primary hover:bg-primary/90"
+            onClick={handleInstall}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Install
+          </Button>
+        )}
         
         <Button
           variant="outline"
