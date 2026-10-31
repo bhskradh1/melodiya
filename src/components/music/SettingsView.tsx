@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getOfflineTracks, clearOfflineLibrary } from '@/lib/offlineLibrary';
 import {
   Smartphone,
+  RefreshCw,
   Mic2,
   WifiOff,
   Volume2,
@@ -27,6 +28,8 @@ import {
   LogOut,
   Trash2,
 } from 'lucide-react';
+
+declare global { interface Window { MelodiyaUpdateBridge?: { postMessage: (message: string) => void } } }
 
 export const SettingsView: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -113,6 +116,15 @@ export const SettingsView: React.FC = () => {
     }
   };
 
+  const handleCheckForUpdates = () => {
+    if (window.MelodiyaUpdateBridge?.postMessage) {
+      window.MelodiyaUpdateBridge.postMessage('check');
+      toast({ title: 'Checking for updates', description: 'Melodiya will show the result shortly.' });
+    } else {
+      toast({ title: 'App updates', description: 'This option is available in the Android app.' });
+    }
+  };
+
   const handleClearOffline = async () => {
     await clearOfflineLibrary();
     setOfflineCount(0);
@@ -165,7 +177,7 @@ export const SettingsView: React.FC = () => {
   }
 
   return (
-    <div className="p-6 pb-32 space-y-6 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-6 pb-[calc(8rem+env(safe-area-inset-bottom))] space-y-5 sm:space-y-6 w-full max-w-2xl mx-auto min-w-0">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Manage your account and preferences</p>
@@ -531,9 +543,15 @@ export const SettingsView: React.FC = () => {
             <Smartphone className="w-5 h-5 text-primary" />
             App
           </CardTitle>
-          <CardDescription>Cached recommendations and installed app data</CardDescription>
+          <CardDescription>Update Melodiya and manage cached app data</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <Button variant="outline" className="w-full justify-start gap-2" onClick={handleCheckForUpdates}>
+            <RefreshCw className="w-4 h-4" />
+            Check for App Updates
+          </Button>
+          <p className="text-xs text-muted-foreground">Check for a newer signed Android version and install it without uninstalling Melodiya.</p>
+          <Separator />
           <Button variant="outline" className="w-full justify-start gap-2" onClick={handleClearCaches}>
             <Trash2 className="w-4 h-4" />
             Refresh Recommendations Cache
