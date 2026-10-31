@@ -49,6 +49,7 @@ interface NowPlayingViewProps {
   onToggleRepeat: () => void;
   onToggleShuffle: () => void;
   onToggleLike: () => void;
+  isVideoVisible?: boolean;
 }
 
 const SCROLL_SPEEDS = [
@@ -76,6 +77,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   onToggleRepeat,
   onToggleShuffle,
   onToggleLike,
+  isVideoVisible = false,
 }) => {
   const [showLyrics, setShowLyrics] = useState(false);
   const [syncedLines, setSyncedLines] = useState<SyncedLine[] | null>(null);
@@ -369,7 +371,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         <div className="flex-1 min-h-0 flex flex-col md:flex-row items-center md:justify-center justify-start px-4 sm:px-6 py-2 gap-3 sm:gap-6 overflow-y-auto overflow-x-hidden">
           {/* Album Art / Left Side */}
           <div className={`shrink-0 flex flex-col items-center gap-3 sm:gap-5 ${showLyrics ? 'md:w-1/2 w-full' : 'w-full'} transition-all duration-500`}>
-            <div className={`relative shrink-0 ${showLyrics ? 'w-36 h-36 sm:w-48 sm:h-48 md:w-72 md:h-72' : 'w-[min(58vw,15rem)] h-[min(58vw,15rem)] max-h-[26dvh] max-w-[26dvh] md:w-80 md:h-80'} transition-all duration-500`}>
+            <div className={`relative shrink-0 ${showLyrics ? 'w-36 h-36 sm:w-48 sm:h-48 md:w-72 md:h-72' : 'w-[min(58vw,15rem)] h-[min(58vw,15rem)] max-h-[26dvh] max-w-[26dvh] md:w-80 md:h-80'} ${isVideoVisible ? 'invisible' : 'visible'} transition-all duration-500`}>
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
