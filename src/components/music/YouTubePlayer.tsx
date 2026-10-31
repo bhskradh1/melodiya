@@ -193,18 +193,18 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
         position: 'fixed',
         top: '-100vh', 
         left: '-100vw',
-        width: '1px',
-        height: '1px',
-        opacity: 0,
-        visibility: 'hidden',
+        width: '200px',
+        height: '200px',
+        opacity: 0.01,
+        visibility: 'visible',
         zIndex: -9999,
         pointerEvents: 'none',
         overflow: 'hidden',
         transform: 'translateZ(0)', // Force hardware acceleration
         WebkitTransform: 'translateZ(0)', // iOS Safari specific
         display: 'block', // Ensure it's not affecting layout
-        maxWidth: '1px',
-        maxHeight: '1px'
+        maxWidth: '200px',
+        maxHeight: '200px'
       }}
     />
   );
