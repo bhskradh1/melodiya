@@ -72,7 +72,7 @@ class _MelodiyaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
 
   void setAppForeground(bool foreground) {
     _foreground = foreground;
-    if (!foreground) clear();
+    if (_hasTrack) _publish(playing: false, controlsEnabled: foreground);
   }
 
   void clear() {
@@ -84,14 +84,17 @@ class _MelodiyaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     ));
   }
 
-  void _publish({required bool playing}) {
+  void _publish({required bool playing, bool controlsEnabled = true}) {
+    final controls = controlsEnabled
+        ? <MediaControl>[
+            MediaControl.skipToPrevious,
+            playing ? MediaControl.pause : MediaControl.play,
+            MediaControl.skipToNext,
+          ]
+        : <MediaControl>[];
     playbackState.add(PlaybackState(
-      controls: [
-        MediaControl.skipToPrevious,
-        playing ? MediaControl.pause : MediaControl.play,
-        MediaControl.skipToNext,
-      ],
-      androidCompactActionIndices: const [0, 1, 2],
+      controls: controls,
+      androidCompactActionIndices: controlsEnabled ? const [0, 1, 2] : const [],
       processingState: AudioProcessingState.ready,
       playing: playing,
       updatePosition: Duration.zero,
