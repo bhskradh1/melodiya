@@ -4,6 +4,7 @@ import {
   formatDuration,
   genreFromTopics,
   langFromCode,
+  inferVibeTerms,
   parseISODuration,
   pickRelated,
 } from "./related.ts"
@@ -128,15 +129,18 @@ serve(async (req) => {
 });
 
 // ---------------------------------------------------------------------------
-// Related songs: find the genre/language of the playing video, then search that
+// YouTube-style Up Next: similar feeling + popular/trending tracks.
 // ---------------------------------------------------------------------------
 async function handleRelated(rel: {
   videoId: string;
   title: string;
   artist: string;
   language?: string;
+  languageCode?: string;
   genres?: string[];
   excludeTitles?: string[];
+  excludeVideoIds?: string[];
+  excludeArtists?: string[];
 }) {
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), {
@@ -149,89 +153,202 @@ async function handleRelated(rel: {
   if (!rel?.videoId || !rel?.title) return json({ error: 'videoId and title are required' }, 400);
 
   const api = 'https://www.googleapis.com/youtube/v3';
+  const excludedIds = new Set([rel.videoId, ...(rel.excludeVideoIds || [])]);
+  const excludedTitles = rel.excludeTitles || [];
+  const excludedArtists = rel.excludeArtists || [];
 
-  // 1) What is this video? (genre topic, tags, language) -- costs 1 quota unit
+  // Read the current track's YouTube metadata to infer its genre, language and feel.
   let genre: string | null = null;
-  let language: string | null = null;
-  let tagHint: string | null = null;
+  let detectedLanguage: string | null = null;
+  let tags: string[] = [];
   try {
-    const r = await fetch(`${api}/videos?part=snippet,topicDetails&id=${rel.videoId}&key=${apiKey}`);
-    if (r.ok) {
-      const d = await r.json();
-      const v = d.items?.[0];
-      genre = genreFromTopics(v?.topicDetails?.topicCategories || []);
-      language = langFromCode(v?.snippet?.defaultAudioLanguage || v?.snippet?.defaultLanguage);
-      const titleLc = rel.title.toLowerCase();
-      const artistLc = rel.artist.toLowerCase();
-      tagHint =
-        (v?.snippet?.tags || []).find((t: string) => {
-          const x = t.toLowerCase();
-          return x.length >= 3 && x.length <= 22 && !titleLc.includes(x) && !artistLc.includes(x);
-        }) || null;
+    const params = new URLSearchParams({
+      part: 'snippet,topicDetails',
+      id: rel.videoId,
+      key: apiKey,
+    });
+    const response = await fetch(api + '/videos?' + params.toString());
+    if (response.ok) {
+      const data = await response.json();
+      const video = data.items?.[0];
+      genre = genreFromTopics(video?.topicDetails?.topicCategories || []);
+      detectedLanguage = langFromCode(
+        video?.snippet?.defaultAudioLanguage || video?.snippet?.defaultLanguage,
+      );
+      tags = Array.isArray(video?.snippet?.tags) ? video.snippet.tags : [];
     }
-  } catch (e) {
-    console.error('video lookup failed', e);
+  } catch (error) {
+    console.error('Current video metadata lookup failed:', error);
   }
 
-  // 2) Build a GENRE query. Never include the song title or artist.
-  const genreWord = genre || rel.genres?.[0] || tagHint || 'popular';
-  const lang = language || rel.language || '';
-  const q = `${genreWord} ${lang} songs -cover -remix -karaoke`.replace(/\s+/g, ' ').trim();
-  console.log(`Related search: "${q}" (genre=${genre}, lang=${language})`);
+  const language = detectedLanguage || rel.language || '';
+  const genreWord = genre || rel.genres?.[0] || 'popular music';
+  const vibeTerms = inferVibeTerms([rel.title, rel.artist, ...tags].join(' '));
+  const seedText = (rel.title + ' ' + rel.artist).toLowerCase();
+  const styleTags = tags
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const value = tag.toLowerCase();
+      return value.length >= 3 &&
+        value.length <= 28 &&
+        !seedText.includes(value) &&
+        !/\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\b/i.test(value);
+    })
+    .slice(0, 2);
 
-  const sr = await fetch(
-    `${api}/search?part=snippet&type=video&videoCategoryId=10&maxResults=30&q=${encodeURIComponent(q)}&key=${apiKey}`
-  );
-  if (!sr.ok) {
-    const err = await sr.json().catch(() => ({}));
-    return json({ error: 'Failed to search YouTube', details: err.error?.message }, sr.status);
+  // OR combines a close similarity search and a popular-in-this-vibe search
+  // into one YouTube search request. URLSearchParams safely encodes the pipe.
+  const exclusions = '-cover -remix -karaoke -instrumental -reaction -compilation';
+  const similarQuery = [
+    rel.title,
+    rel.artist,
+    'similar songs',
+    vibeTerms[0] || '',
+    genreWord,
+    language,
+    ...styleTags,
+  ].filter(Boolean).join(' ');
+  const viralQuery = [
+    genreWord,
+    vibeTerms[0] || '',
+    language,
+    'viral trending popular hits',
+  ].filter(Boolean).join(' ');
+  const query = similarQuery + ' ' + exclusions + '|' + viralQuery + ' ' + exclusions;
+
+  console.log('Up Next query:', query);
+
+  const searchParams = new URLSearchParams({
+    part: 'snippet',
+    type: 'video',
+    videoCategoryId: '10',
+    videoEmbeddable: 'true',
+    maxResults: '50',
+    order: 'relevance',
+    safeSearch: 'moderate',
+    q: query,
+    key: apiKey,
+  });
+  const languageCode = (rel.languageCode || '').trim().toLowerCase();
+  if (/^[a-z]{2}$/.test(languageCode)) {
+    searchParams.set('relevanceLanguage', languageCode);
   }
-  const sd = await sr.json();
-  const ids: string[] = (sd.items || []).map((i: any) => i.id.videoId).filter(Boolean);
 
-  // 3) Real durations, to drop 1-hour mixes and shorts -- costs 1 quota unit
-  const durations = new Map<string, number>();
+  const searchResponse = await fetch(api + '/search?' + searchParams.toString());
+  if (!searchResponse.ok) {
+    const errorData = await searchResponse.json().catch(() => ({}));
+    return json({
+      error: 'Failed to search similar and popular songs',
+      details: errorData.error?.message,
+    }, searchResponse.status);
+  }
+
+  const searchData = await searchResponse.json();
+  const searchItems = (searchData.items || [])
+    .filter((item: any) => item.id?.videoId && !excludedIds.has(item.id.videoId));
+  const ids: string[] = searchItems.map((item: any) => item.id.videoId);
+
+  // Fetch view counts, recent upload dates and durations in one batch.
+  const detailsById = new Map<string, any>();
   if (ids.length) {
-    const dr = await fetch(`${api}/videos?part=contentDetails&id=${ids.join(',')}&key=${apiKey}`);
-    if (dr.ok) {
-      const dd = await dr.json();
-      for (const v of dd.items || []) durations.set(v.id, parseISODuration(v.contentDetails?.duration));
+    const params = new URLSearchParams({
+      part: 'contentDetails,statistics,snippet,topicDetails',
+      id: ids.join(','),
+      key: apiKey,
+    });
+    const detailsResponse = await fetch(api + '/videos?' + params.toString());
+    if (detailsResponse.ok) {
+      const detailsData = await detailsResponse.json();
+      for (const video of detailsData.items || []) detailsById.set(video.id, video);
     }
   }
 
+  const now = Date.now();
+  const preferredGenres = [genre, ...(rel.genres || [])]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
   const candidates: Candidate[] = [];
-  for (const item of sd.items || []) {
-    const secs = durations.get(item.id.videoId) ?? 0;
-    if (durations.size && (secs < 90 || secs > 480)) continue; // keep 1:30 - 8:00
-    let artist = item.snippet.channelTitle;
-    let title = item.snippet.title;
+
+  searchItems.forEach((item: any, relevanceRank: number) => {
+    const videoId = item.id.videoId;
+    const details = detailsById.get(videoId);
+    const seconds = parseISODuration(details?.contentDetails?.duration || '');
+    if (details && seconds > 0 && (seconds < 60 || seconds > 600)) return;
+
+    let artist = item.snippet.channelTitle || 'Unknown Artist';
+    let title = item.snippet.title || 'Unknown Track';
     if (title.includes(' - ')) {
       const parts = title.split(' - ');
-      artist = parts[0].trim();
-      title = parts.slice(1).join(' - ').trim();
+      if (parts.length >= 2) {
+        artist = parts[0].trim();
+        title = parts.slice(1).join(' - ').trim();
+      }
     }
+
+    const statistics = details?.statistics || {};
+    const views = Number(statistics.viewCount || 0);
+    const likes = Number(statistics.likeCount || 0);
+    const publishedAt = details?.snippet?.publishedAt || item.snippet.publishedAt;
+    const publishedTime = publishedAt ? Date.parse(publishedAt) : NaN;
+    const ageDays = Number.isFinite(publishedTime)
+      ? Math.max(1, (now - publishedTime) / 86400000)
+      : 30;
+
+    const candidateGenre = genreFromTopics(details?.topicDetails?.topicCategories || []);
+    const genreMatch = !candidateGenre || preferredGenres.length === 0
+      ? 0.5
+      : preferredGenres.includes(candidateGenre.toLowerCase()) ? 1 : 0.2;
+
+    const candidateTags = Array.isArray(details?.snippet?.tags) ? details.snippet.tags : [];
+    const candidateText = [
+      title,
+      artist,
+      details?.snippet?.description || '',
+      ...candidateTags,
+    ].join(' ');
+    const candidateVibes = inferVibeTerms(candidateText);
+    const vibeMatch = vibeTerms.length === 0
+      ? 0.5
+      : candidateVibes.some((vibe) => vibeTerms.includes(vibe)) ? 1 : 0.25;
+
     candidates.push({
-      id: item.id.videoId,
+      id: videoId,
       title,
       artist,
       thumbnail:
-        item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-      videoId: item.id.videoId,
-      duration: secs ? formatDuration(secs) : 'Unknown',
+        item.snippet.thumbnails?.high?.url ||
+        item.snippet.thumbnails?.medium?.url ||
+        item.snippet.thumbnails?.default?.url ||
+        '',
+      videoId,
+      duration: seconds ? formatDuration(seconds) : 'Unknown',
+      relevanceRank,
+      viewCount: views,
+      viewsPerDay: views / ageDays,
+      likeRatio: views > 0 ? likes / views : 0,
+      genreMatch,
+      vibeMatch,
     });
-  }
-
-  // 4) Shuffle a little for variety, then drop same-song / covers / too many of one artist
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-  }
-  const tracks = pickRelated(candidates, {
-    currentTitle: rel.title,
-    currentArtist: rel.artist,
-    excludeTitles: rel.excludeTitles,
-    limit: 15,
   });
 
-  return json({ tracks, genre: genre || genreWord, language: language || lang || null });
+  const selected = pickRelated(candidates, {
+    currentTitle: rel.title,
+    currentArtist: rel.artist,
+    excludeTitles: excludedTitles,
+    excludeVideoIds: Array.from(excludedIds),
+    excludeArtists: excludedArtists,
+    limit: 15,
+  });
+  const tracks = selected.map(({ id, title, artist, thumbnail, videoId, duration }) => ({
+    id, title, artist, thumbnail, videoId, duration,
+  }));
+
+  return json({
+    tracks,
+    genre: genre || genreWord,
+    language,
+    vibe: vibeTerms,
+    strategy: 'similar-vibe-plus-popularity-no-repeat-artists',
+  });
 }
+
