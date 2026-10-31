@@ -17,7 +17,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { PWAInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import { Menu, X, Home, Search, TrendingUp, Library } from 'lucide-react';
 
 const bottomNavItems = [
@@ -273,9 +272,6 @@ export const MelodiyaApp: React.FC = () => {
 
   return (
     <div className="h-[100dvh] min-h-0 w-full max-w-full overflow-hidden flex flex-col bg-background">
-      {/* PWA install prompt (Android install button / iPhone "Add to Home Screen" hint) */}
-      <PWAInstallPrompt />
-
       <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
         {/* Mobile Header */}
         {isMobile && (
