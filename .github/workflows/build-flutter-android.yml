@@ -29,6 +29,10 @@ on:
       - 'scripts/configure-android-signing.py'
       - '.github/workflows/build-flutter-android.yml'
 
+concurrency:
+  group: melodiya-android-build
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -170,6 +174,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          LATEST_MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [[ -n "$LATEST_MAIN_SHA" && "$GITHUB_SHA" != "$LATEST_MAIN_SHA" ]]; then
+            echo "Skip publishing an outdated commit ($GITHUB_SHA); main is $LATEST_MAIN_SHA."
+            exit 0
+          fi
           : "${SUPABASE_SERVICE_KEY:?Missing repository secret SUPABASE_SERVICE_KEY}"
           APK="flutter_app/build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
