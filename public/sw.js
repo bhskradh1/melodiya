@@ -1,5 +1,5 @@
 // If running on lovableproject.com (dev preview), unregister immediately
-if (self.location.hostname.includes('lovableproject.com') || self.location.hostname === 'localhost') {
+if (self.location.hostname.includes('lovableproject.com')) {
   self.addEventListener('install', () => self.skipWaiting());
   self.addEventListener('activate', (event) => {
     event.waitUntil(
@@ -13,9 +13,9 @@ if (self.location.hostname.includes('lovableproject.com') || self.location.hostn
   // Stop here — do not register any fetch handlers in dev
 } else {
 
-const CACHE_NAME = 'melodiya-v1.0.1';
-const STATIC_CACHE = 'melodiya-static-v1.0.1';
-const DYNAMIC_CACHE = 'melodiya-dynamic-v1.0.1';
+const CACHE_NAME = 'melodiya-v1.1.0';
+const STATIC_CACHE = 'melodiya-static-v1.1.0';
+const DYNAMIC_CACHE = 'melodiya-dynamic-v1.1.0';
 
 // Files to cache immediately
 const STATIC_FILES = [
@@ -24,7 +24,8 @@ const STATIC_FILES = [
   '/manifest.json',
   '/favicon.ico',
   '/icon-192x192.png',
-  '/icon-512x512.png'
+  '/icon-512x512.png',
+  '/apple-touch-icon.png'
 ];
 
 // Install event - cache static files
@@ -83,6 +84,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Only handle same-origin requests (leave Supabase, YouTube, etc. alone)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Never cache media range requests
+  if (request.headers.has('range')) {
+    return;
+  }
+
   // Never intercept Vite dev/HMR/module requests (prevents stale chunk mismatches)
   if (
     url.pathname.startsWith('/node_modules/.vite/') ||
@@ -108,29 +119,29 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Handle main page requests
+// Handle main page requests: network first, but fall back to cache after 2.5s
+// so the installed app opens fast even on a slow connection
 async function handleMainPage(request) {
+  const cache = await caches.open(DYNAMIC_CACHE);
+  const networkPromise = fetch(request).then((response) => {
+    if (response.ok) cache.put('/index.html', response.clone());
+    return response;
+  });
+
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 2500));
+
   try {
-    // Try network first
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      // Cache the response
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, networkResponse.clone());
-      return networkResponse;
-    }
+    const winner = await Promise.race([networkPromise, timeout]);
+    if (winner) return winner;
   } catch (error) {
-    console.log('Service Worker: Network failed for main page, trying cache');
+    // network failed, fall through to cache
   }
 
-  // Fallback to cache
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
+  const cached = (await cache.match('/index.html')) || (await caches.match('/index.html'));
+  if (cached) return cached;
 
-  // Fallback to static cache
-  return caches.match('/index.html');
+  // Nothing cached yet: wait for the network
+  return networkPromise;
 }
 
 // Handle API requests
