@@ -41,6 +41,7 @@ interface Track {
 export const MelodiyaApp: React.FC = () => {
   const [activeView, setActiveView] = useState('home');
   const suppressHistoryPushRef = useRef(false);
+  const historyInitializedRef = useRef(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
@@ -55,7 +56,7 @@ export const MelodiyaApp: React.FC = () => {
   // Mirror React section changes into browser history so Android Back returns
   // to the previous Melodiya section instead of closing the WebView.
   useEffect(() => {
-    const initialState = { __melodiyaAppNavigation: true, activeView: 'home', selectedPlaylistId: null };
+    const initialState = { __melodiyaAppNavigation: true, depth: 0, activeView: 'home', selectedPlaylistId: null };
     if (!window.history.state?.__melodiyaAppNavigation) {
       window.history.replaceState(initialState, '', window.location.href);
     }
@@ -75,12 +76,18 @@ export const MelodiyaApp: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!historyInitializedRef.current) {
+      historyInitializedRef.current = true;
+      return;
+    }
     if (suppressHistoryPushRef.current) {
       suppressHistoryPushRef.current = false;
       return;
     }
+    const previousDepth = Number(window.history.state?.depth ?? 0);
     window.history.pushState({
       __melodiyaAppNavigation: true,
+      depth: previousDepth + 1,
       activeView,
       selectedPlaylistId,
     }, '', window.location.href);
