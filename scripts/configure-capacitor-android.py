@@ -36,25 +36,25 @@ def main() -> None:
 
     content = gradle.read_text(encoding="utf-8")
     content = replace_once(
-        r'namespace\\s*=\\s*["\\'][^"\\']+["\\']',
+        r"namespace\s*=\s*['\"][^'\"]+['\"]",
         f'namespace = "{PACKAGE_ID}"',
         content,
         "Android namespace",
     )
     content = replace_once(
-        r'applicationId\\s+["\\'][^"\\']+["\\']',
+        r'applicationId\s+["\'][^"\']+["\']',
         f'applicationId "{PACKAGE_ID}"',
         content,
         "Android application ID",
     )
     content = replace_once(
-        r'versionCode\\s+\\d+',
-        f'versionCode {int(version_code)}',
+        r"versionCode\s+\d+",
+        f"versionCode {int(version_code)}",
         content,
         "Android version code",
     )
     content = replace_once(
-        r'versionName\\s+["\\'][^"\\']+["\\']',
+        r'versionName\s+["\'][^"\']+["\']',
         f'versionName "{version_name}"',
         content,
         "Android version name",
@@ -72,14 +72,14 @@ def main() -> None:
     }
 
 """
-        content = replace_once(r'android\\s*\\{', "android {\\n" + signing, content, "release signing config")
+        content = replace_once(r"android\s*\{", "android {\n" + signing, content, "release signing config")
 
-    release_match = re.search(r'buildTypes\\s*\\{\\s*release\\s*\\{', content)
+    release_match = re.search(r"buildTypes\s*\{\s*release\s*\{", content)
     if not release_match:
         raise SystemExit("Could not find the Capacitor release build type.")
     release_body_start = release_match.end()
     if "signingConfig signingConfigs.release" not in content[release_body_start:release_body_start + 500]:
-        content = content[:release_body_start] + "\\n            signingConfig signingConfigs.release" + content[release_body_start:]
+        content = content[:release_body_start] + "\n            signingConfig signingConfigs.release" + content[release_body_start:]
 
     gradle.write_text(content, encoding="utf-8")
 
@@ -87,14 +87,14 @@ def main() -> None:
     if strings_file.exists():
         strings = strings_file.read_text(encoding="utf-8")
         strings, count = re.subn(
-            r'<string\\s+name=["\\']app_name["\\']>.*?</string>',
+            r"<string\s+name=['\"]app_name['\"]>.*?</string>",
             '<string name="app_name">Melodiya</string>',
             strings,
             count=1,
             flags=re.DOTALL,
         )
         if count == 0:
-            strings = strings.replace("</resources>", '    <string name="app_name">Melodiya</string>\\n</resources>')
+            strings = strings.replace("</resources>", '    <string name="app_name">Melodiya</string>\n</resources>')
         strings_file.write_text(strings, encoding="utf-8")
 
     manifest = APP / "src/main/AndroidManifest.xml"
@@ -104,7 +104,7 @@ def main() -> None:
     for permission in ("android.permission.INTERNET", "android.permission.POST_NOTIFICATIONS"):
         permission_line = f'    <uses-permission android:name="{permission}" />'
         if f'android:name="{permission}"' not in xml:
-            xml = xml.replace("<application", permission_line + "\\n\\n    <application", 1)
+            xml = xml.replace("<application", permission_line + "\n\n    <application", 1)
     manifest.write_text(xml, encoding="utf-8")
 
     icon = ROOT / "public/icon-512x512.png"
