@@ -102,6 +102,10 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> {
           unawaited(_handleNativeAudioMessage(message.message));
         },
       )
+      ..addJavaScriptChannel(
+        'MelodiyaUpdateBridge',
+        onMessageReceived: (_) => MelodiyaUpdateRequests.checkNow(),
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {
