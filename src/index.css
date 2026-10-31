@@ -96,11 +96,31 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  html, body, #root {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 100%;
+    margin: 0;
+  }
+
+  #root {
+    height: 100dvh;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  img, video, iframe, canvas, svg {
+    max-width: 100%;
   }
 
   body {
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
     @apply bg-background text-foreground font-sans;
     background-image:
       radial-gradient(60rem 40rem at 12% -10%, hsl(var(--primary) / 0.14), transparent 60%),
