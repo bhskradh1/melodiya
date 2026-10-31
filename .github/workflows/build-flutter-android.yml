@@ -111,7 +111,7 @@ jobs:
               'keyPassword': os.environ['ANDROID_KEY_PASSWORD'],
           }
           target = Path('flutter_app/android/key.properties')
-          target.write_text(''.join(f'{key}={escape_property(value)}\\n' for key, value in values.items()), encoding='utf-8')
+          target.write_text(chr(10).join(f'{key}={escape_property(value)}' for key, value in values.items()) + chr(10), encoding='utf-8')
           PY
           chmod 600 flutter_app/android/key.properties flutter_app/android/app/melodiya-upload-key.p12
 
