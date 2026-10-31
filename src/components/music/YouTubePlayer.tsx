@@ -70,8 +70,8 @@ export const YouTubePlayer = forwardRef<any, YouTubePlayerProps>(({
 
       console.log('Initializing YouTube player...');
       playerRef.current = new window.YT.Player(el, {
-        height: '0',
-        width: '0',
+        height: '200',
+        width: '200',
         videoId: videoId || '',
         playerVars: {
           autoplay: 0,
