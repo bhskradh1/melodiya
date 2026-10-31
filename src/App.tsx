@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,8 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          {/* Register PWA and capture the install event on login and app screens. */}
+          <PWAInstallPrompt />
         </TooltipProvider>
       </SettingsProvider>
     </QueryClientProvider>
