@@ -174,6 +174,7 @@ jobs:
           APK="flutter_app/build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
           APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          export APK_SHA256
           python3 - <<'PY'
           import json
           import os
@@ -181,7 +182,7 @@ jobs:
           from pathlib import Path
 
           pubspec = Path('flutter_app/pubspec.yaml').read_text()
-          match = re.search(r'^version:\\s*([^\\s]+)', pubspec, re.MULTILINE)
+          match = re.search(r'^version:\s*([^\s]+)', pubspec, re.MULTILINE)
           if not match:
               raise SystemExit('Could not read the app version from pubspec.yaml.')
           version = match.group(1).split('+', 1)[0]
@@ -197,7 +198,7 @@ jobs:
               'releaseNotes': 'Melodiya branding improvements, startup polish, and verified in-app updates.',
               'mandatory': False,
           }
-          Path('melodiya-version.json').write_text(json.dumps(manifest, indent=2) + '\\n')
+          Path('melodiya-version.json').write_text(json.dumps(manifest, indent=2) + '\n')
           print('Prepared update manifest for build ' + str(build) + '.')
           PY
           APK_NAME="melodiya-$(python3 -c "import json; print(json.load(open('melodiya-version.json'))['version'])")-$BUILD_NUMBER.apk"
