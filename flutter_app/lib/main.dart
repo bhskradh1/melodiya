@@ -633,7 +633,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
     }
   }
 
-  void _dispatchNativeMediaAction(String action) {
+  Future<void> _dispatchNativeMediaAction(String action) async {
     if (!mounted || !_appForeground) return;
     final detail = jsonEncode({'action': action});
     final script = 'window.dispatchEvent(new CustomEvent("music-action", {detail: $detail}));';
