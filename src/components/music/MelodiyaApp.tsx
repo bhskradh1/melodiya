@@ -520,3 +520,6 @@ export const MelodiyaApp: React.FC = () => {
     </div>
   );
 };
+
+// Keep the Sonora app entry-point name while preserving the original export.
+export { MelodiyaApp as SonoraApp };
