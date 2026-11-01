@@ -128,6 +128,7 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
           size="sm"
           aria-label="Add song to playlist"
           title="Add to playlist"
+          onClick={(event) => event.stopPropagation()}
           className={compact
             ? 'h-9 w-9 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/10'
             : 'h-10 gap-2 rounded-full border border-foreground/15 bg-foreground/[0.06] px-4 hover:bg-foreground/10'}
