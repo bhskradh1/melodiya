@@ -468,7 +468,6 @@ async function handleRelated(rel: {
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
   const candidates: Candidate[] = [];
-  const bestMappedRecording = new Map<string, number>();
 
   searchItems.forEach((item: any, relevanceRank: number) => {
     const videoId = item.id.videoId;
@@ -506,12 +505,9 @@ async function handleRelated(rel: {
     const artist = matchedTrack?.artist || parsed.artist;
     const musicBrainzId = matchedTrack?.musicBrainzId;
 
-    if (musicBrainzId) {
-      const priorRank = bestMappedRecording.get(musicBrainzId);
-      if (priorRank !== undefined && priorRank <= relevanceRank) return;
-      bestMappedRecording.set(musicBrainzId, relevanceRank);
-    }
-
+    // Keep all eligible uploads until ranking. pickRelated then chooses the
+    // strongest official/popular match and discards alternate uploads with
+    // the same known recording MBID.
     const statistics = details?.statistics || {};
     const views = Number(statistics.viewCount || 0);
     const likes = Number(statistics.likeCount || 0);
