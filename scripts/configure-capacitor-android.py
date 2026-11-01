@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure the generated Capacitor Android project for a signed Melodiya APK."""
+"""Configure the generated Capacitor Android project for a signed Sonora APK."""
 from __future__ import annotations
 
 import os
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ANDROID = ROOT / "android"
 APP = ANDROID / "app"
 PACKAGE_ID = "com.melodiya.melodiya_app"
-APP_NAME = "Melodiya"
+APP_NAME = "Sonora"
 
 
 def replace_once(pattern: str, replacement: str, content: str, label: str, flags: int = 0) -> str:
@@ -88,13 +88,13 @@ def main() -> None:
         strings = strings_file.read_text(encoding="utf-8")
         strings, count = re.subn(
             r"<string\s+name=['\"]app_name['\"]>.*?</string>",
-            '<string name="app_name">Melodiya</string>',
+            '<string name="app_name">Sonora</string>',
             strings,
             count=1,
             flags=re.DOTALL,
         )
         if count == 0:
-            strings = strings.replace("</resources>", '    <string name="app_name">Melodiya</string>\n</resources>')
+            strings = strings.replace("</resources>", '    <string name="app_name">Sonora</string>\n</resources>')
         strings_file.write_text(strings, encoding="utf-8")
 
     manifest = APP / "src/main/AndroidManifest.xml"
@@ -111,7 +111,7 @@ def main() -> None:
     if not icon.exists():
         icon = ROOT / "public/icon-192x192.png"
     if not icon.exists():
-        raise SystemExit("Melodiya launcher icon was not found in public/.")
+        raise SystemExit("Sonora launcher icon was not found in public/.")
     res = APP / "src/main/res"
     for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
         target = res / f"mipmap-{density}"
