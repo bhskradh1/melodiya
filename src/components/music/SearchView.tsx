@@ -23,10 +23,11 @@ interface Track {
 
 interface SearchViewProps {
   onPlayTrack: (track: Track) => void;
+  initialQuery?: string;
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, initialQuery = '' }) => {
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [visibleSearchResultsCount, setVisibleSearchResultsCount] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -82,6 +83,13 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       setLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    const nextQuery = initialQuery.trim();
+    if (!nextQuery) return;
+    setSearchQuery(nextQuery);
+    void runSearch(nextQuery);
+  }, [initialQuery, runSearch]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
