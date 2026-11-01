@@ -83,6 +83,7 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
         .select('id')
         .eq('playlist_id', playlist.id)
         .eq('youtube_video_id', track.videoId)
+        .limit(1)
         .maybeSingle();
 
       if (lookupError) throw lookupError;
