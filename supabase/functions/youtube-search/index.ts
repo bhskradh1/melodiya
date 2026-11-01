@@ -192,12 +192,56 @@ const getLastFmRecommendations = async (
     track: title,
   });
 
-  const [similarData, tagData] = await Promise.all([
+  let [similarData, tagData] = await Promise.all([
     lastFmJson(similarParams),
     lastFmJson(tagsParams),
   ]);
 
-  const rawTracks = similarData?.similartracks?.track;
+  // YouTube channels sometimes expose a label/publisher rather than the real
+  // performer. If that artist/title pair has no Last.fm similarity results,
+  // resolve the track by title first, then retry similarity with its canonical
+  // artist. This costs extra requests only for failed seed lookups.
+  let rawTracks = similarData?.similartracks?.track;
+  const hasSimilarTracks = Array.isArray(rawTracks) ? rawTracks.length > 0 : Boolean(rawTracks);
+  if (!hasSimilarTracks) {
+    const searchParams = new URLSearchParams({
+      ...base,
+      method: 'track.search',
+      track: title,
+      limit: '5',
+    });
+    const searchData = await lastFmJson(searchParams);
+    const matches = searchData?.results?.trackmatches?.track;
+    const possibleMatches = Array.isArray(matches) ? matches : matches ? [matches] : [];
+    const canonical = possibleMatches.find((item: any) =>
+      item?.name &&
+      item?.artist &&
+      isSameSong(String(item.name), title)
+    );
+    const canonicalArtist = String(canonical?.artist || '').trim();
+    const canonicalTitle = String(canonical?.name || '').trim();
+
+    if (canonicalArtist && canonicalTitle) {
+      const canonicalSimilarParams = new URLSearchParams({
+        ...base,
+        method: 'track.getSimilar',
+        artist: canonicalArtist,
+        track: canonicalTitle,
+        limit: '35',
+      });
+      const canonicalTagsParams = new URLSearchParams({
+        ...base,
+        method: 'track.getTopTags',
+        artist: canonicalArtist,
+        track: canonicalTitle,
+      });
+      [similarData, tagData] = await Promise.all([
+        lastFmJson(canonicalSimilarParams),
+        lastFmJson(canonicalTagsParams),
+      ]);
+      rawTracks = similarData?.similartracks?.track;
+    }
+  }
   const tracks: LastFmTrack[] = [];
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
