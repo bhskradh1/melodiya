@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -14,11 +13,8 @@ import { usePreferences, GENRE_OPTIONS, type UserPreferences } from '@/contexts/
 import { useToast } from '@/hooks/use-toast';
 import { getOfflineTracks, clearOfflineLibrary } from '@/lib/offlineLibrary';
 import {
-  Smartphone,
-  RefreshCw,
   Mic2,
   WifiOff,
-  Volume2,
   Music2,
   Globe,
   Palette,
@@ -29,8 +25,6 @@ import {
   Trash2,
 } from 'lucide-react';
 
-declare global { interface Window { MelodiyaUpdateBridge?: { postMessage: (message: string) => void } } }
-
 export const SettingsView: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -40,11 +34,6 @@ export const SettingsView: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: '', username: '' });
   const [offlineCount, setOfflineCount] = useState(() => getOfflineTracks().length);
-  const [crossfadeSeconds, setCrossfadeSeconds] = useState(() => {
-    try {
-      return parseInt(localStorage.getItem('melodiya-crossfade-seconds') || '5');
-    } catch { return 5; }
-  });
 
   useEffect(() => {
     if (user) fetchData();
@@ -91,8 +80,13 @@ export const SettingsView: React.FC = () => {
   };
 
   const savePrefs = async (updates: Partial<UserPreferences>) => {
-    await updatePreferences(updates);
-    toast({ title: 'Preference saved' });
+    try {
+      await updatePreferences(updates);
+      toast({ title: 'Preference saved' });
+    } catch (error) {
+      console.error('Could not save preference:', error);
+      toast({ title: 'Could not save preference', description: 'Please try again.', variant: 'destructive' });
+    }
   };
 
   const toggleGenre = (genre: string) => {
@@ -116,15 +110,6 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  const handleCheckForUpdates = () => {
-    if (window.MelodiyaUpdateBridge?.postMessage) {
-      window.MelodiyaUpdateBridge.postMessage('check');
-      toast({ title: 'Checking for updates', description: 'Melodiya will show the result shortly.' });
-    } else {
-      toast({ title: 'App updates', description: 'This option is available in the Android app.' });
-    }
-  };
-
   const handleClearOffline = async () => {
     await clearOfflineLibrary();
     setOfflineCount(0);
@@ -134,9 +119,14 @@ export const SettingsView: React.FC = () => {
   const handleClearCaches = async () => {
     try {
       Object.keys(localStorage)
-        .filter((k) => k.startsWith('melodiya_recs_') || k.startsWith('melodiya_trending'))
+        .filter((k) =>
+          k.startsWith('melodiya_recs_') ||
+          k.startsWith('melodiya_verified_artist_songs_') ||
+          k.startsWith('trending_week_verified_artist_songs_') ||
+          k.startsWith('melodiya_trending')
+        )
         .forEach((k) => localStorage.removeItem(k));
-      toast({ title: 'Recommendation cache cleared', description: 'Home and Search will refresh with new picks' });
+      toast({ title: 'Music cache cleared', description: 'Trending, recommendations and search results will refresh when opened again' });
     } catch {
       toast({ title: 'Error', description: 'Could not clear cache', variant: 'destructive' });
     }
@@ -243,8 +233,8 @@ export const SettingsView: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <Label>Crossfade</Label>
-                <p className="text-xs text-muted-foreground">Smooth transition between songs</p>
+                <Label>Fade Transition</Label>
+                <p className="text-xs text-muted-foreground">Fade the current song out before it ends</p>
               </div>
               <Switch
                 checked={settings.crossfade}
@@ -255,17 +245,14 @@ export const SettingsView: React.FC = () => {
               <div className="flex items-center gap-3 pl-1">
                 <span className="text-xs text-muted-foreground w-6">0s</span>
                 <Slider
-                  value={[crossfadeSeconds]}
-                  onValueChange={(v) => {
-                    setCrossfadeSeconds(v[0]);
-                    localStorage.setItem('melodiya-crossfade-seconds', String(v[0]));
-                  }}
+                  value={[settings.crossfadeSeconds]}
+                  onValueChange={(v) => settings.updateSetting('crossfadeSeconds', v[0])}
                   min={1}
                   max={12}
                   step={1}
                   className="flex-1"
                 />
-                <span className="text-xs text-muted-foreground w-8">{crossfadeSeconds}s</span>
+                <span className="text-xs text-muted-foreground w-8">{settings.crossfadeSeconds}s</span>
               </div>
             )}
           </div>
@@ -281,28 +268,6 @@ export const SettingsView: React.FC = () => {
             />
           </div>
           <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Show Explicit Content</Label>
-              <p className="text-xs text-muted-foreground">Allow explicit songs to appear</p>
-            </div>
-            <Switch
-              checked={settings.showExplicit}
-              onCheckedChange={(v) => settings.updateSetting('showExplicit', v)}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Background Playback</Label>
-              <p className="text-xs text-muted-foreground">Keep music playing when the app is minimised</p>
-            </div>
-            <Switch
-              checked={settings.backgroundPlayback}
-              onCheckedChange={(v) => settings.updateSetting('backgroundPlayback', v)}
-            />
-          </div>
-          <Separator />
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Default Volume</Label>
@@ -314,50 +279,6 @@ export const SettingsView: React.FC = () => {
               min={0}
               max={100}
               step={1}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Audio Quality */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Volume2 className="w-5 h-5 text-primary" />
-            Audio Quality
-          </CardTitle>
-          <CardDescription>Choose your streaming quality</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Streaming Quality</Label>
-              <p className="text-xs text-muted-foreground">Higher quality uses more data</p>
-            </div>
-            <Select
-              value={prefs.sound_quality}
-              onValueChange={(v) => savePrefs({ sound_quality: v })}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="very_high">Very High</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Data Saver</Label>
-              <p className="text-xs text-muted-foreground">Reduce data usage when streaming</p>
-            </div>
-            <Switch
-              checked={settings.dataSaver}
-              onCheckedChange={(v) => settings.updateSetting('dataSaver', v)}
             />
           </div>
         </CardContent>
@@ -526,7 +447,7 @@ export const SettingsView: React.FC = () => {
             <WifiOff className="w-5 h-5 text-primary" />
             Offline Library
           </CardTitle>
-          <CardDescription>{offlineCount} saved {offlineCount === 1 ? 'song' : 'songs'} browsable without a connection</CardDescription>
+          <CardDescription>{offlineCount} saved {offlineCount === 1 ? 'track' : 'tracks'} listed locally. Audio still requires an internet connection.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button variant="outline" className="w-full justify-start gap-2" onClick={handleClearOffline} disabled={offlineCount === 0}>
@@ -536,22 +457,16 @@ export const SettingsView: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* App */}
+      {/* Cache management */}
       <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Smartphone className="w-5 h-5 text-primary" />
-            App
+            <Trash2 className="w-5 h-5 text-primary" />
+            Cache
           </CardTitle>
-          <CardDescription>Update Melodiya and manage cached app data</CardDescription>
+          <CardDescription>Refresh locally cached recommendations and trending picks</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full justify-start gap-2" onClick={handleCheckForUpdates}>
-            <RefreshCw className="w-4 h-4" />
-            Check for App Updates
-          </Button>
-          <p className="text-xs text-muted-foreground">Check for a newer signed Android version and install it without uninstalling Melodiya.</p>
-          <Separator />
+        <CardContent>
           <Button variant="outline" className="w-full justify-start gap-2" onClick={handleClearCaches}>
             <Trash2 className="w-4 h-4" />
             Refresh Recommendations Cache

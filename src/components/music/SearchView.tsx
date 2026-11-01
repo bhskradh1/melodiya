@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Search, Play, Plus, Clock, Loader2, Heart, MoreVertical, ListPlus, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { searchMelodiyaTracks } from '@/lib/musicSearch';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { fetchPreferenceSuggestions, type RecTrack } from '@/lib/recommendations';
@@ -27,6 +28,7 @@ interface SearchViewProps {
 export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [visibleSearchResultsCount, setVisibleSearchResultsCount] = useState(5);
   const [loading, setLoading] = useState(false);
   const [likedSongs, setLikedSongs] = useState<Set<string>>(new Set());
   const [playlists, setPlaylists] = useState<Array<{id: string, name: string}>>([]);
@@ -37,11 +39,13 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { preferences, version } = usePreferences();
+  const visibleSearchResults = searchResults.slice(0, visibleSearchResultsCount);
 
   const runSearch = React.useCallback(async (query: string, notify = false) => {
     const q = query.trim();
     if (!q) {
       setSearchResults([]);
+      setVisibleSearchResultsCount(5);
       return;
     }
 
@@ -54,15 +58,11 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     searchInFlightRef.current = true;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: q }
-      });
+      const tracks = await searchMelodiyaTracks(q);
+      setSearchResults(tracks);
+      setVisibleSearchResultsCount(5);
 
-      if (error) throw error;
-
-      setSearchResults(data.tracks || []);
-
-      if (notify && data.tracks?.length === 0) {
+      if (notify && tracks.length === 0) {
         toast({
           title: "No results found",
           description: "Try searching with different keywords"
@@ -284,9 +284,14 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Search Results</h2>
+          <div>
+            <h2 className="text-lg md:text-xl font-semibold">Search Results</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Showing {visibleSearchResults.length} of {searchResults.length} songs
+            </p>
+          </div>
           <div className="space-y-2">
-            {searchResults.map((track, index) => (
+            {visibleSearchResults.map((track, index) => (
               <Card key={track.id} className="glass-card hover-lift">
                 <CardContent className="p-3 md:p-4">
                   <div className="flex items-center gap-3 md:gap-4">
@@ -359,6 +364,19 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
               </Card>
             ))}
           </div>
+          {visibleSearchResults.length < searchResults.length && (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVisibleSearchResultsCount((current) =>
+                  Math.min(current + 5, searchResults.length)
+                )}
+              >
+                Show {Math.min(5, searchResults.length - visibleSearchResults.length)} more songs
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

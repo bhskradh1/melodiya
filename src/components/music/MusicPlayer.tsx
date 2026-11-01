@@ -57,7 +57,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   onPrevious
 }) => {
   const [volume, setVolume] = useState([75]);
-  const volumeInitRef = useRef(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -76,7 +75,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume } = useSettings();
+  const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume, crossfade, crossfadeSeconds } = useSettings();
   const nativeAudioUrl = currentTrack?.audioUrl ?? currentTrack?.audio_url ?? null;
   const useNativeAudio = Boolean(nativeAudioUrl && typeof window !== 'undefined' && window.MelodiyaNativeAudio);
   const sendNativeAudioCommand = useCallback((payload: Record<string, unknown>) => {
@@ -89,12 +88,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, []);
 
-  // Apply the saved default volume once on mount
+  // Apply the saved default volume whenever the user changes it in Settings.
   useEffect(() => {
-    if (!volumeInitRef.current) {
-      volumeInitRef.current = true;
-      setVolume([defaultVolume]);
-    }
+    setVolume([defaultVolume]);
   }, [defaultVolume]);
   
   const { 
@@ -232,9 +228,18 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const handleTimeUpdate = (current: number, total: number) => {
     setCurrentTime(current);
     setDuration(total);
-    
-    // Background watchdog: if we're near the end, trigger next track
-    // This catches cases where the onEnd event doesn't fire (background throttling)
+
+    // One YouTube player cannot overlap tracks, so this is a fade-out rather
+    // than a true overlapping crossfade.
+    if (!useNativeAudio && playerRef.current?.setVolume && total > 0) {
+      const baseVolume = normalizeVolume ? 75 : (isMuted ? 0 : volume[0]);
+      const remaining = total - current;
+      const fadeFactor = crossfade && crossfadeSeconds > 0 && remaining <= crossfadeSeconds
+        ? Math.max(0, Math.min(1, remaining / crossfadeSeconds))
+        : 1;
+      playerRef.current.setVolume(Math.round(baseVolume * fadeFactor));
+    }
+
     if (total > 0 && current > 0 && (total - current) < 1.5 && isPlaying) {
       triggerNextTrack();
     }

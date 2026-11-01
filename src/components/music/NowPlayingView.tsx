@@ -87,6 +87,10 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const { lyricsAutoScroll } = useSettings();
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(lyricsAutoScroll);
+
+  useEffect(() => {
+    setAutoScrollEnabled(lyricsAutoScroll);
+  }, [lyricsAutoScroll]);
   const [scrollSpeed, setScrollSpeed] = useState(1); // 1x default
   const [showSpeedControl, setShowSpeedControl] = useState(false);
   const plainScrollRef = useRef<number | null>(null);

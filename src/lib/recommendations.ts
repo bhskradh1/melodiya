@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { searchMelodiyaTracks } from '@/lib/musicSearch';
 import { LANGUAGE_LABELS, type UserPreferences } from '@/contexts/PreferencesContext';
 
 export interface RecTrack {
@@ -17,7 +17,7 @@ export interface RecommendationRow {
   tracks: RecTrack[];
 }
 
-const CACHE_PREFIX = 'melodiya_recs_';
+const CACHE_PREFIX = 'melodiya_recs_verified_artist_songs_v2_'; // invalidate results cached under the looser filter
 const TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
 const inFlightSearches = new Map<string, Promise<RecTrack[]>>();
 
@@ -64,11 +64,7 @@ export const searchTracks = async (
 
   const request = (async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: normalizedQuery },
-      });
-      if (error) throw error;
-      const tracks = (data?.tracks || []) as RecTrack[];
+      const tracks = await searchMelodiyaTracks(normalizedQuery);
       if (tracks.length) writeCache(normalizedQuery, tracks);
       return tracks;
     } catch (e) {
