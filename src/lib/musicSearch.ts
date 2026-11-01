@@ -77,26 +77,15 @@ const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]>
     : [];
 };
 
+/**
+ * Use only the YouTube Music artist/catalogue Songs feed. No fallback to
+ * general YouTube video search is allowed because that can return uploads
+ * from arbitrary channels, mixes and user-generated videos.
+ */
 export const searchMelodiyaTracks = async (
   query: string,
 ): Promise<MelodiyaSearchTrack[]> => {
   const normalized = query.trim();
   if (!normalized) return [];
-
-  try {
-    const tracks = await searchYouTubeMusic(normalized);
-    if (tracks.length) return tracks;
-    console.warn('YouTube Music search returned no songs; using existing search provider.');
-  } catch (error) {
-    console.warn('YouTube Music search unavailable; using existing search provider.', error);
-  }
-
-  const { data, error } = await supabase.functions.invoke('youtube-search', {
-    body: { query: normalized },
-  });
-  if (error) throw error;
-
-  return Array.isArray(data?.tracks)
-    ? data.tracks.map(normalizeTrack).filter((track): track is MelodiyaSearchTrack => !!track)
-    : [];
+  return searchYouTubeMusic(normalized);
 };
