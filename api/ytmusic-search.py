@@ -18,10 +18,9 @@ SUPABASE_URL = os.environ.get("MUSIC_SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("MUSIC_SUPABASE_ANON_KEY", "")
 
 MAX_QUERY_LENGTH = 120
-MAX_RESULTS = 50
-MAX_CANDIDATE_RESULTS = 200
+MAX_RESULTS = 20
 USER_REQUESTS_PER_MINUTE = 30
-CACHE_TTL_SECONDS = 300
+CACHE_TTL_SECONDS = 900
 CACHE_MAX_ENTRIES = 256
 AUTH_TIMEOUT_SECONDS = 5
 
@@ -179,11 +178,10 @@ def _search(query: str, limit: int) -> tuple[list[dict[str, str]], bool]:
     if cached and now - cached[0] < CACHE_TTL_SECONDS:
         return cached[1], True
 
-    # Strict official-source filtering can reject many catalogue candidates.
-    # Fetch a wider candidate pool first so the user still receives a useful
-    # bulk result list after UGC, unattributed uploads and mixes are removed.
-    candidate_limit = min(MAX_CANDIDATE_RESULTS, max(100, limit * 4))
-    results = YTMusic().search(query, filter="songs", limit=candidate_limit)
+    # One small catalogue request per new query. Do not bulk-fetch hundreds
+    # of candidates; strict official-source filtering is more important than
+    # filling a large result list. Repeat queries use the cache above.
+    results = YTMusic().search(query, filter="songs", limit=min(MAX_RESULTS, limit))
     tracks = []
     for item in results:
         if not isinstance(item, dict) or item.get("resultType") != "song":
