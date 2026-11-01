@@ -17,7 +17,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, Search, TrendingUp, Library, Settings2 } from 'lucide-react';
+import { Menu, Home, Search, TrendingUp, Library, Settings2 } from 'lucide-react';
 import { usePreferences, LANGUAGE_LABELS } from '@/contexts/PreferencesContext';
 import { toast } from 'sonner';
 
@@ -379,7 +379,7 @@ export const SonoraApp: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'home':
-        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} />;
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} onSearchQuery={(query) => { setGlobalSearchQuery(query); setSubmittedSearchQuery(query); navigateToView('search'); }} />;
       case 'search':
         return <SearchView key={submittedSearchQuery} initialQuery={submittedSearchQuery} onPlayTrack={handlePlayTrack} />;
       case 'trending':
@@ -411,7 +411,7 @@ export const SonoraApp: React.FC = () => {
       case 'settings':
         return <SettingsView />;
       default:
-        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
+        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} onSearchQuery={(query) => { setGlobalSearchQuery(query); setSubmittedSearchQuery(query); setActiveView('search'); }} />;
     }
   };
 
@@ -485,16 +485,6 @@ export const SonoraApp: React.FC = () => {
                 </button>
               )}
               <kbd>⌘ K</kbd>
-            </form>
-
-            <form onSubmit={handleGlobalSearch} className="search-spotlight flex min-w-0 flex-1 items-center lg:hidden">
-              <span className="search-lens"><Search className="h-4 w-4" /></span>
-              <input
-                aria-label="Search Sonora"
-                value={globalSearchQuery}
-                onChange={(event) => setGlobalSearchQuery(event.target.value)}
-                placeholder="Search music…"
-              />
             </form>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
