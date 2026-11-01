@@ -68,40 +68,23 @@ const clearStaleCaches = (currentKey: string) => {
  */
 export const fetchWeeklyTrending = async (force = false): Promise<TrendingTrack[]> => {
   const cacheKey = `${CACHE_PREFIX}${getWeekKey()}`;
+  const cached = readCache(cacheKey);
+  if (!force) return cached || [];
 
-  if (!force) {
-    const cached = readCache(cacheKey);
-    if (cached) return cached;
-  }
-  clearStaleCaches(cacheKey);
+  // Only an explicit Refresh action may call YouTube, and it uses one query.
+  const response = await supabase.functions.invoke('youtube-search', {
+    body: { query: getWeeklyQuery(0) },
+  });
+  if (response.error) throw response.error;
 
-  // Query two seeds so the weekly chart is deeper and swipeable.
-  const responses = await Promise.all(
-    [0, 1].map((offset) =>
-      supabase.functions
-        .invoke('youtube-search', { body: { query: getWeeklyQuery(offset) } })
-        .catch(() => ({ data: null, error: true as const }))
-    )
-  );
-
-  const seen = new Set<string>();
-  const tracks: TrendingTrack[] = [];
-  for (const res of responses) {
-    const list = (res as any)?.data?.tracks as TrendingTrack[] | undefined;
-    if (!list) continue;
-    for (const t of list) {
-      if (t?.videoId && !seen.has(t.videoId)) {
-        seen.add(t.videoId);
-        tracks.push(t);
-      }
-    }
-  }
+  const tracks = ((response.data?.tracks || []) as TrendingTrack[])
+    .filter((track) => Boolean(track?.videoId));
 
   if (tracks.length) {
     try {
       localStorage.setItem(cacheKey, JSON.stringify(tracks));
     } catch {
-      /* ignore quota errors */
+      /* ignore storage errors */
     }
   }
   return tracks;
