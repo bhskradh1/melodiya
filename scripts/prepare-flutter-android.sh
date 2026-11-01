@@ -48,7 +48,7 @@ for permission in permissions:
             1,
         )
 
-text = re.sub(r'android:label="[^"]*"', 'android:label="Melodiya"', text, count=1)
+text = re.sub(r'android:label="[^"]*"', 'android:label="Sonora"', text, count=1)
 if 'android:usesCleartextTraffic=' not in text:
     text = text.replace(
         'android:name="${applicationName}"',

@@ -111,7 +111,7 @@ def main() -> None:
     if not icon.exists():
         icon = ROOT / "public/icon-192x192.png"
     if not icon.exists():
-        raise SystemExit("Sonora launcher icon was not found in public/.")
+        raise SystemExit("Melodiya launcher icon was not found in public/.")
     res = APP / "src/main/res"
     for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
         target = res / f"mipmap-{density}"
