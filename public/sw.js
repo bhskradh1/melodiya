@@ -13,9 +13,9 @@ if (self.location.hostname.includes('lovableproject.com')) {
   // Stop here — do not register any fetch handlers in dev
 } else {
 
-const CACHE_NAME = 'melodiya-v1.1.0';
-const STATIC_CACHE = 'melodiya-static-v1.1.0';
-const DYNAMIC_CACHE = 'melodiya-dynamic-v1.1.0';
+const CACHE_NAME = 'sonora-v2.0.0';
+const STATIC_CACHE = 'sonora-static-v2.0.0';
+const DYNAMIC_CACHE = 'sonora-dynamic-v2.0.0';
 
 // Files to cache immediately
 const STATIC_FILES = [
