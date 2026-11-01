@@ -1,14 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import {
   type Candidate,
+  cleanQueryText,
   formatDuration,
-  isSameSong,
-  normalizeTitle,
   genreFromTopics,
-  langFromCode,
+  genreMatches,
   inferVibeTerms,
+  isSameSong,
+  joinQueryParts,
+  langFromCode,
+  normalizeTitle,
   parseISODuration,
   pickRelated,
+  UNMATCHED_LASTFM_SCORE,
 } from "./related.ts"
 
 const corsHeaders = {
@@ -16,413 +20,374 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const jsonResponse = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const body = await req.json();
-    const { query } = body;
+    const body = await req.json()
+    // "related" mode = next songs of the same genre/vibe (YouTube-style Up Next)
+    if (body?.related) return await handleRelated(body.related)
+    return await handleSearch(body?.query)
+  } catch (error) {
+    console.error('Error in youtube-search function:', error)
+    return jsonResponse(
+      { error: 'Internal server error', message: error instanceof Error ? error.message : String(error) },
+      500,
+    )
+  }
+})
 
-    // ---- NEW: "related" mode = next song of the same genre (not the same song again) ----
-    if (body.related) {
-      return await handleRelated(body.related);
+// ---------------------------------------------------------------------------
+// YouTube helpers
+// ---------------------------------------------------------------------------
+const YT_API = 'https://www.googleapis.com/youtube/v3'
+
+class YouTubeApiError extends Error {
+  status: number
+  reason?: string
+  constructor(message: string, status: number, reason?: string) {
+    super(message)
+    this.status = status
+    this.reason = reason
+  }
+}
+
+const ytFetch = async (
+  path: 'search' | 'videos',
+  params: Record<string, string>,
+  timeoutMs = 7000,
+): Promise<any> => {
+  const url = `${YT_API}/${path}?${new URLSearchParams(params).toString()}`
+  const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new YouTubeApiError(
+      data?.error?.message || `YouTube API error ${response.status}`,
+      response.status,
+      data?.error?.errors?.[0]?.reason,
+    )
+  }
+  return await response.json()
+}
+
+const parseYouTubeTrackTitle = (rawTitle: string, channelTitle: string) => {
+  let artist = channelTitle || 'Unknown Artist'
+  let title = rawTitle || 'Unknown Track'
+  const separator = [' - ', ' – ', ' — '].find((value) => title.includes(value))
+  if (separator) {
+    const parts = title.split(separator)
+    if (parts.length >= 2) {
+      artist = parts[0].trim()
+      title = parts.slice(1).join(separator).trim()
     }
-    
-    if (!query || typeof query !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Query parameter is required and must be a string' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+  }
+  return { title, artist }
+}
 
-    const apiKey = Deno.env.get('YOUTUBE_API_KEY');
-    if (!apiKey) {
-      console.error('YouTube API key not found');
-      return new Response(
-        JSON.stringify({ error: 'YouTube API key not configured' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+/** Display only: "Levitating (Official Audio)" -> "Levitating", "Dua Lipa - Topic" -> "Dua Lipa". */
+const tidyDisplay = (title: string, artist: string) => ({
+  title:
+    title
+      .replace(/\s*[\(\[][^\)\]]*\b(official|lyrics?|lyrical|audio|video|hd|4k|visualizer)\b[^\)\]]*[\)\]]\s*/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || title,
+  artist: artist.replace(/\s*-\s*topic$/i, '').trim() || artist,
+})
 
-    console.log(`Searching for: ${query}`);
+const bestThumbnail = (item: any): string =>
+  item?.snippet?.thumbnails?.high?.url ||
+  item?.snippet?.thumbnails?.medium?.url ||
+  item?.snippet?.thumbnails?.default?.url ||
+  ''
 
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=20&q=${encodeURIComponent(query)}&key=${apiKey}`;
-    
-    const response = await fetch(searchUrl);
-    
-    if (!response.ok) {
-      console.error(`YouTube API error: ${response.status} ${response.statusText}`);
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Error details:', errorData);
-      
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to search YouTube',
-          details: errorData.error?.message || 'Unknown error'
-        }),
-        { 
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+// ---------------------------------------------------------------------------
+// Plain search (unchanged behaviour: { query } -> { tracks })
+// ---------------------------------------------------------------------------
+async function handleSearch(query: unknown) {
+  if (!query || typeof query !== 'string') {
+    return jsonResponse({ error: 'Query parameter is required and must be a string' }, 400)
+  }
+  const apiKey = Deno.env.get('YOUTUBE_API_KEY')
+  if (!apiKey) {
+    console.error('YouTube API key not found')
+    return jsonResponse({ error: 'YouTube API key not configured' }, 500)
+  }
 
-    const data = await response.json();
-    console.log(`Found ${data.items?.length || 0} results`);
-
-    const tracks = data.items?.map((item: any) => {
-      // Extract artist and title from the video title
-      const title = item.snippet.title;
-      let artist = item.snippet.channelTitle;
-      let songTitle = title;
-
-      // Try to parse "Artist - Song" format
-      if (title.includes(' - ')) {
-        const parts = title.split(' - ');
-        if (parts.length >= 2) {
-          artist = parts[0].trim();
-          songTitle = parts.slice(1).join(' - ').trim();
-        }
-      }
-
-      // Get the best quality thumbnail
-      const thumbnail = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url;
-
+  try {
+    const data = await ytFetch('search', {
+      part: 'snippet',
+      type: 'video',
+      videoCategoryId: '10',
+      maxResults: '20',
+      q: query,
+      key: apiKey,
+    })
+    const tracks = (data.items || []).map((item: any) => {
+      const { title, artist } = parseYouTubeTrackTitle(item.snippet.title, item.snippet.channelTitle)
       return {
         id: item.id.videoId,
-        title: songTitle,
-        artist: artist,
-        thumbnail: thumbnail,
+        title,
+        artist,
+        thumbnail: bestThumbnail(item),
         videoId: item.id.videoId,
-        duration: 'Unknown' // YouTube Data API v3 doesn't include duration in search results
-      };
-    }) || [];
-
-    return new Response(
-      JSON.stringify({ tracks }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        duration: 'Unknown', // search results do not include duration
       }
-    );
-
+    })
+    return jsonResponse({ tracks })
   } catch (error) {
-    console.error('Error in youtube-search function:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        message: error.message 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    if (error instanceof YouTubeApiError) {
+      console.error('YouTube API error:', error.status, error.message)
+      return jsonResponse(
+        { error: 'Failed to search YouTube', details: error.message, code: error.reason },
+        error.status,
+      )
+    }
+    throw error
   }
-});
+}
 
 // ---------------------------------------------------------------------------
-// YouTube-style Up Next: similar feeling + popular/trending tracks.
+// Last.fm: track-to-track similarity, tags and MusicBrainz ids
 // ---------------------------------------------------------------------------
-type LastFmTrack = {
-  title: string;
-  artist: string;
-  match: number;
-  musicBrainzId?: string;
-};
+interface LastFmTrack {
+  title: string
+  artist: string
+  match: number // 0..1
+  musicBrainzId?: string
+}
 
-type LastFmResult = {
-  tracks: LastFmTrack[];
-  tags: string[];
-};
+interface LastFmResult {
+  tracks: LastFmTrack[]
+  tags: string[]
+}
 
-const lastFmJson = async (params: URLSearchParams): Promise<any | null> => {
+const toArray = (value: any): any[] => (Array.isArray(value) ? value : value ? [value] : [])
+
+const lastFmJson = async (params: Record<string, string>): Promise<any | null> => {
   try {
-    const response = await fetch('https://ws.audioscrobbler.com/2.0/?' + params.toString(), {
-      headers: { 'Accept': 'application/json' },
+    const response = await fetch('https://ws.audioscrobbler.com/2.0/?' + new URLSearchParams(params).toString(), {
+      headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(4500),
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    // Last.fm may return API errors with HTTP 200.
+    })
+    if (!response.ok) return null
+    const data = await response.json()
     if (data?.error) {
-      console.warn('Last.fm API response error:', data.message || data.error);
-      return null;
+      // Last.fm may return API errors with HTTP 200.
+      console.warn('Last.fm API response error:', data.message || data.error)
+      return null
     }
-    return data;
+    return data
   } catch (error) {
-    console.warn('Last.fm request failed:', error);
-    return null;
+    console.warn('Last.fm request failed:', error)
+    return null
   }
-};
+}
 
-const getLastFmRecommendations = async (
-  title: string,
-  artist: string,
-): Promise<LastFmResult> => {
-  const apiKey = Deno.env.get('LASTFM_API_KEY');
-  if (!apiKey) return { tracks: [], tags: [] };
+const getLastFmRecommendations = async (title: string, artist: string): Promise<LastFmResult> => {
+  const apiKey = Deno.env.get('LASTFM_API_KEY')
+  if (!apiKey) return { tracks: [], tags: [] }
 
-  const base = {
-    api_key: apiKey,
-    format: 'json',
-    autocorrect: '1',
-  };
+  const base = { api_key: apiKey, format: 'json', autocorrect: '1' }
+  const lookup = (a: string, t: string) =>
+    Promise.all([
+      lastFmJson({ ...base, method: 'track.getSimilar', artist: a, track: t, limit: '35' }),
+      lastFmJson({ ...base, method: 'track.getTopTags', artist: a, track: t }),
+    ])
 
-  const similarParams = new URLSearchParams({
-    ...base,
-    method: 'track.getSimilar',
-    artist,
-    track: title,
-    limit: '35',
-  });
-  const tagsParams = new URLSearchParams({
-    ...base,
-    method: 'track.getTopTags',
-    artist,
-    track: title,
-  });
+  let [similarData, tagData] = await lookup(artist, title)
 
-  let [similarData, tagData] = await Promise.all([
-    lastFmJson(similarParams),
-    lastFmJson(tagsParams),
-  ]);
-
-  // YouTube channels sometimes expose a label/publisher rather than the real
-  // performer. If that artist/title pair has no Last.fm similarity results,
-  // resolve the track by title first, then retry similarity with its canonical
-  // artist. This costs extra requests only for failed seed lookups.
-  let rawTracks = similarData?.similartracks?.track;
-  const hasSimilarTracks = Array.isArray(rawTracks) ? rawTracks.length > 0 : Boolean(rawTracks);
-  if (!hasSimilarTracks) {
-    const searchParams = new URLSearchParams({
-      ...base,
-      method: 'track.search',
-      track: title,
-      limit: '5',
-    });
-    const searchData = await lastFmJson(searchParams);
-    const matches = searchData?.results?.trackmatches?.track;
-    const possibleMatches = Array.isArray(matches) ? matches : matches ? [matches] : [];
-    const canonical = possibleMatches.find((item: any) =>
-      item?.name &&
-      item?.artist &&
-      isSameSong(String(item.name), title)
-    );
-    const canonicalArtist = String(canonical?.artist || '').trim();
-    const canonicalTitle = String(canonical?.name || '').trim();
-
+  // YouTube channels often expose a label rather than the real performer. If
+  // the first lookup finds nothing, resolve the track by title and retry with
+  // its canonical artist.
+  if (toArray(similarData?.similartracks?.track).length === 0) {
+    const searchData = await lastFmJson({ ...base, method: 'track.search', track: title, limit: '5' })
+    const canonical = toArray(searchData?.results?.trackmatches?.track).find(
+      (item: any) => item?.name && item?.artist && isSameSong(String(item.name), title),
+    )
+    const canonicalArtist = String(canonical?.artist || '').trim()
+    const canonicalTitle = String(canonical?.name || '').trim()
     if (canonicalArtist && canonicalTitle) {
-      const canonicalSimilarParams = new URLSearchParams({
-        ...base,
-        method: 'track.getSimilar',
-        artist: canonicalArtist,
-        track: canonicalTitle,
-        limit: '35',
-      });
-      const canonicalTagsParams = new URLSearchParams({
-        ...base,
-        method: 'track.getTopTags',
-        artist: canonicalArtist,
-        track: canonicalTitle,
-      });
-      [similarData, tagData] = await Promise.all([
-        lastFmJson(canonicalSimilarParams),
-        lastFmJson(canonicalTagsParams),
-      ]);
-      rawTracks = similarData?.similartracks?.track;
+      ;[similarData, tagData] = await lookup(canonicalArtist, canonicalTitle)
     }
   }
-  const tracks: LastFmTrack[] = [];
-  const seenIds = new Set<string>();
-  const seenNames = new Set<string>();
-  const rawTrackItems = Array.isArray(rawTracks) ? rawTracks : rawTracks ? [rawTracks] : [];
-  const numericMatches = rawTrackItems
+
+  const rawTracks = toArray(similarData?.similartracks?.track)
+  const numericMatches = rawTracks
     .map((item: any) => Number(item?.match))
-    .filter((value: number) => Number.isFinite(value) && value > 0);
-  const maxMatch = Math.max(1, ...numericMatches);
-  const matchDivisor = maxMatch > 1 ? maxMatch : 1;
+    .filter((value: number) => Number.isFinite(value) && value > 0)
+  // Normalise against this response's best match so relative similarity is kept.
+  const maxMatch = Math.max(1, ...numericMatches)
 
-  for (const item of rawTrackItems) {
-    const trackTitle = String(item?.name || '').trim();
-    const trackArtist = String(item?.artist?.name || '').trim();
-    if (!trackTitle || !trackArtist) continue;
+  const tracks: LastFmTrack[] = []
+  const seen = new Set<string>()
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-    const mbid = String(item?.mbid || '').trim();
-    const musicBrainzId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mbid) ? mbid : undefined;
-    const key = musicBrainzId || (normalizeTitle(trackTitle) + '|' + normalizeTitle(trackArtist));
-    if (seenIds.has(key) || seenNames.has(key)) continue;
-    seenIds.add(key);
-    seenNames.add(key);
+  for (const item of rawTracks) {
+    const trackTitle = String(item?.name || '').trim()
+    const trackArtist = String(item?.artist?.name || '').trim()
+    if (!trackTitle || !trackArtist) continue
 
-    const match = Number(item?.match);
+    const mbid = String(item?.mbid || '').trim()
+    const musicBrainzId = uuid.test(mbid) ? mbid : undefined
+    const key = musicBrainzId || normalizeTitle(trackTitle) + '|' + normalizeTitle(trackArtist)
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const match = Number(item?.match)
     tracks.push({
       title: trackTitle,
       artist: trackArtist,
-      // Last.fm's documented sample response uses values above 1. Normalize
-      // against this response's best match so relative similarity is retained.
-      match: Number.isFinite(match) ? Math.max(0, Math.min(1, match / matchDivisor)) : 0.25,
+      match: Number.isFinite(match) ? Math.max(0, Math.min(1, match / maxMatch)) : 0.25,
       musicBrainzId,
-    });
+    })
   }
 
-  const rawTags = tagData?.toptags?.tag;
-  const tags = (Array.isArray(rawTags) ? rawTags : rawTags ? [rawTags] : [])
+  const tags = toArray(tagData?.toptags?.tag)
     .map((tag: any) => String(tag?.name || '').trim())
     .filter((tag: string) => tag.length >= 2 && tag.length <= 32)
     .filter((tag: string) => !/^(seen live|favorites?|favourites?|awesome|spotify|all)$/i.test(tag))
-    .slice(0, 5);
+    .slice(0, 5)
 
-  return { tracks: tracks.slice(0, 35), tags };
-};
+  return { tracks: tracks.slice(0, 35), tags }
+}
 
-const parseYouTubeTrackTitle = (rawTitle: string, channelTitle: string) => {
-  let artist = channelTitle || 'Unknown Artist';
-  let title = rawTitle || 'Unknown Track';
-  const separators = [' - ', ' – ', ' — '];
-  const separator = separators.find((value) => title.includes(value));
-  if (separator) {
-    const parts = title.split(separator);
-    if (parts.length >= 2) {
-      artist = parts[0].trim();
-      title = parts.slice(1).join(separator).trim();
-    }
+// ---------------------------------------------------------------------------
+// Related songs ("Up next")
+// ---------------------------------------------------------------------------
+interface RelatedRequest {
+  videoId: string
+  title: string
+  artist: string
+  language: string
+  languageCode: string
+  genres: string[]
+  excludeTitles: string[]
+  excludeVideoIds: string[]
+  excludeArtists: string[] // play order, oldest first
+  excludeMusicBrainzIds: string[]
+  musicBrainzId?: string
+  limit: number
+}
+
+/** Validate and size-limit the client input (the function is publicly callable). */
+const readRelatedRequest = (raw: any): RelatedRequest | null => {
+  const str = (value: unknown, max = 200) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
+  const list = (value: unknown, max: number, len = 150): string[] =>
+    Array.isArray(value)
+      ? value.filter((v) => typeof v === 'string').slice(-max).map((v: string) => v.slice(0, len))
+      : []
+
+  const videoId = str(raw?.videoId, 20)
+  const title = str(raw?.title)
+  const artist = str(raw?.artist)
+  if (!videoId || !title || !artist) return null
+
+  return {
+    videoId,
+    title,
+    artist,
+    language: str(raw?.language, 40),
+    languageCode: str(raw?.languageCode, 10).toLowerCase(),
+    genres: list(raw?.genres, 6, 40),
+    excludeTitles: list(raw?.excludeTitles, 200),
+    excludeVideoIds: list(raw?.excludeVideoIds, 200, 20),
+    excludeArtists: list(raw?.excludeArtists, 40),
+    excludeMusicBrainzIds: list(raw?.excludeMusicBrainzIds, 200, 40),
+    musicBrainzId: str(raw?.musicBrainzId, 40) || undefined,
+    limit: Math.max(1, Math.min(25, Number(raw?.limit) || 15)),
   }
-  return { title, artist };
-};
+}
 
-async function handleRelated(rel: {
-  videoId: string;
-  title: string;
-  artist: string;
-  language?: string;
-  languageCode?: string;
-  genres?: string[];
-  excludeTitles?: string[];
-  excludeVideoIds?: string[];
-  excludeArtists?: string[];
-  musicBrainzId?: string;
-  excludeMusicBrainzIds?: string[];
-}) {
-  const json = (data: unknown, status = 200) =>
-    new Response(JSON.stringify(data), {
-      status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+/** Everything expensive (YouTube search + details + Last.fm), cached per seed song. */
+interface Bundle {
+  candidates: Candidate[]
+  genre: string
+  language: string
+  vibe: string[]
+  tags: string[]
+  similarCount: number
+}
 
-  const apiKey = Deno.env.get('YOUTUBE_API_KEY');
-  if (!apiKey) return json({ error: 'YouTube API key not configured' }, 500);
-  if (!rel?.videoId || !rel?.title || !rel?.artist) {
-    return json({ error: 'videoId, title and artist are required' }, 400);
-  }
+const BUNDLE_TTL_MS = 15 * 60 * 1000
+const BUNDLE_MAX = 100
+const bundleCache = new Map<string, { at: number; bundle: Bundle }>()
 
-  const api = 'https://www.googleapis.com/youtube/v3';
-  const excludedIds = new Set([rel.videoId, ...(rel.excludeVideoIds || [])]);
-  const excludedTitles = rel.excludeTitles || [];
-  const excludedArtists = rel.excludeArtists || [];
-  const excludedMusicBrainzIds = [
-    rel.musicBrainzId || '',
-    ...(rel.excludeMusicBrainzIds || []),
-  ].filter(Boolean);
-
-  // Read YouTube's metadata for the seed so tags, topic and language remain useful
-  // when an upload has incomplete metadata in the external music catalogue.
-  let genre: string | null = null;
-  let detectedLanguage: string | null = null;
-  let tags: string[] = [];
+const readSeedMetadata = async (videoId: string, apiKey: string) => {
+  const empty = { genre: null as string | null, language: null as string | null, tags: [] as string[] }
   try {
-    const params = new URLSearchParams({
-      part: 'snippet,topicDetails',
-      id: rel.videoId,
-      key: apiKey,
-    });
-    const response = await fetch(api + '/videos?' + params.toString(), {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const video = data.items?.[0];
-      genre = genreFromTopics(video?.topicDetails?.topicCategories || []);
-      detectedLanguage = langFromCode(
-        video?.snippet?.defaultAudioLanguage || video?.snippet?.defaultLanguage,
-      );
-      tags = Array.isArray(video?.snippet?.tags) ? video.snippet.tags : [];
+    const data = await ytFetch(
+      'videos',
+      { part: 'snippet,topicDetails', id: videoId, key: apiKey },
+      5000,
+    )
+    const video = data.items?.[0]
+    return {
+      genre: genreFromTopics(video?.topicDetails?.topicCategories || []),
+      language: langFromCode(video?.snippet?.defaultAudioLanguage || video?.snippet?.defaultLanguage),
+      tags: Array.isArray(video?.snippet?.tags) ? (video.snippet.tags as string[]) : [],
     }
   } catch (error) {
-    console.warn('Current video metadata lookup failed:', error);
+    if (error instanceof YouTubeApiError && error.reason === 'quotaExceeded') throw error
+    console.warn('Seed video metadata lookup failed:', error)
+    return empty
   }
+}
 
-  // Last.fm supplies track-to-track similarity, top tags and (when available)
-  // MusicBrainz recording MBIDs. MBIDs are used as canonical recording keys,
-  // avoiding a separate MusicBrainz request for every song (MusicBrainz asks
-  // clients to stay at one request per second).
-  const lastFm = await getLastFmRecommendations(rel.title, rel.artist);
-  const similarTracks = lastFm.tracks;
-  const language = detectedLanguage || rel.language || '';
-  const genreWord = genre || rel.genres?.[0] || lastFm.tags[0] || 'popular music';
-  const vibeTerms = inferVibeTerms([
-    rel.title,
-    rel.artist,
-    ...tags,
-    ...lastFm.tags,
-  ].join(' '));
-  const seedText = (rel.title + ' ' + rel.artist).toLowerCase();
-  const styleTags = [
-    ...lastFm.tags,
-    ...tags.map((tag) => tag.trim()).filter((tag) => {
-      const value = tag.toLowerCase();
-      return value.length >= 3 &&
-        value.length <= 28 &&
-        !seedText.includes(value) &&
-        !/\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\b/i.test(value);
-    }),
-  ]
-    .filter((tag, index, all) => all.findIndex((value) => value.toLowerCase() === tag.toLowerCase()) === index)
-    .slice(0, 5);
+const buildBundle = async (rel: RelatedRequest, apiKey: string): Promise<Bundle> => {
+  // 1) Seed metadata (YouTube) and similar songs (Last.fm) in parallel
+  const [seed, lastFm] = await Promise.all([
+    readSeedMetadata(rel.videoId, apiKey),
+    getLastFmRecommendations(rel.title, rel.artist),
+  ])
 
-  const exclusions = '-cover -karaoke -instrumental -reaction -compilation -mashup -slowed -nightcore';
-  const lastFmQueries = similarTracks.slice(0, 12).map((track) => {
-    const title = track.title.replace(/["']/g, '').slice(0, 90);
-    const artist = track.artist.replace(/["']/g, '').slice(0, 70);
-    return '"' + title + '" ' + artist + ' (official audio | official music video | VEVO | Topic)';
-  });
-  const fallbackSimilarQuery = [
-    rel.title,
-    rel.artist,
-    'similar songs',
-    vibeTerms[0] || '',
-    genreWord,
-    language,
-    ...styleTags,
-  ].filter(Boolean).join(' ');
-  const viralQuery = [
-    genreWord,
-    vibeTerms[0] || '',
-    language,
-    'viral trending popular hits',
-  ].filter(Boolean).join(' ');
+  const similarTracks = lastFm.tracks
+  const language = seed.language || rel.language || ''
+  const genreWord = seed.genre || rel.genres[0] || lastFm.tags[0] || 'popular music'
+  const seedText = (rel.title + ' ' + rel.artist).toLowerCase()
+  const vibeTerms = inferVibeTerms([rel.title, rel.artist, ...seed.tags, ...lastFm.tags].join(' '))
 
-  // One YouTube search call is retained to conserve the Data API quota.
-  // Exact Last.fm song queries are OR'd together, then the original discovery
-  // queries remain as a fallback for tracks that have no good YouTube match.
-  const queryParts = [
-    ...lastFmQueries,
-    fallbackSimilarQuery + ' ' + exclusions,
-    viralQuery + ' ' + exclusions,
-  ];
-  const query = queryParts.join(' | ').slice(0, 480);
-  console.log('Up Next source:', similarTracks.length ? 'Last.fm + YouTube' : 'YouTube fallback');
+  const styleTags = [...lastFm.tags, ...seed.tags]
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const value = tag.toLowerCase()
+      return value.length >= 3 && value.length <= 28 && !seedText.includes(value) &&
+        !/\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\b/i.test(value)
+    })
+    .filter((tag, i, all) => all.findIndex((v) => v.toLowerCase() === tag.toLowerCase()) === i)
+    .slice(0, 3)
 
-  const searchParams = new URLSearchParams({
+  // 2) ONE YouTube search. Short exact-song queries from Last.fm are OR-ed with
+  //    genre/vibe queries. The seed title/artist are deliberately NOT used in
+  //    the fallback queries, otherwise YouTube returns re-uploads of the same song.
+  const exclusions = '-cover -karaoke -instrumental -reaction -compilation -mashup -slowed -nightcore'
+  const lastFmQueries = similarTracks
+    .slice(0, 6)
+    .map((t) => `"${cleanQueryText(t.title, 40)}" ${cleanQueryText(t.artist, 30)} official audio`)
+  const genreQuery = [genreWord, vibeTerms[0] || '', language, ...styleTags, 'songs'].filter(Boolean).join(' ')
+  const trendingQuery = [genreWord, vibeTerms[0] || '', language, 'viral trending popular hits']
+    .filter(Boolean)
+    .join(' ')
+
+  const query =
+    joinQueryParts(
+      [...lastFmQueries.slice(0, 3), genreQuery, trendingQuery, ...lastFmQueries.slice(3)],
+      480 - exclusions.length - 1,
+    ) +
+    ' ' +
+    exclusions
+  console.log(
+    `Up Next: ${similarTracks.length ? 'Last.fm + YouTube' : 'YouTube only'} | genre=${genreWord} | lang=${language}`,
+  )
+
+  const searchParams: Record<string, string> = {
     part: 'snippet',
     type: 'video',
     videoCategoryId: '10',
@@ -432,133 +397,103 @@ async function handleRelated(rel: {
     safeSearch: 'moderate',
     q: query,
     key: apiKey,
-  });
-  const languageCode = (rel.languageCode || '').trim().toLowerCase();
-  if (/^[a-z]{2}$/.test(languageCode)) {
-    searchParams.set('relevanceLanguage', languageCode);
   }
+  if (/^[a-z]{2}$/.test(rel.languageCode)) searchParams.relevanceLanguage = rel.languageCode
 
-  const searchResponse = await fetch(api + '/search?' + searchParams.toString(), {
-    signal: AbortSignal.timeout(7000),
-  });
-  if (!searchResponse.ok) {
-    const errorData = await searchResponse.json().catch(() => ({}));
-    return json({
-      error: 'Failed to search similar and popular songs',
-      details: errorData.error?.message,
-    }, searchResponse.status);
-  }
+  const searchData = await ytFetch('search', searchParams)
+  const searchItems = (searchData.items || []).filter(
+    (item: any) => item?.id?.videoId && item.id.videoId !== rel.videoId,
+  )
+  const ids: string[] = searchItems.map((item: any) => item.id.videoId)
 
-  const searchData = await searchResponse.json();
-  const searchItems = (searchData.items || [])
-    .filter((item: any) => item.id?.videoId && !excludedIds.has(item.id.videoId));
-  const ids: string[] = searchItems.map((item: any) => item.id.videoId);
-
-  // Batch-fetch duration, views, likes, descriptions and topic metadata.
-  const detailsById = new Map<string, any>();
+  // 3) Duration, views, likes, description, topics for all results (1 call)
+  const detailsById = new Map<string, any>()
   if (ids.length) {
-    const params = new URLSearchParams({
-      part: 'contentDetails,statistics,snippet,topicDetails',
-      id: ids.join(','),
-      key: apiKey,
-    });
-    const detailsResponse = await fetch(api + '/videos?' + params.toString(), {
-      signal: AbortSignal.timeout(7000),
-    });
-    if (detailsResponse.ok) {
-      const detailsData = await detailsResponse.json();
-      for (const video of detailsData.items || []) detailsById.set(video.id, video);
+    try {
+      const details = await ytFetch('videos', {
+        part: 'contentDetails,statistics,snippet,topicDetails',
+        id: ids.join(','),
+        key: apiKey,
+      })
+      for (const video of details.items || []) detailsById.set(video.id, video)
+    } catch (error) {
+      if (error instanceof YouTubeApiError && error.reason === 'quotaExceeded') throw error
+      console.warn('Video details lookup failed:', error)
     }
   }
 
-  const now = Date.now();
-  const preferredGenres = [genre, ...(rel.genres || []), ...lastFm.tags]
-    .filter(Boolean)
-    .map((value) => String(value).toLowerCase());
-  const candidates: Candidate[] = [];
+  // 4) Turn results into scored candidates
+  const now = Date.now()
+  const preferredGenres = [seed.genre, ...rel.genres, ...lastFm.tags].filter(Boolean).map(String)
+  const candidates: Candidate[] = []
 
   searchItems.forEach((item: any, relevanceRank: number) => {
-    const videoId = item.id.videoId;
-    const details = detailsById.get(videoId);
-    const seconds = parseISODuration(details?.contentDetails?.duration || '');
-    if (details && seconds > 0 && (seconds < 60 || seconds > 600)) return;
+    const videoId: string = item.id.videoId
+    const details = detailsById.get(videoId)
+    const seconds = parseISODuration(details?.contentDetails?.duration || '')
+    if (details && seconds > 0 && (seconds < 60 || seconds > 600)) return // skip shorts and long mixes
 
-    const rawTitle = String(item.snippet.title || 'Unknown Track');
-    const channelTitle = String(item.snippet.channelTitle || 'Unknown Artist');
-    const parsed = parseYouTubeTrackTitle(rawTitle, channelTitle);
-    const normalizedYouTubeTitle = normalizeTitle(parsed.title);
-    const normalizedRawTitle = normalizeTitle(rawTitle);
+    const rawTitle = String(item.snippet?.title || 'Unknown Track')
+    const channelTitle = String(item.snippet?.channelTitle || 'Unknown Artist')
+    const parsed = parseYouTubeTrackTitle(rawTitle, channelTitle)
+    const normalizedTitle = normalizeTitle(parsed.title)
+    const normalizedRaw = normalizeTitle(rawTitle)
+    const artistHaystack = (rawTitle + ' ' + channelTitle).toLowerCase()
 
-    let matchedTrack: LastFmTrack | undefined;
-    let mappedTitleScore = 0;
+    // Match against Last.fm results. A title match alone is too ambiguous
+    // (e.g. "Stay"), so the artist name must also appear in the title/channel.
+    let matched: LastFmTrack | undefined
+    let matchedScore = 0
     for (const track of similarTracks) {
-      const matchesTitle =
+      const trackTitle = normalizeTitle(track.title)
+      const titleMatches =
         isSameSong(track.title, parsed.title) ||
-        (normalizedYouTubeTitle.length >= 4 && normalizedYouTubeTitle === normalizeTitle(track.title)) ||
-        (normalizedRawTitle.length >= 4 && normalizedRawTitle === normalizeTitle(track.title));
-      if (!matchesTitle) continue;
-
-      const artistHaystack = (rawTitle + ' ' + channelTitle).toLowerCase();
-      // Require a corroborating artist signal before assigning canonical
-      // Last.fm metadata. A title-only match such as "Stay" is too ambiguous.
-      const artistSignal = artistHaystack.includes(track.artist.toLowerCase()) ? 1 : 0;
-      if (artistSignal === 0) continue;
-      const score = track.match * artistSignal;
-      if (score > mappedTitleScore) {
-        mappedTitleScore = score;
-        matchedTrack = track;
+        (normalizedTitle.length >= 4 && normalizedTitle === trackTitle) ||
+        (normalizedRaw.length >= 4 && normalizedRaw === trackTitle)
+      if (!titleMatches || !artistHaystack.includes(track.artist.toLowerCase())) continue
+      if (track.match > matchedScore) {
+        matchedScore = track.match
+        matched = track
       }
     }
 
-    // Where Last.fm recognizes the recording, display its clean canonical
-    // title/artist, while keeping the matching embeddable YouTube video ID.
-    const title = matchedTrack?.title || parsed.title;
-    const artist = matchedTrack?.artist || parsed.artist;
-    const musicBrainzId = matchedTrack?.musicBrainzId;
+    // Show Last.fm's clean title/artist when the song is recognised, but keep
+    // this YouTube video id. rawTitle is kept so filters still see "cover" etc.
+    const tidy = tidyDisplay(parsed.title, parsed.artist)
+    const title = matched?.title || tidy.title
+    const artist = matched?.artist || tidy.artist
 
-    // Keep all eligible uploads until ranking. pickRelated then chooses the
-    // strongest official/popular match and discards alternate uploads with
-    // the same known recording MBID.
-    const statistics = details?.statistics || {};
-    const views = Number(statistics.viewCount || 0);
-    const likes = Number(statistics.likeCount || 0);
-    const publishedAt = details?.snippet?.publishedAt || item.snippet.publishedAt;
-    const publishedTime = publishedAt ? Date.parse(publishedAt) : NaN;
-    const ageDays = Number.isFinite(publishedTime)
-      ? Math.max(1, (now - publishedTime) / 86400000)
-      : 30;
+    const statistics = details?.statistics || {}
+    const views = Number(statistics.viewCount || 0)
+    const likes = Number(statistics.likeCount || 0)
+    const publishedTime = Date.parse(details?.snippet?.publishedAt || item.snippet?.publishedAt || '')
+    const ageDays = Number.isFinite(publishedTime) ? Math.max(1, (now - publishedTime) / 86400000) : 30
 
-    const candidateGenre = genreFromTopics(details?.topicDetails?.topicCategories || []);
+    const candidateGenre = genreFromTopics(details?.topicDetails?.topicCategories || [])
     const genreMatch = !candidateGenre || preferredGenres.length === 0
       ? 0.5
-      : preferredGenres.some((value) => value === candidateGenre.toLowerCase()) ? 1 : 0.2;
+      : genreMatches(candidateGenre, preferredGenres) ? 1 : 0.2
 
-    const candidateTags = Array.isArray(details?.snippet?.tags) ? details.snippet.tags : [];
-    const description = String(details?.snippet?.description || '');
-    const candidateText = [title, artist, description, ...candidateTags].join(' ');
-    const candidateVibes = inferVibeTerms(candidateText);
-    const vibeMatch = vibeTerms.length === 0
-      ? 0.5
-      : candidateVibes.some((vibe) => vibeTerms.includes(vibe)) ? 1 : 0.25;
+    const candidateText = [title, artist, String(details?.snippet?.description || ''), ...(details?.snippet?.tags || [])]
+      .join(' ')
+    const candidateVibes = inferVibeTerms(candidateText)
+    const vibeMatch = vibeTerms.length === 0 ? 0.5 : candidateVibes.some((v) => vibeTerms.includes(v)) ? 1 : 0.25
 
-    const channelLower = channelTitle.toLowerCase();
+    const channelLower = channelTitle.toLowerCase()
     const officialSignal =
       /\btopic$/.test(channelLower) ||
       /\b(vevo|official)\b/.test(channelLower) ||
       /\b(official audio|official music video)\b/i.test(rawTitle) ||
-      /provided to youtube by|licensed to youtube by/i.test(description)
+      /provided to youtube by|licensed to youtube by/i.test(String(details?.snippet?.description || ''))
         ? 1
-        : 0.2;
+        : 0.2
 
     candidates.push({
       id: videoId,
       title,
       artist,
-      thumbnail:
-        item.snippet.thumbnails?.high?.url ||
-        item.snippet.thumbnails?.medium?.url ||
-        item.snippet.thumbnails?.default?.url ||
-        '',
+      rawTitle,
+      thumbnail: bestThumbnail(item),
       videoId,
       duration: seconds ? formatDuration(seconds) : 'Unknown',
       relevanceRank,
@@ -567,37 +502,78 @@ async function handleRelated(rel: {
       likeRatio: views > 0 ? likes / views : 0,
       genreMatch,
       vibeMatch,
-      lastFmMatch: matchedTrack ? mappedTitleScore : 0.15,
-      musicBrainzId,
+      lastFmMatch: matched ? matchedScore : UNMATCHED_LASTFM_SCORE,
+      musicBrainzId: matched?.musicBrainzId,
       officialSignal,
-    });
-  });
+    })
+  })
 
-  const selected = pickRelated(candidates, {
-    currentTitle: rel.title,
-    currentArtist: rel.artist,
-    excludeTitles: excludedTitles,
-    excludeVideoIds: Array.from(excludedIds),
-    excludeArtists: excludedArtists,
-    excludeMusicBrainzIds,
-    limit: 15,
-  });
-  const tracks = selected.map(({
-    id, title, artist, thumbnail, videoId, duration, musicBrainzId,
-  }) => ({
-    id, title, artist, thumbnail, videoId, duration, musicBrainzId,
-  }));
-
-  return json({
-    tracks,
-    genre: genre || genreWord,
+  return {
+    candidates,
+    genre: seed.genre || genreWord,
     language,
     vibe: vibeTerms,
     tags: lastFm.tags,
-    recommendationSource: similarTracks.length ? 'lastfm-track-similarity' : 'youtube-fallback',
-    lastFmSimilarCount: similarTracks.length,
-    musicBrainzIdsMatched: selected.filter((track) => Boolean(track.musicBrainzId)).length,
-    strategy: 'lastfm-track-match-plus-official-youtube-search-popularity-no-repeat',
-  });
+    similarCount: similarTracks.length,
+  }
 }
 
+async function handleRelated(raw: unknown) {
+  const rel = readRelatedRequest(raw)
+  if (!rel) return jsonResponse({ error: 'videoId, title and artist are required' }, 400)
+
+  const apiKey = Deno.env.get('YOUTUBE_API_KEY')
+  if (!apiKey) return jsonResponse({ error: 'YouTube API key not configured' }, 500)
+
+  // Cache the expensive part per seed song. De-duplication below still runs on
+  // every call, so the queue never repeats songs.
+  const cacheKey = `${rel.videoId}|${rel.languageCode}|${rel.genres[0] || ''}`
+  const cached = bundleCache.get(cacheKey)
+  let bundle: Bundle
+  if (cached && Date.now() - cached.at < BUNDLE_TTL_MS) {
+    bundle = cached.bundle
+  } else {
+    try {
+      bundle = await buildBundle(rel, apiKey)
+    } catch (error) {
+      if (error instanceof YouTubeApiError) {
+        if (error.reason === 'quotaExceeded' || error.reason === 'dailyLimitExceeded') {
+          return jsonResponse({ error: 'YouTube quota exceeded', code: 'quota_exceeded' }, 429)
+        }
+        return jsonResponse(
+          { error: 'Failed to search similar songs', details: error.message, code: error.reason },
+          error.status,
+        )
+      }
+      throw error
+    }
+    if (bundleCache.size >= BUNDLE_MAX) bundleCache.delete(bundleCache.keys().next().value as string)
+    bundleCache.set(cacheKey, { at: Date.now(), bundle })
+  }
+
+  const selected = pickRelated(bundle.candidates, {
+    currentTitle: rel.title,
+    currentArtist: rel.artist,
+    excludeTitles: rel.excludeTitles,
+    excludeVideoIds: [rel.videoId, ...rel.excludeVideoIds],
+    excludeArtists: rel.excludeArtists,
+    excludeMusicBrainzIds: [rel.musicBrainzId || '', ...rel.excludeMusicBrainzIds].filter(Boolean),
+    limit: rel.limit,
+  })
+
+  const tracks = selected.map(({ id, title, artist, thumbnail, videoId, duration, musicBrainzId }) => ({
+    id, title, artist, thumbnail, videoId, duration, musicBrainzId,
+  }))
+
+  return jsonResponse({
+    tracks,
+    genre: bundle.genre,
+    language: bundle.language,
+    vibe: bundle.vibe,
+    tags: bundle.tags,
+    recommendationSource: bundle.similarCount ? 'lastfm-track-similarity' : 'youtube-fallback',
+    lastFmSimilarCount: bundle.similarCount,
+    musicBrainzIdsMatched: selected.filter((t) => Boolean(t.musicBrainzId)).length,
+    cached: Boolean(cached && bundle === cached.bundle),
+  })
+}
