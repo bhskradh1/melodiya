@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Search, Play, Plus, Clock, Loader2, Heart, MoreVertical, ListPlus, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { searchMelodiyaTracks } from '@/lib/musicSearch';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { fetchPreferenceSuggestions, type RecTrack } from '@/lib/recommendations';
@@ -54,15 +55,10 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     searchInFlightRef.current = true;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: q }
-      });
+      const tracks = await searchMelodiyaTracks(q);
+      setSearchResults(tracks);
 
-      if (error) throw error;
-
-      setSearchResults(data.tracks || []);
-
-      if (notify && data.tracks?.length === 0) {
+      if (notify && tracks.length === 0) {
         toast({
           title: "No results found",
           description: "Try searching with different keywords"
