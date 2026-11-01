@@ -32,6 +32,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const [playlists, setPlaylists] = useState<Array<{id: string, name: string}>>([]);
   const [suggestions, setSuggestions] = useState<RecTrack[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchInFlightRef = React.useRef(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const { preferences, version } = usePreferences();
@@ -43,6 +44,9 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       return;
     }
 
+    // Only one deliberate Search submission may be in flight at a time.
+    if (searchInFlightRef.current) return;
+    searchInFlightRef.current = true;
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('youtube-search', {
@@ -69,6 +73,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
         });
       }
     } finally {
+      searchInFlightRef.current = false;
       setLoading(false);
     }
   }, [toast]);
@@ -78,18 +83,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     await runSearch(searchQuery, true);
   };
 
-  // Live recommendations as you type (debounced)
-  React.useEffect(() => {
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      runSearch(q);
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [searchQuery, runSearch]);
+  // Typing only edits the query. YouTube is called only on form submission.
 
   const handlePlayTrack = (track: Track) => {
     onPlayTrack(track);
@@ -241,7 +235,9 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     }
     let cancelled = false;
     setSuggestionsLoading(true);
-    fetchPreferenceSuggestions(preferences)
+    // Recommendation cards may use results already cached on this device,
+    // but opening Search must not spend YouTube API quota.
+    fetchPreferenceSuggestions(preferences, false)
       .then((tracks) => {
         if (!cancelled) setSuggestions(tracks);
       })
