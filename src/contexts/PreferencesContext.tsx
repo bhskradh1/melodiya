@@ -125,28 +125,26 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const updatePreferences = useCallback(
     async (updates: Partial<UserPreferences>) => {
-      setPreferences((prev) => {
-        const next = { ...prev, ...updates };
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          /* ignore */
-        }
-        return next;
-      });
-      setVersion((v) => v + 1);
+      const next = { ...preferences, ...updates };
 
-      if (!user) return;
-      try {
+      // Save remotely before reporting success, so the UI never claims a
+      // preference was saved when Supabase rejected it.
+      if (user) {
         const { error } = await supabase
           .from('user_preferences')
-          .upsert({ user_id: user.id, ...updates }, { onConflict: 'user_id' });
+          .upsert({ user_id: user.id, ...next }, { onConflict: 'user_id' });
         if (error) throw error;
-      } catch (e) {
-        console.error('Error saving preferences:', e);
       }
+
+      setPreferences(next);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* Local persistence is best-effort when browser storage is unavailable. */
+      }
+      setVersion((v) => v + 1);
     },
-    [user]
+    [user, preferences]
   );
 
   return (
