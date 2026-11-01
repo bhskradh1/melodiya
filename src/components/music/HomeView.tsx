@@ -123,6 +123,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, o
   const featured = topFive[featIndex] ?? topFive[0] ?? null;
   const restTrending = trendingTracks.slice(5);
   const quickPickTracks = (recentlyPlayed.length ? recentlyPlayed : trendingTracks).slice(0, 5);
+  const quickPickLabels = ['Daily Mix 01', 'Discover Weekly', 'Release Radar', 'Night Drive', 'Deep Focus'];
   const popularArtists = Array.from(new Map([...trendingTracks, ...recentlyPlayed].map((track) => [track.artist, track])).values()).slice(0, 6);
 
   const moveFeatured = useCallback(
@@ -235,11 +236,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, o
             <span className="min-w-0 flex-1 truncate px-3 text-xs font-semibold text-zinc-200 md:text-sm">Liked Songs</span>
             <span className="mr-3 hidden h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-950 shadow-lg group-hover:grid"><Play className="h-3.5 w-3.5 fill-current" /></span>
           </button>
-          {quickPickTracks.map((track) => (
+          {quickPickTracks.map((track, index) => (
             <button key={track.videoId} type="button" onClick={() => onPlayTrack(track, quickPickTracks)} className="group flex min-w-0 items-center overflow-hidden rounded-xl border border-white/[.08] bg-white/[.055] text-left transition hover:bg-white/[.09]">
               <img src={track.thumbnail || '/placeholder.svg'} alt="" className="h-14 w-14 shrink-0 object-cover md:h-16 md:w-16" loading="lazy" />
               <span className="min-w-0 flex-1 px-3">
-                <strong className="block truncate text-xs font-semibold text-zinc-200 md:text-sm">{track.title}</strong>
+                <strong className="block truncate text-xs font-semibold text-zinc-200 md:text-sm">{quickPickLabels[index]}</strong>
                 <small className="mt-1 block truncate text-[10px] text-zinc-600">{track.artist}</small>
               </span>
               <span className="mr-3 hidden h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-950 shadow-lg group-hover:grid"><Play className="h-3.5 w-3.5 fill-current" /></span>
