@@ -72,7 +72,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ onPlayTrack }) => {
       <div className="relative z-10 mx-auto w-full max-w-[92rem] space-y-8 px-5 pb-32 pt-4 md:px-10 md:pt-6">
         <header className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-300 to-zinc-700 text-zinc-950">
-            <Mic2 className="h-5 w-5 text-zinc-200-foreground" />
+            <Mic2 className="h-5 w-5 text-zinc-950" />
           </span>
           <div>
             <p className="sonora-eyebrow mb-1">Sing it your way</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Karaoke</h1>
