@@ -280,7 +280,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Search Results</h2>
+          <h2 className="text-lg md:text-xl font-semibold">Search Results ({searchResults.length})</h2>
           <div className="space-y-2">
             {searchResults.map((track, index) => (
               <Card key={track.id} className="glass-card hover-lift">
