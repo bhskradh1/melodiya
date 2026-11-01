@@ -308,6 +308,10 @@ export const MelodiyaApp: React.FC = () => {
   };
 
   const handleNext = async () => {
+    if (!preferences.auto_play && !(playlist.length > 0 && currentIndex + 1 < playlist.length)) {
+      setIsPlaying(false);
+      return;
+    }
     if (playlist.length > 0 && currentIndex + 1 < playlist.length) {
       // Next track available in playlist
       const nextIndex = currentIndex + 1;
