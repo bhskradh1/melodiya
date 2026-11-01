@@ -17,7 +17,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Home, Search, TrendingUp, Library } from 'lucide-react';
+import { Menu, Search, TrendingUp, Library, Settings2 } from 'lucide-react';
 import { usePreferences, LANGUAGE_LABELS } from '@/contexts/PreferencesContext';
 import { toast } from 'sonner';
 
@@ -41,8 +41,10 @@ interface Track {
   musicBrainzId?: string;
 }
 
-export const MelodiyaApp: React.FC = () => {
+export const SonoraApp: React.FC = () => {
   const [activeView, setActiveView] = useState('home');
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
   const historyInitializedRef = useRef(false);
   const lastRootBackAtRef = useRef(0);
   const mobileSidebarOpenRef = useRef(false);
@@ -181,7 +183,7 @@ export const MelodiyaApp: React.FC = () => {
         }
 
         lastRootBackAtRef.current = now;
-        toast('Press back again to exit Melodiya');
+        toast('Press back again to exit Sonora');
         window.history.pushState(exitGuardState, '', window.location.href);
         return;
       }
@@ -204,7 +206,7 @@ export const MelodiyaApp: React.FC = () => {
       lastRootBackAtRef.current = now;
       setSelectedPlaylistId(null);
       setActiveView('home');
-      toast('Press back again to exit Melodiya');
+      toast('Press back again to exit Sonora');
       window.history.pushState(exitGuardState, '', window.location.href);
     };
 
@@ -379,7 +381,7 @@ export const MelodiyaApp: React.FC = () => {
       case 'home':
         return <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} />;
       case 'search':
-        return <SearchView onPlayTrack={handlePlayTrack} />;
+        return <SearchView key={submittedSearchQuery} initialQuery={submittedSearchQuery} onPlayTrack={handlePlayTrack} />;
       case 'trending':
         return <TrendingView onPlayTrack={handlePlayTrack} />;
       case 'liked':
@@ -413,65 +415,134 @@ export const MelodiyaApp: React.FC = () => {
     }
   };
 
-  return (
-    <div className="h-[100dvh] min-h-0 w-full max-w-full overflow-hidden flex flex-col bg-background">
-      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        {isMobile && (
-          <div className="absolute top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-lg border-b border-border/30 flex items-center px-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={openMobileSidebar}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            <button
-              type="button"
-              aria-label="Go to home"
-              onClick={() => {
-                navigateToView('home');
-                closeMobileSidebar();
-              }}
-              className="flex items-center gap-2 ml-4 flex-1 justify-start transition-opacity active:opacity-70"
-            >
-              <div className="w-6 h-6 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-xs font-bold text-white">M</span>
-              </div>
-              <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Melodiya
-              </span>
-            </button>
-            
-          </div>
-        )}
+  const handleGlobalSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = globalSearchQuery.trim();
+    if (!query) return;
+    setSubmittedSearchQuery(query);
+    navigateToView('search');
+  };
 
-        {/* Sidebar */}
-        <div className={`${isMobile ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden') : 'relative w-64'}`}>
-          <Sidebar 
-            activeView={activeView} 
+  return (
+    <div className="sonora-app flex h-[100dvh] min-h-0 w-full max-w-full flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div
+          className={isMobile
+            ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64 shadow-2xl' : 'hidden')
+            : 'relative z-30 hidden w-64 shrink-0 lg:block'}
+        >
+          <Sidebar
+            activeView={activeView}
             onViewChange={navigateToView}
             onClose={closeMobileSidebar}
             isMobile={isMobile}
           />
         </div>
 
-        {/* Mobile Sidebar Overlay */}
         {isMobile && isMobileSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-40"
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className="fixed inset-0 z-40 cursor-default bg-black/70 backdrop-blur-sm lg:hidden"
             onClick={closeMobileSidebar}
           />
         )}
-        
-        {/* Main Content */}
-        <div ref={mainRef} className={`flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain ${isMobile ? 'pt-14' : ''}`}>
-          {renderView()}
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="sonora-header relative z-20 flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-white/[.045] px-4 md:px-7 lg:px-10">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Open navigation"
+              className="h-9 w-9 shrink-0 rounded-full border border-white/10 text-zinc-400 hover:bg-white/[.06] hover:text-zinc-100 lg:hidden"
+              onClick={openMobileSidebar}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+
+            <button
+              type="button"
+              aria-label="Go to Sonora home"
+              onClick={() => navigateToView('home')}
+              className="flex shrink-0 items-center gap-2.5 lg:hidden"
+            >
+              <span className="sonora-brand-mark h-8 w-8"><i/><i/><i/><i/></span>
+              <span className="font-[Manrope] text-lg font-semibold tracking-[-.045em] text-zinc-200">Sonora</span>
+            </button>
+
+            <form onSubmit={handleGlobalSearch} className="search-spotlight hidden w-full max-w-[31rem] items-center lg:flex">
+              <span className="search-lens"><Search className="h-4 w-4" /></span>
+              <input
+                aria-label="Search Sonora"
+                value={globalSearchQuery}
+                onChange={(event) => setGlobalSearchQuery(event.target.value)}
+                placeholder="Search the Sonora catalog…"
+              />
+              {globalSearchQuery && (
+                <button type="button" aria-label="Clear search" className="search-clear" onClick={() => setGlobalSearchQuery('')}>
+                  <span className="text-sm">×</span>
+                </button>
+              )}
+              <kbd>⌘ K</kbd>
+            </form>
+
+            <form onSubmit={handleGlobalSearch} className="search-spotlight flex min-w-0 flex-1 items-center lg:hidden">
+              <span className="search-lens"><Search className="h-4 w-4" /></span>
+              <input
+                aria-label="Search Sonora"
+                value={globalSearchQuery}
+                onChange={(event) => setGlobalSearchQuery(event.target.value)}
+                placeholder="Search music…"
+              />
+            </form>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Settings"
+                title="Settings"
+                className="h-9 w-9 rounded-full border border-white/[.08] bg-white/[.025] text-zinc-500 hover:bg-white/[.07] hover:text-zinc-100"
+                onClick={() => navigateToView('settings')}
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+              {!user && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="hidden h-9 rounded-full bg-zinc-100 px-4 text-[11px] font-semibold text-zinc-950 hover:bg-white sm:inline-flex"
+                  onClick={() => navigateToView('settings')}
+                >
+                  Sign in
+                </Button>
+              )}
+              {user && (
+                <button
+                  type="button"
+                  aria-label="Account settings"
+                  onClick={() => navigateToView('settings')}
+                  className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-zinc-500 to-zinc-900 text-[10px] font-semibold text-white"
+                >
+                  {(user.email?.[0] || 'S').toUpperCase()}
+                </button>
+              )}
+            </div>
+          </header>
+
+          <main
+            ref={mainRef}
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+          >
+            <div className="mx-auto min-h-full w-full max-w-[92rem] px-4 pb-8 pt-5 md:px-8 md:pt-7 xl:px-10">
+              {renderView()}
+            </div>
+          </main>
         </div>
       </div>
-      
-      {/* Music Player (above mobile bottom nav) */}
+
       <MusicPlayer
         currentTrack={currentTrack}
         isPlaying={isPlaying}
@@ -480,9 +551,11 @@ export const MelodiyaApp: React.FC = () => {
         onPrevious={handlePrevious}
       />
 
-      {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <nav className="md:hidden glass-player border-t border-border/30 flex items-stretch justify-around flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
+        <nav
+          aria-label="Sonora navigation"
+          className="sonora-bottom-nav grid h-[4.35rem] shrink-0 grid-cols-4 items-stretch border-t px-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
+        >
           {bottomNavItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -494,14 +567,13 @@ export const MelodiyaApp: React.FC = () => {
                 key={item.id}
                 type="button"
                 onClick={() => navigateToView(item.id)}
-                className={`flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`}
+                className={isActive ? 'flex min-w-0 flex-col items-center justify-center gap-1 text-zinc-100 transition-colors' : 'flex min-w-0 flex-col items-center justify-center gap-1 text-zinc-600 transition-colors hover:text-zinc-300'}
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                <Icon className="h-[19px] w-[19px]" strokeWidth={1.65} />
+                <span className="text-[9px] font-medium leading-none">{item.label}</span>
+                {isActive && <span className="mt-0.5 h-0.5 w-4 rounded-full bg-lime-200 shadow-[0_0_10px_rgba(216,249,155,.45)]" />}
               </button>
             );
           })}
