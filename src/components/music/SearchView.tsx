@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Search, Play, Plus, Clock, Loader2, Heart, MoreVertical, ListPlus, Sparkles } from 'lucide-react';
+import { Search, Play, Plus, Loader2, Heart, MoreVertical, ListPlus, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { searchMelodiyaTracks } from '@/lib/musicSearch';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { usePreferences } from '@/contexts/PreferencesContext';
+import { usePreferences, GENRE_OPTIONS } from '@/contexts/PreferencesContext';
 import { fetchPreferenceSuggestions, type RecTrack } from '@/lib/recommendations';
 
 interface Track {
@@ -23,11 +22,10 @@ interface Track {
 
 interface SearchViewProps {
   onPlayTrack: (track: Track) => void;
-  initialQuery?: string;
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, initialQuery = '' }) => {
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
+export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [visibleSearchResultsCount, setVisibleSearchResultsCount] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -83,13 +81,6 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, initialQuer
       setLoading(false);
     }
   }, [toast]);
-
-  useEffect(() => {
-    const nextQuery = initialQuery.trim();
-    if (!nextQuery) return;
-    setSearchQuery(nextQuery);
-    void runSearch(nextQuery);
-  }, [initialQuery, runSearch]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,121 +254,202 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, initialQuer
     };
   }, [user, preferences, version]);
 
-  const quickGenres = ['All', ...Array.from(new Set((preferences.favorite_genres || []).slice(0, 6)))];
-  const visibleTracks = searchResults.slice(0, visibleSearchResultsCount);
+  const renderTrackCard = (track: Track, showMenu: boolean) => {
+    const liked = likedSongs.has(track.videoId);
+    return (
+      <div key={track.videoId || track.id} className="group min-w-0">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => handlePlayTrack(track)}
+            aria-label={`Play ${track.title}`}
+            className="relative block aspect-square w-full overflow-hidden rounded-2xl border border-foreground/[0.085] bg-card shadow-[inset_0_1px_rgba(255,255,255,.07),0_14px_35px_rgba(0,0,0,.24)] transition duration-300 group-hover:-translate-y-1 group-hover:border-foreground/20"
+          >
+            <img src={track.thumbnail} alt="" loading="lazy" className="h-full w-full object-cover grayscale-[.35] contrast-[1.05] transition duration-500 group-hover:grayscale-0" />
+            <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(125deg,transparent_10%,rgba(255,255,255,.11)_35%,transparent_48%)] mix-blend-screen" />
+          </button>
+          <span className="pointer-events-none absolute bottom-3 right-3 grid size-10 translate-y-2 place-items-center rounded-full bg-zinc-200 text-zinc-950 opacity-0 shadow-xl transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+            <Play className="ml-0.5 h-4 w-4 fill-current" />
+          </span>
+          <div className="absolute right-2 top-2 flex gap-1.5">
+            <button
+              type="button"
+              aria-label={liked ? 'Unlike' : 'Like'}
+              onClick={() => toggleLike(track)}
+              className={`grid size-8 place-items-center rounded-full bg-black/45 backdrop-blur-md transition-colors ${liked ? 'text-signal' : 'text-zinc-300 hover:text-zinc-100'}`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${liked ? 'fill-current' : ''}`} />
+            </button>
+            {showMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label="More" className="grid size-8 place-items-center rounded-full bg-black/45 text-zinc-300 backdrop-blur-md transition-colors hover:text-zinc-100">
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {playlists.map((playlist) => (
+                    <DropdownMenuItem key={playlist.id} onClick={() => addToPlaylist(track, playlist.id)}>
+                      <ListPlus className="w-4 h-4 mr-2" />
+                      Add to {playlist.name}
+                    </DropdownMenuItem>
+                  ))}
+                  {playlists.length === 0 && <DropdownMenuItem disabled>No playlists found</DropdownMenuItem>}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+        <button type="button" onClick={() => handlePlayTrack(track)} className="mt-3 block w-full min-w-0 text-left">
+          <strong className="block truncate text-sm font-medium text-zinc-200">{track.title}</strong>
+          <small className="mt-1 block truncate text-xs text-zinc-600">{track.artist}</small>
+        </button>
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-full space-y-8 pb-32">
-      <div className="mb-7">
-        <p className="sonora-eyebrow">Explore Sonora</p>
-        <h1 className="mt-2 font-[Manrope] text-3xl font-medium tracking-[-.05em] text-zinc-100 md:text-4xl">Find your next frequency.</h1>
-        <p className="mt-3 text-xs leading-5 text-zinc-500">Search the catalog, discover an artist, or return to a favorite.</p>
+    <div className="mx-auto max-w-[92rem] p-4 pb-32 md:px-10 md:py-8 space-y-6">
+      {/* Search Header */}
+      <div className="space-y-5">
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.22em] text-muted-foreground">Explore Sonora</p>
+          <h1 className="text-3xl md:text-4xl font-medium tracking-[-.045em] text-zinc-100">Find your next frequency</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Search the catalog or move through music by mood and genre.</p>
+        </div>
+
+        <form onSubmit={handleSearch} className="search-spotlight !min-h-[3.6rem] !p-2 max-w-3xl">
+          <span className="search-lens !size-11"><Search className="w-[18px] h-[18px]" /></span>
+          <input
+            type="text"
+            aria-label="Search music"
+            placeholder="Artist, track, album or mood…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={loading || !searchQuery.trim()}
+            className="mr-1 rounded-full border border-foreground/[0.09] px-3 py-1.5 text-[10px] tracking-[.12em] text-zinc-400 transition-colors hover:text-zinc-100 disabled:opacity-40"
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'FIND'}
+          </button>
+        </form>
+
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:-mx-6 md:px-6">
+          <button
+            type="button"
+            onClick={() => { setSearchQuery(''); setSearchResults([]); setVisibleSearchResultsCount(5); }}
+            className={`shrink-0 rounded-full border px-4 py-2 text-xs transition-colors ${
+              !searchQuery.trim()
+                ? 'border-zinc-300 bg-zinc-200 text-zinc-950'
+                : 'border-foreground/10 bg-foreground/[0.025] text-muted-foreground hover:text-zinc-200'
+            }`}
+          >
+            All
+          </button>
+          {GENRE_OPTIONS.map((genre) => (
+            <button
+              key={genre}
+              type="button"
+              onClick={() => { setSearchQuery(genre); runSearch(genre, true); }}
+              className={`shrink-0 rounded-full border px-4 py-2 text-xs transition-colors ${
+                searchQuery.trim().toLowerCase() === genre.toLowerCase()
+                  ? 'border-zinc-300 bg-zinc-200 text-zinc-950'
+                  : 'border-foreground/10 bg-foreground/[0.025] text-muted-foreground hover:text-zinc-200'
+              }`}
+            >
+              {genre}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <form onSubmit={handleSearch} className="search-spotlight search-spotlight-large flex w-full max-w-3xl items-center lg:hidden">
-        <span className="search-lens"><Search className="h-[18px] w-[18px]" /></span>
-        <Input
-          autoFocus={false}
-          type="text"
-          aria-label="Search music"
-          placeholder="Artist, track or album…"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          className="border-0 bg-transparent px-3 text-sm text-zinc-100 shadow-none placeholder:text-zinc-600 focus-visible:ring-0"
-        />
-        {searchQuery && <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear search" className="search-clear"><span className="text-sm">×</span></button>}
-        <button type="submit" disabled={loading || !searchQuery.trim()} className="mr-1 rounded-full bg-zinc-100 px-4 py-2.5 text-[10px] font-semibold text-zinc-950 disabled:opacity-40">Find</button>
-      </form>
-
-      {!searchQuery && (
-        <section className="space-y-4">
-          <div className="flex items-end justify-between">
-            <div><p className="sonora-eyebrow">Start somewhere</p><h2 className="mt-1 font-[Manrope] text-xl font-medium text-zinc-200">Made for your taste</h2></div>
-            <span className="text-[9px] uppercase tracking-[.16em] text-zinc-600">Your picks</span>
-          </div>
-          {suggestionsLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {Array.from({length:4}).map((_,index)=><div key={index} className="rounded-2xl border border-white/[.07] bg-white/[.025] p-3"><div className="aspect-square animate-pulse rounded-xl bg-white/[.05]"/><div className="mt-3 h-3 w-4/5 animate-pulse rounded bg-white/[.05]"/><div className="mt-2 h-2 w-1/2 animate-pulse rounded bg-white/[.035]"/></div>)}
-            </div>
-          ) : suggestions.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {suggestions.map((track) => (
-                <Card key={track.videoId} className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] shadow-none transition hover:-translate-y-0.5 hover:border-white/[.16] hover:bg-white/[.045]">
-                  <CardContent className="p-3">
-                    <button type="button" onClick={() => handlePlayTrack(track as unknown as Track)} className="cover relative block aspect-square w-full rounded-xl" aria-label={`Play ${track.title}`}>
-                      <img src={track.thumbnail || '/placeholder.svg'} alt={track.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"/>
-                      <span className="cover-shine"/>
-                      <span className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-zinc-950 opacity-0 shadow-xl transition group-hover:opacity-100"><Play className="ml-0.5 h-4 w-4 fill-current"/></span>
-                    </button>
-                    <div className="mt-3 flex items-start gap-2">
-                      <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-zinc-200">{track.title}</p><p className="mt-1 truncate text-[10px] text-zinc-500">{track.artist}</p></div>
-                      <Button type="button" variant="ghost" size="icon" aria-label={likedSongs.has(track.videoId) ? 'Unlike song' : 'Like song'} className={`h-7 w-7 shrink-0 rounded-full ${likedSongs.has(track.videoId) ? 'text-lime-200' : 'text-zinc-600'}`} onClick={() => toggleLike(track as unknown as Track)}><Heart className={`h-3.5 w-3.5 ${likedSongs.has(track.videoId) ? 'fill-current' : ''}`}/></Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/[.08] bg-white/[.025] px-5 py-8 text-center">
-              <Sparkles className="mx-auto h-5 w-5 text-zinc-500"/>
-              <p className="mt-3 text-xs font-medium text-zinc-300">Your discovery mix is warming up</p>
-              <p className="mt-1 text-[10px] text-zinc-600">Choose favorite genres in Settings or search for an artist you love.</p>
-            </div>
-          )}
-        </section>
-      )}
-
+      {/* Search Results */}
       {searchResults.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-end justify-between gap-3">
-            <div><p className="sonora-eyebrow">The catalogue</p><h2 className="mt-1 font-[Manrope] text-xl font-medium text-zinc-200">Search results</h2><p className="mt-1 text-[10px] text-zinc-600">Showing {visibleTracks.length} of {searchResults.length} tracks</p></div>
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-medium text-zinc-200">Search results</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Showing {visibleSearchResults.length} of {searchResults.length} songs
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {visibleTracks.map((track) => (
-              <Card key={track.id} className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] shadow-none transition hover:-translate-y-0.5 hover:border-white/[.16] hover:bg-white/[.045]">
-                <CardContent className="p-3">
-                  <button type="button" onClick={() => handlePlayTrack(track)} className="cover relative block aspect-square w-full rounded-xl" aria-label={`Play ${track.title}`}>
-                    <img src={track.thumbnail || '/placeholder.svg'} alt={track.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"/>
-                    <span className="cover-shine"/>
-                    <span className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-zinc-950 opacity-0 shadow-xl transition group-hover:opacity-100"><Play className="ml-0.5 h-4 w-4 fill-current"/></span>
-                  </button>
-                  <div className="mt-3 flex items-start gap-2">
-                    <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-zinc-200">{track.title}</p><p className="mt-1 truncate text-[10px] text-zinc-500">{track.artist}</p><p className="mt-2 text-[9px] text-zinc-600">{track.duration}</p></div>
-                    <div className="flex shrink-0 flex-col">
-                      <Button type="button" variant="ghost" size="icon" aria-label={likedSongs.has(track.videoId) ? 'Unlike song' : 'Like song'} className={`h-7 w-7 rounded-full ${likedSongs.has(track.videoId) ? 'text-lime-200' : 'text-zinc-600'}`} onClick={() => toggleLike(track)}><Heart className={`h-3.5 w-3.5 ${likedSongs.has(track.videoId) ? 'fill-current' : ''}`}/></Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Add to playlist" className="h-7 w-7 rounded-full text-zinc-600 hover:text-zinc-100"><MoreVertical className="h-3.5 w-3.5"/></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="border-white/10 bg-zinc-950 text-zinc-200">
-                          {playlists.map((playlist) => <DropdownMenuItem key={playlist.id} onClick={() => addToPlaylist(track, playlist.id)} className="text-xs focus:bg-white/[.08] focus:text-white"><ListPlus className="mr-2 h-3.5 w-3.5"/>Add to {playlist.name}</DropdownMenuItem>)}
-                          {playlists.length === 0 && <DropdownMenuItem disabled className="text-xs">No playlists found</DropdownMenuItem>}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 xl:grid-cols-5">
+            {visibleSearchResults.map((track) => renderTrackCard(track, true))}
           </div>
-          {visibleTracks.length < searchResults.length && (
-            <div className="flex justify-center pt-2"><Button type="button" variant="outline" onClick={() => setVisibleSearchResultsCount((current) => Math.min(current + 5, searchResults.length))} className="rounded-full border-white/10 bg-white/[.025] text-xs text-zinc-300 hover:bg-white/[.08]">Show {Math.min(5, searchResults.length - visibleTracks.length)} more</Button></div>
+          {visibleSearchResults.length < searchResults.length && (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="btn-ghost-pill border-foreground/[0.12]"
+                onClick={() => setVisibleSearchResultsCount((current) =>
+                  Math.min(current + 5, searchResults.length)
+                )}
+              >
+                Show {Math.min(5, searchResults.length - visibleSearchResults.length)} more songs
+              </Button>
+            </div>
           )}
-        </section>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center gap-3 py-10 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin text-zinc-300"/> Finding your next track…</div>
-      )}
-
-      {!loading && searchQuery && searchResults.length === 0 && (
-        <div className="rounded-2xl border border-white/[.08] bg-white/[.025] px-6 py-12 text-center">
-          <Search className="mx-auto h-7 w-7 text-zinc-600"/>
-          <h3 className="mt-4 font-[Manrope] text-lg text-zinc-200">No matching records</h3>
-          <p className="mt-2 text-xs text-zinc-500">Try another artist, track or album.</p>
         </div>
       )}
 
-      {!loading && !searchQuery && !user && (
-        <div className="rounded-2xl border border-white/[.08] bg-white/[.025] px-6 py-12 text-center"><Search className="mx-auto h-7 w-7 text-zinc-600"/><p className="mt-3 text-xs text-zinc-300">Search the Sonora catalogue</p><p className="mt-1 text-[10px] text-zinc-600">Find songs, singers and albums.</p></div>
+      {loading && (
+        <div className="flex items-center justify-center py-8 md:py-12">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="text-muted-foreground text-sm md:text-base">Searching for music...</span>
+          </div>
+        </div>
+      )}
+
+      {!loading && searchResults.length === 0 && searchQuery && (
+        <div className="flex flex-col items-center justify-center py-8 md:py-12 space-y-4">
+          <Search className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground" />
+          <div className="text-center">
+            <h3 className="text-base md:text-lg font-medium">No results found</h3>
+            <p className="text-sm md:text-base text-muted-foreground">Try searching with different keywords</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && !searchQuery && (
+        <div className="space-y-6">
+          {/* Recommended for you */}
+          {user && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-signal" />
+                <h2 className="text-xl font-medium text-zinc-200">Recommended for you</h2>
+              </div>
+
+              {suggestionsLoading ? (
+                <div className="flex items-center gap-3 py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-muted-foreground text-sm">Curating your picks...</span>
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 xl:grid-cols-5">
+                  {suggestions.map((track) => renderTrackCard(track as unknown as Track, false))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Pick your favourite genres in Settings to get personalized picks.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!user && (
+            <div className="flex flex-col items-center justify-center py-8 md:py-12 space-y-4">
+              <Search className="w-12 h-12 md:w-16 md:h-16 text-muted-foreground" />
+              <div className="text-center">
+                <h3 className="text-base md:text-lg font-medium">Search for music</h3>
+                <p className="text-sm md:text-base text-muted-foreground">Find songs, artists, and albums</p>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

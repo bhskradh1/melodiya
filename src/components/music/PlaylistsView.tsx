@@ -161,11 +161,11 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
   }
 
   return (
-    <div className="mx-auto max-w-[92rem] space-y-7 p-5 pb-32 md:p-8 md:pb-32">
+    <div className="p-5 pb-32 md:px-10 md:py-8 space-y-7 max-w-[92rem] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="sonora-eyebrow mb-2">Built by you</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Your Playlists</h1>
+          <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-muted-foreground mb-2">Built by you</p><h1 className="text-3xl md:text-4xl font-medium tracking-[-.045em] text-zinc-100">Playlists</h1>
           <p className="text-muted-foreground">
             {playlists.length} playlist{playlists.length !== 1 ? 's' : ''}
           </p>
@@ -173,7 +173,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 px-5 text-xs font-semibold text-zinc-950 hover:brightness-110">
+            <Button className="btn-silver px-5 h-10 text-xs hover:opacity-90">
               <Plus className="w-4 h-4 mr-2" />
               Create Playlist
             </Button>
@@ -205,7 +205,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
                 </Button>
-                <Button onClick={createPlaylist} className="bg-gradient-primary hover:opacity-90">
+                <Button onClick={createPlaylist} className="btn-silver hover:opacity-90">
                   Create Playlist
                 </Button>
               </div>
@@ -218,7 +218,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
       {playlists.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {playlists.map((playlist) => (
-              <Card key={playlist.id} className="group cursor-pointer overflow-hidden rounded-2xl border border-foreground/[0.10] bg-gradient-to-br from-foreground/[0.09] via-card/50 to-foreground/[0.025] shadow-xl backdrop-blur-2xl transition-all duration-300 hover:-translate-y-1 hover:border-foreground/20">
+              <Card key={playlist.id} className="group cursor-pointer overflow-hidden rounded-2xl border border-foreground/[0.08] bg-foreground/[0.025] transition-colors duration-200 hover:bg-foreground/[0.05]">
                 <CardContent className="p-4">
                   <div 
                     className="space-y-3"

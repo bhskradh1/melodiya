@@ -81,10 +81,10 @@ export const SharedPlaylistsView: React.FC<SharedPlaylistsViewProps> = ({
   }
 
   return (
-    <div className="mx-auto max-w-[92rem] space-y-7 p-5 pb-32 md:p-8">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <p className="sonora-eyebrow">From your circle</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100">Shared with me</h1>
+        <h1 className="text-3xl md:text-4xl font-medium tracking-[-.045em] text-zinc-100">Shared with Me</h1>
         <p className="text-muted-foreground">
           {playlists.length} playlist{playlists.length !== 1 ? 's' : ''} shared with
           you
@@ -101,12 +101,12 @@ export const SharedPlaylistsView: React.FC<SharedPlaylistsViewProps> = ({
                   className="space-y-3"
                   onClick={() => onViewPlaylist(playlist.id)}
                 >
-                  <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,#3d403d,#0b0c0c)] flex items-center justify-center">
+                  <div className="relative aspect-square bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
                     {playlist.cover_image_url ? (
                       <img
                         src={playlist.cover_image_url}
                         alt={playlist.name}
-                        className="h-full w-full rounded-xl object-cover"
+                        className="w-full h-full object-cover rounded-lg"
                       />
                     ) : (
                       <Music className="w-12 h-12 text-muted-foreground" />

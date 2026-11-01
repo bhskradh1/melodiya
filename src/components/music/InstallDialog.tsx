@@ -141,7 +141,7 @@ export const InstallDialog: React.FC<InstallDialogProps> = ({
           )}
 
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Open Sonora directly in your browser (not inside another app) to install it.
+            Make sure you're visiting <strong>melodiya-your-sound.lovable.app</strong> directly in your browser (not inside another app).
           </p>
         </div>
       </DialogContent>

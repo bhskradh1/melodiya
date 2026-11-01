@@ -131,16 +131,16 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
   }
 
   return (
-    <div className="mx-auto max-w-[92rem] space-y-7 p-5 pb-32 md:p-8">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-300 to-zinc-700 text-zinc-950">
+            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-white" />
             </div>
             <div>
-              <div><p className="sonora-eyebrow">Your signal trail</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100">Recently played</h1></div>
+              <h1 className="text-3xl md:text-4xl font-medium tracking-[-.045em] text-zinc-100">Recently Played</h1>
               <p className="text-muted-foreground">
                 {recentSongs.length} song{recentSongs.length !== 1 ? 's' : ''}
               </p>
@@ -176,7 +176,7 @@ export const RecentlyPlayedView: React.FC<RecentlyPlayedViewProps> = ({ onPlayTr
                     <img
                       src={song.thumbnail_url || '/placeholder.svg'}
                       alt={song.title}
-                      className="h-12 w-12 rounded-xl border border-white/10 object-cover"
+                      className="w-12 h-12 rounded object-cover"
                     />
                     <div className="absolute inset-0 bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button

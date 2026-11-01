@@ -346,7 +346,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   return (
     <div className="fixed inset-0 z-[70] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
       style={{
-        background: 'radial-gradient(circle at 50% 35%, #303330, #080909 60%)',
+        background: `linear-gradient(180deg, hsl(280 60% 15%) 0%, hsl(215 30% 6%) 100%)`,
       }}
     >
       {/* Blurred album art background */}
@@ -363,7 +363,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
             <ChevronDown className="w-6 h-6" />
           </Button>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Now Playing on Sonora</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Now Playing</p>
           </div>
           <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-foreground/70 hover:text-foreground rounded-full" onClick={() => setShowLyrics(!showLyrics)}>
             <Music2 className={`w-5 h-5 ${showLyrics ? 'text-primary' : ''}`} />
@@ -379,7 +379,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
                 className={`w-full h-full object-cover rounded-2xl shadow-2xl ${isPlaying ? 'animate-pulse-subtle' : ''}`}
-                style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(216, 249, 155, 0.10)' }}
+                style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(168, 85, 247, 0.15)' }}
               />
               {isLoading && (
                 <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
@@ -474,7 +474,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                           `}
                           style={{
                             transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                            textShadow: isActive ? '0 0 20px rgba(216, 249, 155, 0.22)' : 'none',
+                            textShadow: isActive ? '0 0 20px hsl(280 100% 70% / 0.3)' : 'none',
                           }}
                           onClick={() => {
                             if (duration > 0) {
@@ -547,7 +547,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
 
           <div className="flex items-center justify-between max-w-sm mx-auto w-full">
             <AddToPlaylistButton track={currentTrack} />
-            <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`} onClick={onToggleLike}>
+            <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${isLiked ? 'text-signal' : 'text-muted-foreground'}`} onClick={onToggleLike}>
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
             </Button>
             <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showLyrics ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => setShowLyrics(!showLyrics)}>

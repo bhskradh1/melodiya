@@ -169,7 +169,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   }
 
   return (
-    <div className="mx-auto max-w-[92rem] space-y-7 p-5 pb-32 md:p-8 md:pb-32">
+    <div className="p-5 md:p-8 space-y-7 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBack}>
@@ -179,7 +179,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
       </div>
 
       {/* Playlist Info */}
-      <div className="relative flex flex-col items-start gap-6 overflow-hidden rounded-3xl border border-white/[.09] bg-[linear-gradient(112deg,rgba(32,34,33,.97),rgba(14,15,15,.94))] p-5 shadow-2xl shadow-black/30 backdrop-blur-2xl sm:flex-row md:p-8">
+      <div className="relative flex flex-col sm:flex-row items-start gap-6 overflow-hidden rounded-3xl border border-foreground/10 bg-gradient-to-br from-foreground/[0.10] via-card/50 to-foreground/[0.025] p-5 md:p-7 shadow-xl backdrop-blur-2xl">
         <div className="relative w-full sm:w-48 h-48 shrink-0 overflow-hidden rounded-2xl border border-foreground/10 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--foreground)/.30),transparent_42%),linear-gradient(145deg,hsl(var(--foreground)/.16),hsl(var(--card)/.8)_55%,hsl(var(--foreground)/.04))] flex items-center justify-center shadow-xl">
           {playlist.cover_image_url ? (
             <img
