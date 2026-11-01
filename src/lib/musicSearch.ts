@@ -14,7 +14,7 @@ interface YtMusicSearchResponse {
   error?: string;
 }
 
-const SEARCH_CACHE_PREFIX = 'melodiya_official_songs_v2:';
+const SEARCH_CACHE_PREFIX = 'melodiya_verified_artist_songs_v3:';
 const SEARCH_CACHE_TTL_MS = 15 * 60 * 1000;
 const MAX_SEARCH_RESULTS = 20;
 const inFlightSearches = new Map<string, Promise<MelodiyaSearchTrack[]>>();
