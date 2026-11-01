@@ -39,10 +39,9 @@ does not trust a caller-provided user ID.
 ## Search behaviour
 
 - Searches artist/catalogue songs only; no general YouTube video search.
-- Returns up to 50 approved tracks per request.
-- Fetches up to 200 song-catalogue candidates before applying strict official-source filters, so filtering is less likely to leave only a handful of results.
-- Uses a five-minute in-memory cache on warm serverless instances.
-- Applies a best-effort limit of 30 searches per signed-in user per minute per
+- Returns up to 20 approved tracks per request.
+- Uses a 15-minute in-memory cache on warm serverless instances and a 15-minute local cache in the app.
+- Sends one small catalogue request for a new query, reuses cached and in-flight results, and applies a best-effort limit of 30 searches per signed-in user per minute per
   warm instance. Serverless instances can be recycled or scaled, so this is not
   a globally persistent quota.
 - Search, personalized recommendations and weekly trending share the same
