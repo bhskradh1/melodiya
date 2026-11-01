@@ -13,6 +13,12 @@ export interface Candidate {
   likeRatio?: number;
   vibeMatch?: number;
   genreMatch?: number;
+  /** Last.fm similarity score, normally between 0 and 1. */
+  lastFmMatch?: number;
+  /** MusicBrainz recording MBID supplied by Last.fm when known. */
+  musicBrainzId?: string;
+  /** Signals that this YouTube result is from an official artist/label upload. */
+  officialSignal?: number;
 }
 
 const NOISE = /\b(official|video|audio|lyrics?|lyrical|hd|4k|mv|music|full|song|visualizer|ft|feat|featuring|remastered|live)\b/g;
@@ -129,11 +135,13 @@ export const rankRelated = (items: Candidate[]): Candidate[] => {
         ? 1 - index / Math.max(1, items.length - 1)
         : 1 - item.relevanceRank / Math.max(1, items.length - 1);
       const score =
-        relevance * 0.43 +
-        momentum[index] * 0.29 +
-        popularity[index] * 0.16 +
-        (item.vibeMatch ?? 0.5) * 0.08 +
+        relevance * 0.25 +
+        (item.lastFmMatch ?? 0.25) * 0.30 +
+        momentum[index] * 0.20 +
+        popularity[index] * 0.12 +
+        (item.vibeMatch ?? 0.5) * 0.06 +
         (item.genreMatch ?? 0.5) * 0.03 +
+        (item.officialSignal ?? 0.2) * 0.03 +
         engagement[index] * 0.01;
       return { item, score };
     })
@@ -153,11 +161,13 @@ export const pickRelated = (
     excludeTitles?: string[];
     excludeVideoIds?: string[];
     excludeArtists?: string[];
+    excludeMusicBrainzIds?: string[];
     limit?: number;
   },
 ): Candidate[] => {
   const seenTitles = [opts.currentTitle, ...(opts.excludeTitles || [])];
   const seenIds = new Set([...(opts.excludeVideoIds || [])]);
+  const seenMusicBrainzIds = new Set((opts.excludeMusicBrainzIds || []).filter(Boolean));
   const seenArtists = new Set(
     [opts.currentArtist, ...(opts.excludeArtists || [])].flatMap(artistKeys),
   );
@@ -165,6 +175,7 @@ export const pickRelated = (
 
   for (const candidate of rankRelated(items)) {
     if (!candidate.videoId || seenIds.has(candidate.videoId)) continue;
+    if (candidate.musicBrainzId && seenMusicBrainzIds.has(candidate.musicBrainzId)) continue;
     if (BAD_WORDS.test(candidate.title)) continue;
     if (seenTitles.some((title) => isSameSong(title, candidate.title))) continue;
 
@@ -172,6 +183,7 @@ export const pickRelated = (
     if (names.length === 0 || names.some((name) => seenArtists.has(name))) continue;
 
     seenIds.add(candidate.videoId);
+    if (candidate.musicBrainzId) seenMusicBrainzIds.add(candidate.musicBrainzId);
     seenTitles.push(candidate.title);
     names.forEach((name) => seenArtists.add(name));
     out.push(candidate);
