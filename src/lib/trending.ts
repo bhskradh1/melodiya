@@ -36,6 +36,7 @@ const getWeeklyQuery = (offset = 0) => {
 };
 
 const CACHE_PREFIX = 'trending_week_';
+let weeklyTrendingRequest: Promise<TrendingTrack[]> | null = null;
 
 const readCache = (key: string): TrendingTrack[] | null => {
   try {
@@ -48,20 +49,6 @@ const readCache = (key: string): TrendingTrack[] | null => {
   }
 };
 
-const clearStaleCaches = (currentKey: string) => {
-  try {
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith(CACHE_PREFIX) && k !== currentKey)
-      .forEach((k) => localStorage.removeItem(k));
-    // legacy daily caches
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith('trending_cache_'))
-      .forEach((k) => localStorage.removeItem(k));
-  } catch {
-    /* storage may be unavailable */
-  }
-};
-
 /**
  * Trending tracks for the current calendar week. Results are cached per week so
  * everyone sees the same chart until the next Monday rollover.
@@ -69,23 +56,33 @@ const clearStaleCaches = (currentKey: string) => {
 export const fetchWeeklyTrending = async (force = false): Promise<TrendingTrack[]> => {
   const cacheKey = `${CACHE_PREFIX}${getWeekKey()}`;
   const cached = readCache(cacheKey);
-  if (!force) return cached || [];
+  if (!force && cached) return cached;
 
-  // Only an explicit Refresh action may call YouTube, and it uses one query.
-  const response = await supabase.functions.invoke('youtube-search', {
-    body: { query: getWeeklyQuery(0) },
-  });
-  if (response.error) throw response.error;
+  // Share one weekly request across Home/Trending mounts and React re-renders.
+  if (weeklyTrendingRequest) return weeklyTrendingRequest;
 
-  const tracks = ((response.data?.tracks || []) as TrendingTrack[])
-    .filter((track) => Boolean(track?.videoId));
+  weeklyTrendingRequest = (async () => {
+    // One chart query only; do not fan out to multiple YouTube searches.
+    const response = await supabase.functions.invoke('youtube-search', {
+      body: { query: getWeeklyQuery(0) },
+    });
+    if (response.error) throw response.error;
 
-  if (tracks.length) {
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(tracks));
-    } catch {
-      /* ignore storage errors */
+    const tracks = ((response.data?.tracks || []) as TrendingTrack[])
+      .filter((track) => Boolean(track?.videoId));
+    if (tracks.length) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(tracks));
+      } catch {
+        /* ignore storage errors */
+      }
     }
+    return tracks;
+  })();
+
+  try {
+    return await weeklyTrendingRequest;
+  } finally {
+    weeklyTrendingRequest = null;
   }
-  return tracks;
 };
