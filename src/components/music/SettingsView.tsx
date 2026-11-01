@@ -15,7 +15,6 @@ import { getOfflineTracks, clearOfflineLibrary } from '@/lib/offlineLibrary';
 import {
   Mic2,
   WifiOff,
-  Volume2,
   Music2,
   Globe,
   Palette,
@@ -115,9 +114,14 @@ export const SettingsView: React.FC = () => {
   const handleClearCaches = async () => {
     try {
       Object.keys(localStorage)
-        .filter((k) => k.startsWith('melodiya_recs_') || k.startsWith('melodiya_trending'))
+        .filter((k) =>
+          k.startsWith('melodiya_recs_') ||
+          k.startsWith('melodiya_verified_artist_songs_') ||
+          k.startsWith('trending_week_verified_artist_songs_') ||
+          k.startsWith('melodiya_trending')
+        )
         .forEach((k) => localStorage.removeItem(k));
-      toast({ title: 'Recommendation cache cleared', description: 'Home and Search will refresh with new picks' });
+      toast({ title: 'Music cache cleared', description: 'Trending, recommendations and search results will refresh when opened again' });
     } catch {
       toast({ title: 'Error', description: 'Could not clear cache', variant: 'destructive' });
     }
