@@ -19,6 +19,7 @@ export interface RecommendationRow {
 
 const CACHE_PREFIX = 'melodiya_recs_';
 const TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
+const inFlightSearches = new Map<string, Promise<RecTrack[]>>();
 
 const cacheKey = (q: string) => `${CACHE_PREFIX}${q.toLowerCase().replace(/\s+/g, '_')}`;
 
@@ -42,20 +43,47 @@ const writeCache = (q: string, tracks: RecTrack[]) => {
   }
 };
 
-export const searchTracks = async (query: string, useCache = true): Promise<RecTrack[]> => {
+export const searchTracks = async (
+  query: string,
+  useCache = true,
+  allowNetwork = false
+): Promise<RecTrack[]> => {
+  const normalizedQuery = query.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!normalizedQuery) return [];
+
   if (useCache) {
-    const cached = readCache(query);
+    const cached = readCache(normalizedQuery);
     if (cached) return cached;
   }
+
+  // Cache-only is the default so automatic page loads never consume YouTube quota.
+  if (!allowNetwork) return [];
+
+  const pending = inFlightSearches.get(normalizedQuery);
+  if (pending) return pending;
+
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-search', {
+        body: { query: normalizedQuery },
+      });
+      if (error) throw error;
+      const tracks = (data?.tracks || []) as RecTrack[];
+      if (tracks.length) writeCache(normalizedQuery, tracks);
+      return tracks;
+    } catch (e) {
+      console.error('Recommendation fetch failed:', normalizedQuery, e);
+      return [];
+    }
+  })();
+
+  inFlightSearches.set(normalizedQuery, request);
   try {
-    const { data, error } = await supabase.functions.invoke('youtube-search', { body: { query } });
-    if (error) throw error;
-    const tracks = (data?.tracks || []) as RecTrack[];
-    if (tracks.length) writeCache(query, tracks);
-    return tracks;
-  } catch (e) {
-    console.error('Recommendation fetch failed:', query, e);
-    return [];
+    return await request;
+  } finally {
+    if (inFlightSearches.get(normalizedQuery) === request) {
+      inFlightSearches.delete(normalizedQuery);
+    }
   }
 };
 
@@ -104,18 +132,22 @@ export const buildRecommendationQueries = (prefs: UserPreferences) => {
 
 export const fetchPersonalizedRows = async (
   prefs: UserPreferences,
-  force = false
+  force = false,
+  allowNetwork = false
 ): Promise<RecommendationRow[]> => {
   const defs = buildRecommendationQueries(prefs);
-  const results = await Promise.all(defs.map((d) => searchTracks(d.query, !force)));
+  const results = await Promise.all(defs.map((d) => searchTracks(d.query, !force, allowNetwork)));
   return defs
     .map((d, i) => ({ key: d.key, title: d.title, subtitle: d.subtitle, tracks: results[i].slice(0, 14) }))
     .filter((r) => r.tracks.length > 0);
 };
 
 /** Flat suggestion list used by Search when the query box is empty. */
-export const fetchPreferenceSuggestions = async (prefs: UserPreferences): Promise<RecTrack[]> => {
-  const rows = await fetchPersonalizedRows(prefs);
+export const fetchPreferenceSuggestions = async (
+  prefs: UserPreferences,
+  allowNetwork = false
+): Promise<RecTrack[]> => {
+  const rows = await fetchPersonalizedRows(prefs, false, allowNetwork);
   const seen = new Set<string>();
   const out: RecTrack[] = [];
   const maxLen = Math.max(...rows.map((r) => r.tracks.length), 0);
