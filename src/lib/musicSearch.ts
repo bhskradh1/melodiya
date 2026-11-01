@@ -62,7 +62,7 @@ const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]>
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ query, limit: 25 }),
+    body: JSON.stringify({ query, limit: 50 }),
     signal: AbortSignal.timeout(12000),
   });
 
