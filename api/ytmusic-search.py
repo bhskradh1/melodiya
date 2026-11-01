@@ -34,22 +34,20 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
 
-# YouTube Music's Songs results are artist/catalogue entries, unlike its
-# Videos results, which can be uploaded by any YouTube user. Do not fall back
-# to general YouTube video search for this product.
+# Accept only classified artist audio tracks (ATV) and official music videos
+# (OMV). Generic videos, UGC, and unclassified rows are excluded. Do not fall
+# back to general YouTube video search for this product.
 UNWANTED_TITLE_PATTERN = re.compile(
-    r"\b(?:"
-    r"jukebox\s+(?:songs?|hits?|collection|mix)|"
-    r"non[\s-]?stop|medley|mash[\s-]?up|compilation|"
-    r"full\s+album|all\s+songs|greatest\s+hits|best\s+of|"
-    r"continuous\s+mix|merged\s+songs?|karaoke|"
-    r"cover\s+(?:song|version)|tribute\s+(?:to|album)|"
-    r"slowed(?:\s|$)|nightcore|sped[\s-]?up|"
-    r"8d\s+audio|dj\s+mix|bass\s+boosted|"
-    r"nonstop\s+hits|song\s+collection|full\s+jukebox|"
-    r"remix\s+collection|mashup|megamix|"
-    r"merged\s+tracks?|combined\s+songs?"
-    r")\b",
+    r"\\b(?:"
+    r"jukebox|non[\\s-]?stop|medley|mash[\\s-]?up|megamix|"
+    r"compilation|full\\s+album|all\\s+songs|greatest\\s+hits|best\\s+of|"
+    r"continuous\\s+mix|merged\\s+(?:songs?|tracks?)|combined\\s+songs?|"
+    r"karaoke|cover(?:\\s+(?:song|version))?|tribute|"
+    r"slowed|nightcore|sped[\\s-]?up|8d(?:\\s+audio)?|"
+    r"dj\\s+mix|bass\\s+boosted|remix|unofficial|fan[\\s-]?(?:made|edit)|"
+    r"reaction|lo[ -]?fi|instrumental|extended\\s+version|"
+    r"loop(?:ed)?|song\\s+collection|nonstop\\s+hits"
+    r")\\b",
     re.IGNORECASE,
 )
 
@@ -60,13 +58,11 @@ def _normalize_track(item: dict[str, Any]) -> dict[str, str] | None:
     if item.get("resultType") != "song":
         return None
 
-    # The Songs catalogue itself contains artist catalogue tracks. The
-    # videoType field is optional on some valid song rows, so allow it to be
-    # absent; when supplied, reject UGC and every non-artist type.
+    # Missing videoType is not proof of an official upload. Under the
+    # strict catalogue policy, accept only YouTube Music artist-track and
+    # official-music-video types; reject UGC and unclassified rows.
     video_type = item.get("videoType")
-    if video_type == "MUSIC_VIDEO_TYPE_UGC":
-        return None
-    if video_type is not None and video_type not in {
+    if video_type not in {
         "MUSIC_VIDEO_TYPE_ATV",
         "MUSIC_VIDEO_TYPE_OMV",
     }:
