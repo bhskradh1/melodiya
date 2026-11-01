@@ -429,7 +429,7 @@ export const SonoraApp: React.FC = () => {
         <div
           className={isMobile
             ? (isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-50 w-64 shadow-2xl' : 'hidden')
-            : 'relative z-30 hidden w-64 shrink-0 lg:block'}
+            : 'relative z-30 hidden w-64 shrink-0 md:block'}
         >
           <Sidebar
             activeView={activeView}
@@ -450,28 +450,32 @@ export const SonoraApp: React.FC = () => {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <header className="sonora-header relative z-20 flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-white/[.045] px-4 md:px-7 lg:px-10">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Open navigation"
-              className="h-9 w-9 shrink-0 rounded-full border border-white/10 text-zinc-400 hover:bg-white/[.06] hover:text-zinc-100 lg:hidden"
-              onClick={openMobileSidebar}
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
+            {isMobile && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Open navigation"
+                className="h-9 w-9 shrink-0 rounded-full border border-white/10 text-zinc-400 hover:bg-white/[.06] hover:text-zinc-100 lg:hidden"
+                onClick={openMobileSidebar}
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+              )}
 
-            <button
-              type="button"
-              aria-label="Go to Sonora home"
-              onClick={() => navigateToView('home')}
-              className="flex shrink-0 items-center gap-2.5 lg:hidden"
-            >
-              <span className="sonora-brand-mark h-8 w-8"><i/><i/><i/><i/></span>
-              <span className="font-[Manrope] text-lg font-semibold tracking-[-.045em] text-zinc-200">Sonora</span>
-            </button>
+            {isMobile && (
+              <button
+                type="button"
+                aria-label="Go to Sonora home"
+                onClick={() => navigateToView('home')}
+                className="flex shrink-0 items-center gap-2.5 lg:hidden"
+              >
+                <span className="sonora-brand-mark h-8 w-8"><i/><i/><i/><i/></span>
+                <span className="font-[Manrope] text-lg font-semibold tracking-[-.045em] text-zinc-200">Sonora</span>
+              </button>
+              )}
 
-            <form onSubmit={handleGlobalSearch} className="search-spotlight hidden w-full max-w-[31rem] items-center lg:flex">
+            <form onSubmit={handleGlobalSearch} className="search-spotlight hidden w-full max-w-[31rem] flex-1 items-center md:flex">
               <span className="search-lens"><Search className="h-4 w-4" /></span>
               <input
                 aria-label="Search Sonora"
