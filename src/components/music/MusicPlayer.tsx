@@ -351,7 +351,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
-        album: 'Melodiya',
+        album: 'Sonora',
         artwork: [
           { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
           { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
@@ -546,7 +546,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       )}
       
       {/* Mobile Layout */}
-      <div className="md:hidden glass-player px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-1 flex-shrink-0">
+      <div className="md:hidden sonora-player glass-player px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-1 flex-shrink-0">
         {/* Clickable Track Info - Opens Now Playing */}
         <div 
           className="flex items-center gap-3 cursor-pointer active:opacity-80 transition-opacity"
@@ -555,7 +555,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           <img
             src={currentTrack.thumbnail}
             alt={currentTrack.title}
-            className="w-11 h-11 rounded-lg object-cover shadow-md flex-shrink-0"
+            className="w-11 h-11 rounded-xl object-cover shadow-md border border-white/10 flex-shrink-0"
           />
           <div className="min-w-0 flex-1">
             <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
@@ -573,7 +573,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             </Button>
             <Button
               size="sm"
-              className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
+              className="h-10 w-10 p-0 bg-zinc-100 text-zinc-950 hover:bg-white rounded-full shadow-lg"
               onClick={(e) => { e.stopPropagation(); handleFirstPlay(); }}
               disabled={isLoading}
             >
@@ -598,7 +598,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden md:flex glass-player h-20 px-4 items-center justify-between">
+      <div className="hidden md:flex sonora-player glass-player h-24 px-5 lg:px-7 items-center justify-between">
         {/* Track Info - Clickable */}
         <div 
           className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
@@ -608,7 +608,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <img
               src={currentTrack.thumbnail}
               alt={currentTrack.title}
-              className="w-12 h-12 rounded-lg object-cover shadow-md"
+              className="w-14 h-14 rounded-xl object-cover shadow-md border border-white/10"
             />
             <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <ChevronUp className="w-5 h-5 text-white" />
@@ -643,7 +643,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               <SkipBack className="w-4 h-4" />
             </Button>
             <Button size="sm"
-              className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
+              className="h-10 w-10 p-0 bg-zinc-100 text-zinc-950 hover:bg-white rounded-full shadow-lg"
               onClick={onPlayPause} disabled={isLoading}>
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
