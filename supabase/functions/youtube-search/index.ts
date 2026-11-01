@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import {
   type Candidate,
   formatDuration,
+  isSameSong,
+  normalizeTitle,
   genreFromTopics,
   langFromCode,
   inferVibeTerms,
@@ -131,6 +133,121 @@ serve(async (req) => {
 // ---------------------------------------------------------------------------
 // YouTube-style Up Next: similar feeling + popular/trending tracks.
 // ---------------------------------------------------------------------------
+type LastFmTrack = {
+  title: string;
+  artist: string;
+  match: number;
+  musicBrainzId?: string;
+};
+
+type LastFmResult = {
+  tracks: LastFmTrack[];
+  tags: string[];
+};
+
+const lastFmJson = async (params: URLSearchParams): Promise<any | null> => {
+  try {
+    const response = await fetch('https://ws.audioscrobbler.com/2.0/?' + params.toString(), {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(4500),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    // Last.fm may return API errors with HTTP 200.
+    if (data?.error) {
+      console.warn('Last.fm API response error:', data.message || data.error);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.warn('Last.fm request failed:', error);
+    return null;
+  }
+};
+
+const getLastFmRecommendations = async (
+  title: string,
+  artist: string,
+): Promise<LastFmResult> => {
+  const apiKey = Deno.env.get('LASTFM_API_KEY');
+  if (!apiKey) return { tracks: [], tags: [] };
+
+  const base = {
+    api_key: apiKey,
+    format: 'json',
+    autocorrect: '1',
+  };
+
+  const similarParams = new URLSearchParams({
+    ...base,
+    method: 'track.getSimilar',
+    artist,
+    track: title,
+    limit: '35',
+  });
+  const tagsParams = new URLSearchParams({
+    ...base,
+    method: 'track.getTopTags',
+    artist,
+    track: title,
+  });
+
+  const [similarData, tagData] = await Promise.all([
+    lastFmJson(similarParams),
+    lastFmJson(tagsParams),
+  ]);
+
+  const rawTracks = similarData?.similartracks?.track;
+  const tracks: LastFmTrack[] = [];
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+
+  for (const item of Array.isArray(rawTracks) ? rawTracks : rawTracks ? [rawTracks] : []) {
+    const trackTitle = String(item?.name || '').trim();
+    const trackArtist = String(item?.artist?.name || '').trim();
+    if (!trackTitle || !trackArtist) continue;
+
+    const mbid = String(item?.mbid || '').trim();
+    const musicBrainzId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(mbid) ? mbid : undefined;
+    const key = musicBrainzId || (normalizeTitle(trackTitle) + '|' + normalizeTitle(trackArtist));
+    if (seenIds.has(key) || seenNames.has(key)) continue;
+    seenIds.add(key);
+    seenNames.add(key);
+
+    const match = Number(item?.match);
+    tracks.push({
+      title: trackTitle,
+      artist: trackArtist,
+      match: Number.isFinite(match) ? Math.max(0, Math.min(1, match)) : 0.25,
+      musicBrainzId,
+    });
+  }
+
+  const rawTags = tagData?.toptags?.tag;
+  const tags = (Array.isArray(rawTags) ? rawTags : rawTags ? [rawTags] : [])
+    .map((tag: any) => String(tag?.name || '').trim())
+    .filter((tag: string) => tag.length >= 2 && tag.length <= 32)
+    .filter((tag: string) => !/^(seen live|favorites?|favourites?|awesome|spotify|all)$/i.test(tag))
+    .slice(0, 5);
+
+  return { tracks: tracks.slice(0, 35), tags };
+};
+
+const parseYouTubeTrackTitle = (rawTitle: string, channelTitle: string) => {
+  let artist = channelTitle || 'Unknown Artist';
+  let title = rawTitle || 'Unknown Track';
+  const separators = [' - ', ' – ', ' — '];
+  const separator = separators.find((value) => title.includes(value));
+  if (separator) {
+    const parts = title.split(separator);
+    if (parts.length >= 2) {
+      artist = parts[0].trim();
+      title = parts.slice(1).join(separator).trim();
+    }
+  }
+  return { title, artist };
+};
+
 async function handleRelated(rel: {
   videoId: string;
   title: string;
@@ -141,6 +258,8 @@ async function handleRelated(rel: {
   excludeTitles?: string[];
   excludeVideoIds?: string[];
   excludeArtists?: string[];
+  musicBrainzId?: string;
+  excludeMusicBrainzIds?: string[];
 }) {
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), {
@@ -150,14 +269,21 @@ async function handleRelated(rel: {
 
   const apiKey = Deno.env.get('YOUTUBE_API_KEY');
   if (!apiKey) return json({ error: 'YouTube API key not configured' }, 500);
-  if (!rel?.videoId || !rel?.title) return json({ error: 'videoId and title are required' }, 400);
+  if (!rel?.videoId || !rel?.title || !rel?.artist) {
+    return json({ error: 'videoId, title and artist are required' }, 400);
+  }
 
   const api = 'https://www.googleapis.com/youtube/v3';
   const excludedIds = new Set([rel.videoId, ...(rel.excludeVideoIds || [])]);
   const excludedTitles = rel.excludeTitles || [];
   const excludedArtists = rel.excludeArtists || [];
+  const excludedMusicBrainzIds = [
+    rel.musicBrainzId || '',
+    ...(rel.excludeMusicBrainzIds || []),
+  ].filter(Boolean);
 
-  // Read the current track's YouTube metadata to infer its genre, language and feel.
+  // Read YouTube's metadata for the seed so tags, topic and language remain useful
+  // when an upload has incomplete metadata in the external music catalogue.
   let genre: string | null = null;
   let detectedLanguage: string | null = null;
   let tags: string[] = [];
@@ -167,7 +293,9 @@ async function handleRelated(rel: {
       id: rel.videoId,
       key: apiKey,
     });
-    const response = await fetch(api + '/videos?' + params.toString());
+    const response = await fetch(api + '/videos?' + params.toString(), {
+      signal: AbortSignal.timeout(5000),
+    });
     if (response.ok) {
       const data = await response.json();
       const video = data.items?.[0];
@@ -178,28 +306,44 @@ async function handleRelated(rel: {
       tags = Array.isArray(video?.snippet?.tags) ? video.snippet.tags : [];
     }
   } catch (error) {
-    console.error('Current video metadata lookup failed:', error);
+    console.warn('Current video metadata lookup failed:', error);
   }
 
+  // Last.fm supplies track-to-track similarity, top tags and (when available)
+  // MusicBrainz recording MBIDs. MBIDs are used as canonical recording keys,
+  // avoiding a separate MusicBrainz request for every song (MusicBrainz asks
+  // clients to stay at one request per second).
+  const lastFm = await getLastFmRecommendations(rel.title, rel.artist);
+  const similarTracks = lastFm.tracks;
   const language = detectedLanguage || rel.language || '';
-  const genreWord = genre || rel.genres?.[0] || 'popular music';
-  const vibeTerms = inferVibeTerms([rel.title, rel.artist, ...tags].join(' '));
+  const genreWord = genre || rel.genres?.[0] || lastFm.tags[0] || 'popular music';
+  const vibeTerms = inferVibeTerms([
+    rel.title,
+    rel.artist,
+    ...tags,
+    ...lastFm.tags,
+  ].join(' '));
   const seedText = (rel.title + ' ' + rel.artist).toLowerCase();
-  const styleTags = tags
-    .map((tag) => tag.trim())
-    .filter((tag) => {
+  const styleTags = [
+    ...lastFm.tags,
+    ...tags.map((tag) => tag.trim()).filter((tag) => {
       const value = tag.toLowerCase();
       return value.length >= 3 &&
         value.length <= 28 &&
         !seedText.includes(value) &&
-        !/\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\b/i.test(value);
-    })
-    .slice(0, 2);
+        !/\\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\\b/i.test(value);
+    }),
+  ]
+    .filter((tag, index, all) => all.findIndex((value) => value.toLowerCase() === tag.toLowerCase()) === index)
+    .slice(0, 5);
 
-  // OR combines a close similarity search and a popular-in-this-vibe search
-  // into one YouTube search request. URLSearchParams safely encodes the pipe.
-  const exclusions = '-cover -remix -karaoke -instrumental -reaction -compilation';
-  const similarQuery = [
+  const exclusions = '-cover -karaoke -instrumental -reaction -compilation -mashup -slowed -nightcore';
+  const lastFmQueries = similarTracks.slice(0, 12).map((track) => {
+    const title = track.title.replace(/["']/g, '').slice(0, 90);
+    const artist = track.artist.replace(/["']/g, '').slice(0, 70);
+    return '"' + title + '" ' + artist + ' (official audio | official music video | VEVO | Topic)';
+  });
+  const fallbackSimilarQuery = [
     rel.title,
     rel.artist,
     'similar songs',
@@ -214,9 +358,17 @@ async function handleRelated(rel: {
     language,
     'viral trending popular hits',
   ].filter(Boolean).join(' ');
-  const query = similarQuery + ' ' + exclusions + '|' + viralQuery + ' ' + exclusions;
 
-  console.log('Up Next query:', query);
+  // One YouTube search call is retained to conserve the Data API quota.
+  // Exact Last.fm song queries are OR'd together, then the original discovery
+  // queries remain as a fallback for tracks that have no good YouTube match.
+  const queryParts = [
+    ...lastFmQueries,
+    fallbackSimilarQuery + ' ' + exclusions,
+    viralQuery + ' ' + exclusions,
+  ];
+  const query = queryParts.join(' | ').slice(0, 480);
+  console.log('Up Next source:', similarTracks.length ? 'Last.fm + YouTube' : 'YouTube fallback');
 
   const searchParams = new URLSearchParams({
     part: 'snippet',
@@ -234,7 +386,9 @@ async function handleRelated(rel: {
     searchParams.set('relevanceLanguage', languageCode);
   }
 
-  const searchResponse = await fetch(api + '/search?' + searchParams.toString());
+  const searchResponse = await fetch(api + '/search?' + searchParams.toString(), {
+    signal: AbortSignal.timeout(7000),
+  });
   if (!searchResponse.ok) {
     const errorData = await searchResponse.json().catch(() => ({}));
     return json({
@@ -248,7 +402,7 @@ async function handleRelated(rel: {
     .filter((item: any) => item.id?.videoId && !excludedIds.has(item.id.videoId));
   const ids: string[] = searchItems.map((item: any) => item.id.videoId);
 
-  // Fetch view counts, recent upload dates and durations in one batch.
+  // Batch-fetch duration, views, likes, descriptions and topic metadata.
   const detailsById = new Map<string, any>();
   if (ids.length) {
     const params = new URLSearchParams({
@@ -256,7 +410,9 @@ async function handleRelated(rel: {
       id: ids.join(','),
       key: apiKey,
     });
-    const detailsResponse = await fetch(api + '/videos?' + params.toString());
+    const detailsResponse = await fetch(api + '/videos?' + params.toString(), {
+      signal: AbortSignal.timeout(7000),
+    });
     if (detailsResponse.ok) {
       const detailsData = await detailsResponse.json();
       for (const video of detailsData.items || []) detailsById.set(video.id, video);
@@ -264,10 +420,11 @@ async function handleRelated(rel: {
   }
 
   const now = Date.now();
-  const preferredGenres = [genre, ...(rel.genres || [])]
+  const preferredGenres = [genre, ...(rel.genres || []), ...lastFm.tags]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
   const candidates: Candidate[] = [];
+  const bestMappedRecording = new Map<string, number>();
 
   searchItems.forEach((item: any, relevanceRank: number) => {
     const videoId = item.id.videoId;
@@ -275,14 +432,40 @@ async function handleRelated(rel: {
     const seconds = parseISODuration(details?.contentDetails?.duration || '');
     if (details && seconds > 0 && (seconds < 60 || seconds > 600)) return;
 
-    let artist = item.snippet.channelTitle || 'Unknown Artist';
-    let title = item.snippet.title || 'Unknown Track';
-    if (title.includes(' - ')) {
-      const parts = title.split(' - ');
-      if (parts.length >= 2) {
-        artist = parts[0].trim();
-        title = parts.slice(1).join(' - ').trim();
+    const rawTitle = String(item.snippet.title || 'Unknown Track');
+    const channelTitle = String(item.snippet.channelTitle || 'Unknown Artist');
+    const parsed = parseYouTubeTrackTitle(rawTitle, channelTitle);
+    const normalizedYouTubeTitle = normalizeTitle(parsed.title);
+    const normalizedRawTitle = normalizeTitle(rawTitle);
+
+    let matchedTrack: LastFmTrack | undefined;
+    let mappedTitleScore = 0;
+    for (const track of similarTracks) {
+      const matchesTitle =
+        isSameSong(track.title, parsed.title) ||
+        (normalizedYouTubeTitle.length >= 4 && normalizedYouTubeTitle === normalizeTitle(track.title)) ||
+        (normalizedRawTitle.length >= 4 && normalizedRawTitle === normalizeTitle(track.title));
+      if (!matchesTitle) continue;
+
+      const artistHaystack = (rawTitle + ' ' + channelTitle).toLowerCase();
+      const artistSignal = artistHaystack.includes(track.artist.toLowerCase()) ? 1 : 0.65;
+      const score = track.match * artistSignal;
+      if (score > mappedTitleScore) {
+        mappedTitleScore = score;
+        matchedTrack = track;
       }
+    }
+
+    // Where Last.fm recognizes the recording, display its clean canonical
+    // title/artist, while keeping the matching embeddable YouTube video ID.
+    const title = matchedTrack?.title || parsed.title;
+    const artist = matchedTrack?.artist || parsed.artist;
+    const musicBrainzId = matchedTrack?.musicBrainzId;
+
+    if (musicBrainzId) {
+      const priorRank = bestMappedRecording.get(musicBrainzId);
+      if (priorRank !== undefined && priorRank <= relevanceRank) return;
+      bestMappedRecording.set(musicBrainzId, relevanceRank);
     }
 
     const statistics = details?.statistics || {};
@@ -297,19 +480,24 @@ async function handleRelated(rel: {
     const candidateGenre = genreFromTopics(details?.topicDetails?.topicCategories || []);
     const genreMatch = !candidateGenre || preferredGenres.length === 0
       ? 0.5
-      : preferredGenres.includes(candidateGenre.toLowerCase()) ? 1 : 0.2;
+      : preferredGenres.some((value) => value === candidateGenre.toLowerCase()) ? 1 : 0.2;
 
     const candidateTags = Array.isArray(details?.snippet?.tags) ? details.snippet.tags : [];
-    const candidateText = [
-      title,
-      artist,
-      details?.snippet?.description || '',
-      ...candidateTags,
-    ].join(' ');
+    const description = String(details?.snippet?.description || '');
+    const candidateText = [title, artist, description, ...candidateTags].join(' ');
     const candidateVibes = inferVibeTerms(candidateText);
     const vibeMatch = vibeTerms.length === 0
       ? 0.5
       : candidateVibes.some((vibe) => vibeTerms.includes(vibe)) ? 1 : 0.25;
+
+    const channelLower = channelTitle.toLowerCase();
+    const officialSignal =
+      /\\btopic$/.test(channelLower) ||
+      /\\b(vevo|official)\\b/.test(channelLower) ||
+      /\\b(official audio|official music video)\\b/i.test(rawTitle) ||
+      /provided to youtube by|licensed to youtube by/i.test(description)
+        ? 1
+        : 0.2;
 
     candidates.push({
       id: videoId,
@@ -328,6 +516,9 @@ async function handleRelated(rel: {
       likeRatio: views > 0 ? likes / views : 0,
       genreMatch,
       vibeMatch,
+      lastFmMatch: matchedTrack ? mappedTitleScore : 0.15,
+      musicBrainzId,
+      officialSignal,
     });
   });
 
@@ -337,10 +528,13 @@ async function handleRelated(rel: {
     excludeTitles: excludedTitles,
     excludeVideoIds: Array.from(excludedIds),
     excludeArtists: excludedArtists,
+    excludeMusicBrainzIds,
     limit: 15,
   });
-  const tracks = selected.map(({ id, title, artist, thumbnail, videoId, duration }) => ({
-    id, title, artist, thumbnail, videoId, duration,
+  const tracks = selected.map(({
+    id, title, artist, thumbnail, videoId, duration, musicBrainzId,
+  }) => ({
+    id, title, artist, thumbnail, videoId, duration, musicBrainzId,
   }));
 
   return json({
@@ -348,7 +542,11 @@ async function handleRelated(rel: {
     genre: genre || genreWord,
     language,
     vibe: vibeTerms,
-    strategy: 'similar-vibe-plus-popularity-no-repeat-artists',
+    tags: lastFm.tags,
+    recommendationSource: similarTracks.length ? 'lastfm-track-similarity' : 'youtube-fallback',
+    lastFmSimilarCount: similarTracks.length,
+    musicBrainzIdsMatched: selected.filter((track) => Boolean(track.musicBrainzId)).length,
+    strategy: 'lastfm-track-match-plus-official-youtube-search-popularity-no-repeat',
   });
 }
 
