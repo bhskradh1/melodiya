@@ -96,16 +96,14 @@ export const FriendsView: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto w-full max-w-[92rem] space-y-7 px-5 pb-32 pt-4 md:px-10 md:pt-6">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+        <div className="grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-300 to-zinc-700 text-zinc-950">
           <Users className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold">Friends</h1>
-          <p className="text-muted-foreground">
-            Add friends to share playlists with them securely
-          </p>
+          <p className="sonora-eyebrow mb-1">Your circle</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Friends</h1>
+          <p className="mt-2 text-xs text-zinc-500">Find people, share playlists and keep your music circle close.</p>
         </div>
       </div>
 
@@ -118,7 +116,7 @@ export const FriendsView: React.FC = () => {
               placeholder="Search users by username or name..."
               value={query}
               onChange={(e) => handleSearch(e.target.value)}
-              className="pl-8"
+              className="search-spotlight h-11 rounded-full border-white/[.08] bg-white/[.025] pl-10 text-zinc-100 placeholder:text-zinc-600"
             />
           </div>
           {query.trim().length >= 2 && (
@@ -127,7 +125,7 @@ export const FriendsView: React.FC = () => {
                 <p className="text-sm text-muted-foreground p-2">Searching...</p>
               ) : searchResults.length > 0 ? (
                 searchResults.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between p-2 rounded hover:bg-muted">
+                  <div key={u.id} className="flex items-center justify-between rounded-xl border border-white/[.06] bg-white/[.025] p-3 transition hover:bg-white/[.06]">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={u.avatar_url} />
@@ -157,7 +155,7 @@ export const FriendsView: React.FC = () => {
         </div>
       ) : (
         <Tabs defaultValue="friends">
-          <TabsList>
+          <TabsList className="rounded-full border border-white/[.08] bg-white/[.025] p-1">
             <TabsTrigger value="friends">Friends ({friends.length})</TabsTrigger>
             <TabsTrigger value="incoming">
               Requests {incoming.length > 0 && <Badge className="ml-2">{incoming.length}</Badge>}
