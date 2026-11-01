@@ -223,7 +223,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, o
           <div>
             <p className="sonora-eyebrow">{getGreeting()}</p>
             <h1 className="mt-2 font-[Manrope] text-[2rem] font-medium leading-[1.05] tracking-[-.055em] text-zinc-100 md:text-[2.75rem]">What do you want to hear?</h1>
-            <p className="mt-3 text-xs text-zinc-500 md:text-sm">A little space for the music that moves with you.</p>
+            
           </div>
           <div className="hidden items-center gap-2 rounded-full border border-white/[.08] bg-white/[.025] px-3 py-2 text-[9px] font-medium uppercase tracking-[.18em] text-zinc-500 sm:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-lime-200 shadow-[0_0_10px_rgba(216,249,155,.6)]" /> Your listening space
@@ -232,13 +232,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, o
 
         <section aria-label="Quick picks" className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-4">
           <button type="button" onClick={() => onViewChange?.('liked')} className="group flex min-w-0 items-center overflow-hidden rounded-xl border border-white/[.08] bg-white/[.055] text-left transition hover:bg-white/[.09]">
-            <span className="grid h-14 w-14 shrink-0 place-items-center bg-gradient-to-br from-zinc-200 to-zinc-600 text-zinc-950 md:h-16 md:w-16"><Heart className="h-5 w-5 fill-current" /></span>
+            <span className="grid h-12 w-12 shrink-0 place-items-center bg-gradient-to-br from-zinc-200 to-zinc-600 text-zinc-950 md:h-16 md:w-16"><Heart className="h-5 w-5 fill-current" /></span>
             <span className="min-w-0 flex-1 truncate px-3 text-xs font-semibold text-zinc-200 md:text-sm">Liked Songs</span>
             <span className="mr-3 hidden h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-950 shadow-lg group-hover:grid"><Play className="h-3.5 w-3.5 fill-current" /></span>
           </button>
           {quickPickTracks.map((track, index) => (
             <button key={track.videoId} type="button" onClick={() => onPlayTrack(track, quickPickTracks)} className="group flex min-w-0 items-center overflow-hidden rounded-xl border border-white/[.08] bg-white/[.055] text-left transition hover:bg-white/[.09]">
-              <img src={track.thumbnail || '/placeholder.svg'} alt="" className="h-14 w-14 shrink-0 object-cover md:h-16 md:w-16" loading="lazy" />
+              <img src={track.thumbnail || '/placeholder.svg'} alt="" className="h-12 w-12 shrink-0 object-cover md:h-16 md:w-16" loading="lazy" />
               <span className="min-w-0 flex-1 px-3">
                 <strong className="block truncate text-xs font-semibold text-zinc-200 md:text-sm">{quickPickLabels[index]}</strong>
                 <small className="mt-1 block truncate text-[10px] text-zinc-600">{track.artist}</small>
@@ -248,10 +248,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, o
           ))}
         </section>
 
-        <section className="relative mt-8 min-h-[20rem] overflow-hidden rounded-[1.4rem] border border-white/[.09] bg-[linear-gradient(112deg,rgba(32,34,33,.97),rgba(14,15,15,.94))] shadow-2xl shadow-black/30 md:min-h-[22rem]">
+        <section className="relative mt-8 min-h-[18rem] overflow-hidden rounded-[1.4rem] border border-white/[.09] bg-[linear-gradient(112deg,rgba(32,34,33,.97),rgba(14,15,15,.94))] shadow-2xl shadow-black/30 md:min-h-[22rem]">
           {featured && <img src={featured.thumbnail} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-[.10] blur-3xl" />}
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,16,16,.97),rgba(15,16,16,.78)_52%,rgba(9,10,10,.35))]" />
-          <div className="relative z-10 max-w-xl px-6 py-10 md:px-12 md:py-12">
+          <div className="relative z-10 max-w-xl px-6 py-8 md:px-12 md:py-12">
             <div className="mb-4 flex items-center gap-2 text-[9px] font-semibold tracking-[.22em] text-zinc-400"><span className="h-1.5 w-1.5 rounded-full bg-lime-200 shadow-[0_0_12px_rgba(216,249,155,.6)]" /> FEATURED MIX</div>
             <h2 className="font-[Manrope] text-4xl font-medium leading-[.98] tracking-[-.055em] text-zinc-100 md:text-6xl">Metallic<br /><span className="bg-gradient-to-r from-zinc-100 to-zinc-500 bg-clip-text text-transparent">memories.</span></h2>
             <p className="mt-4 max-w-sm text-xs leading-6 text-zinc-400 md:text-sm">A hand-picked starting point from your current listening world.{featured ? ` Featuring ${featured.artist}.` : ''}</p>
@@ -260,7 +260,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, o
               <Button type="button" variant="outline" onClick={() => onViewChange?.('trending')} className="h-11 rounded-full border-white/15 bg-white/[.035] px-5 text-xs text-zinc-300 hover:bg-white/[.08] hover:text-white">Explore trending</Button>
             </div>
           </div>
-          <div className="vinyl-art hidden sm:block"><span /><i /><b>S<br /><small>01</small></b></div>
+          <div className="vinyl-art"><span /><i /><b>S<br /><small>01</small></b></div>
           {featured && <div className="absolute bottom-5 right-5 z-10 hidden items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-xl md:flex"><img src={featured.thumbnail} alt="" className="h-11 w-11 rounded-lg object-cover" /><span className="max-w-36"><strong className="block truncate text-[10px] text-zinc-200">{featured.title}</strong><small className="mt-1 block truncate text-[9px] text-zinc-500">{featured.artist}</small></span></div>}
         </section>
 
