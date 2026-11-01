@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { searchMelodiyaTracks } from '@/lib/musicSearch';
 
 export interface TrendingTrack {
   id: string;
@@ -63,13 +63,7 @@ export const fetchWeeklyTrending = async (force = false): Promise<TrendingTrack[
 
   weeklyTrendingRequest = (async () => {
     // One chart query only; do not fan out to multiple YouTube searches.
-    const response = await supabase.functions.invoke('youtube-search', {
-      body: { query: getWeeklyQuery(0) },
-    });
-    if (response.error) throw response.error;
-
-    const tracks = ((response.data?.tracks || []) as TrendingTrack[])
-      .filter((track) => Boolean(track?.videoId));
+    const tracks = (await searchMelodiyaTracks(getWeeklyQuery(0))) as TrendingTrack[];
     if (tracks.length) {
       try {
         localStorage.setItem(cacheKey, JSON.stringify(tracks));
