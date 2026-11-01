@@ -38,16 +38,16 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
 # (OMV). Generic videos, UGC, and unclassified rows are excluded. Do not fall
 # back to general YouTube video search for this product.
 UNWANTED_TITLE_PATTERN = re.compile(
-    r"\\b(?:"
-    r"jukebox|non[\\s-]?stop|medley|mash[\\s-]?up|megamix|"
-    r"compilation|full\\s+album|all\\s+songs|greatest\\s+hits|best\\s+of|"
-    r"continuous\\s+mix|merged\\s+(?:songs?|tracks?)|combined\\s+songs?|"
-    r"karaoke|cover(?:\\s+(?:song|version))?|tribute|"
-    r"slowed|nightcore|sped[\\s-]?up|8d(?:\\s+audio)?|"
-    r"dj\\s+mix|bass\\s+boosted|remix|unofficial|fan[\\s-]?(?:made|edit)|"
-    r"reaction|lo[ -]?fi|instrumental|extended\\s+version|"
-    r"loop(?:ed)?|song\\s+collection|nonstop\\s+hits"
-    r")\\b",
+    r"\b(?:"
+    r"jukebox|non[\s-]?stop|medley|mash[\s-]?up|megamix|"
+    r"compilation|full\s+album|all\s+songs|greatest\s+hits|best\s+of|"
+    r"continuous\s+mix|merged\s+(?:songs?|tracks?)|combined\s+songs?|"
+    r"karaoke|cover(?:\s+(?:song|version))?|tribute|"
+    r"slowed|nightcore|sped[\s-]?up|8d(?:\s+audio)?|"
+    r"dj\s+mix|bass\s+boosted|remix|unofficial|fan[\s-]?(?:made|edit)|"
+    r"reaction|lo[ -]?fi|instrumental|extended\s+version|"
+    r"loop(?:ed)?|song\s+collection|nonstop\s+hits"
+    r")\b",
     re.IGNORECASE,
 )
 
