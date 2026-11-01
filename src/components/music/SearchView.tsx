@@ -33,6 +33,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
   const [suggestions, setSuggestions] = useState<RecTrack[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const searchInFlightRef = React.useRef(false);
+  const lastSubmittedRef = React.useRef<{ query: string; at: number } | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { preferences, version } = usePreferences();
@@ -44,8 +45,12 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
       return;
     }
 
-    // Only one deliberate Search submission may be in flight at a time.
+    // Coalesce rapid duplicate submissions (including double taps) for the same query.
+    const normalizedQuery = q.toLowerCase().replace(/\\s+/g, ' ');
+    const last = lastSubmittedRef.current;
     if (searchInFlightRef.current) return;
+    if (last?.query === normalizedQuery && Date.now() - last.at < 5000) return;
+    lastSubmittedRef.current = { query: normalizedQuery, at: Date.now() };
     searchInFlightRef.current = true;
     setLoading(true);
     try {
