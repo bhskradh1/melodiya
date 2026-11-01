@@ -245,8 +245,14 @@ const getLastFmRecommendations = async (
   const tracks: LastFmTrack[] = [];
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
+  const rawTrackItems = Array.isArray(rawTracks) ? rawTracks : rawTracks ? [rawTracks] : [];
+  const numericMatches = rawTrackItems
+    .map((item: any) => Number(item?.match))
+    .filter((value: number) => Number.isFinite(value) && value > 0);
+  const maxMatch = Math.max(1, ...numericMatches);
+  const matchDivisor = maxMatch > 1 ? maxMatch : 1;
 
-  for (const item of Array.isArray(rawTracks) ? rawTracks : rawTracks ? [rawTracks] : []) {
+  for (const item of rawTrackItems) {
     const trackTitle = String(item?.name || '').trim();
     const trackArtist = String(item?.artist?.name || '').trim();
     if (!trackTitle || !trackArtist) continue;
@@ -262,7 +268,9 @@ const getLastFmRecommendations = async (
     tracks.push({
       title: trackTitle,
       artist: trackArtist,
-      match: Number.isFinite(match) ? Math.max(0, Math.min(1, match)) : 0.25,
+      // Last.fm's documented sample response uses values above 1. Normalize
+      // against this response's best match so relative similarity is retained.
+      match: Number.isFinite(match) ? Math.max(0, Math.min(1, match / matchDivisor)) : 0.25,
       musicBrainzId,
     });
   }
@@ -491,7 +499,10 @@ async function handleRelated(rel: {
       if (!matchesTitle) continue;
 
       const artistHaystack = (rawTitle + ' ' + channelTitle).toLowerCase();
-      const artistSignal = artistHaystack.includes(track.artist.toLowerCase()) ? 1 : 0.4;
+      // Require a corroborating artist signal before assigning canonical
+      // Last.fm metadata. A title-only match such as "Stay" is too ambiguous.
+      const artistSignal = artistHaystack.includes(track.artist.toLowerCase()) ? 1 : 0;
+      if (artistSignal === 0) continue;
       const score = track.match * artistSignal;
       if (score > mappedTitleScore) {
         mappedTitleScore = score;
