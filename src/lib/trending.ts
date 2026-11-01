@@ -35,7 +35,7 @@ const getWeeklyQuery = (offset = 0) => {
   return `${seed} ${weekKey}`;
 };
 
-const CACHE_PREFIX = 'trending_week_official_songs_'; // invalidate older unrestricted YouTube results
+const CACHE_PREFIX = 'trending_week_verified_artist_songs_v2_'; // invalidate results cached under the looser filter
 let weeklyTrendingRequest: Promise<TrendingTrack[]> | null = null;
 
 const readCache = (key: string): TrendingTrack[] | null => {
