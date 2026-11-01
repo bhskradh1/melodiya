@@ -351,7 +351,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
-        album: 'Melodiya',
+        album: 'Sonora',
         artwork: [
           { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
           { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
@@ -545,60 +545,48 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         />
       )}
       
-      {/* Mobile Layout */}
-      <div className="md:hidden glass-player px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-1 flex-shrink-0">
-        {/* Clickable Track Info - Opens Now Playing */}
-        <div 
-          className="flex items-center gap-3 cursor-pointer active:opacity-80 transition-opacity"
+      {/* Mobile Sonora player */}
+      <div className="md:hidden sonora-player flex h-[4.5rem] flex-shrink-0 items-center gap-2 border-t px-3">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
           onClick={() => setShowNowPlaying(true)}
+          aria-label={`Open now playing: ${currentTrack.title}`}
         >
-          <img
-            src={currentTrack.thumbnail}
-            alt={currentTrack.title}
-            className="w-11 h-11 rounded-lg object-cover shadow-md flex-shrink-0"
-          />
-          <div className="min-w-0 flex-1">
-            <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
-            <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <AddToPlaylistButton track={currentTrack} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-10 w-10 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}
-              onClick={(e) => { e.stopPropagation(); handleToggleLike(); }}
-            >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-            </Button>
-            <Button
-              size="sm"
-              className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
-              onClick={(e) => { e.stopPropagation(); handleFirstPlay(); }}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-              ) : isPlaying ? (
-                <Pause className="w-5 h-5 text-primary-foreground" />
-              ) : (
-                <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
-              )}
-            </Button>
-          </div>
-        </div>
+          <img src={currentTrack.thumbnail || '/placeholder.svg'} alt="" className="h-11 w-11 shrink-0 rounded-lg border border-white/10 object-cover shadow-md" />
+          <span className="min-w-0 flex-1">
+            <strong className="block truncate text-[11px] font-semibold text-zinc-200">{currentTrack.title}</strong>
+            <small className="mt-1 block truncate text-[10px] text-zinc-500">{currentTrack.artist}</small>
+          </span>
+        </button>
 
-        {/* Mini Progress Bar */}
-        <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-primary rounded-full transition-all duration-300"
-            style={{ width: `${progressPercentage}%` }}
-          />
+        <AddToPlaylistButton track={currentTrack} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button type="button" variant="ghost" size="icon" aria-label="Previous track" className="h-8 w-7 rounded-full p-0 text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100" onClick={onPrevious}>
+            <SkipBack className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+            className="h-9 w-9 rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 p-0 text-zinc-950 shadow-lg hover:brightness-110"
+            onClick={handleFirstPlay}
+            disabled={isLoading}
+          >
+            {isLoading
+              ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" />
+              : isPlaying
+                ? <Pause className="h-4 w-4 fill-current" />
+                : <Play className="ml-0.5 h-4 w-4 fill-current" />}
+          </Button>
+          <Button type="button" variant="ghost" size="icon" aria-label="Next track" className="h-8 w-7 rounded-full p-0 text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100" onClick={onNext}>
+            <SkipForward className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden md:flex glass-player h-20 px-4 items-center justify-between">
+      <div className="hidden md:flex sonora-player glass-player h-24 px-5 lg:px-7 items-center justify-between">
         {/* Track Info - Clickable */}
         <div 
           className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
@@ -608,7 +596,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <img
               src={currentTrack.thumbnail}
               alt={currentTrack.title}
-              className="w-12 h-12 rounded-lg object-cover shadow-md"
+              className="w-14 h-14 rounded-xl object-cover shadow-md border border-white/10"
             />
             <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <ChevronUp className="w-5 h-5 text-white" />
@@ -643,7 +631,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               <SkipBack className="w-4 h-4" />
             </Button>
             <Button size="sm"
-              className="h-10 w-10 p-0 bg-primary hover:bg-primary/90 rounded-full"
+              className="h-10 w-10 p-0 bg-zinc-100 text-zinc-950 hover:bg-white rounded-full shadow-lg"
               onClick={onPlayPause} disabled={isLoading}>
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />

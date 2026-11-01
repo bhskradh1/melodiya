@@ -1,16 +1,16 @@
 {
   "id": "/",
-  "name": "Melodiya - Your Sound, Your World",
-  "short_name": "Melodiya",
-  "description": "Discover, stream, and enjoy millions of songs with an elegant music streaming experience. Create playlists, discover new music, and enjoy your favorite tracks anywhere.",
+  "name": "Sonora — Music for your moments",
+  "short_name": "Sonora",
+  "description": "Discover music, build playlists, and enjoy your listening space.",
   "start_url": "/",
   "display": "standalone",
   "display_override": [
     "standalone",
     "minimal-ui"
   ],
-  "background_color": "#0d0a14",
-  "theme_color": "#0d0a14",
+  "background_color": "#080909",
+  "theme_color": "#080909",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
@@ -23,9 +23,9 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "/sonora-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
@@ -33,18 +33,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icon-maskable-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icon-maskable-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ],
   "edge_side_panel": {

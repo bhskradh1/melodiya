@@ -30,14 +30,14 @@ export const InstallDialog: React.FC<InstallDialogProps> = ({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-center">Install Melodiya</DialogTitle>
+            <DialogTitle className="text-center">Install Sonora</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
             <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center">
               <Download className="w-8 h-8 text-white" />
             </div>
             <p className="text-sm text-muted-foreground text-center">
-              Install Melodiya on your device for the best experience with offline access and background playback.
+              Install Sonora on your device for the best experience with offline access and background playback.
             </p>
             <Button
               className="w-full bg-primary hover:bg-primary/90"
@@ -59,7 +59,7 @@ export const InstallDialog: React.FC<InstallDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-center">Install Melodiya</DialogTitle>
+          <DialogTitle className="text-center">Install Sonora</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-4">
           <div className="flex justify-center">
@@ -71,7 +71,7 @@ export const InstallDialog: React.FC<InstallDialogProps> = ({
           {isIOS ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
-                To install Melodiya on your iPhone/iPad:
+                To install Sonora on your iPhone/iPad:
               </p>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
@@ -103,7 +103,7 @@ export const InstallDialog: React.FC<InstallDialogProps> = ({
           ) : isAndroid ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
-                To install Melodiya on your Android device:
+                To install Sonora on your Android device:
               </p>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
@@ -135,13 +135,13 @@ export const InstallDialog: React.FC<InstallDialogProps> = ({
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
-                To install Melodiya, use Chrome or Edge and look for the install option in the browser menu or address bar.
+                To install Sonora, use Chrome or Edge and look for the install option in the browser menu or address bar.
               </p>
             </div>
           )}
 
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Make sure you're visiting <strong>melodiya-your-sound.lovable.app</strong> directly in your browser (not inside another app).
+            Open Sonora directly in your browser (not inside another app) to install it.
           </p>
         </div>
       </DialogContent>

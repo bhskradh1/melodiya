@@ -57,15 +57,15 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
   const rest = trendingSongs.slice(12);
 
   return (
-    <div className="p-5 md:p-6 space-y-8 pb-32">
+    <div className="mx-auto max-w-[92rem] space-y-8 p-5 pb-32 md:p-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+          <div className="grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-300 to-zinc-700">
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Trending This Week</h1>
+            <div><p className="sonora-eyebrow">Global signal</p><h1 className="mt-1 font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Trending this week</h1></div>
             <p className="text-xs md:text-sm text-muted-foreground">
               Chart week {getWeekKey()} · refreshes every Monday
             </p>
@@ -81,7 +81,7 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
           {/* Swipeable top chart */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Top of the week</h2>
+              <h2 className="font-[Manrope] text-xl font-medium text-zinc-200">Top of the week</h2>
               <div className="hidden md:flex items-center gap-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0" onClick={() => scrollRail(-1)}>
                   <ChevronLeft className="w-4 h-4" />
@@ -100,11 +100,11 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
                 <button
                   key={track.id}
                   onClick={() => onPlayTrack(track, trendingSongs)}
-                  className="group w-[150px] shrink-0 snap-start text-left sm:w-[180px]"
+                  className="group w-[138px] shrink-0 snap-start text-left sm:w-[158px]"
                 >
                   <div className="relative aspect-square overflow-hidden rounded-2xl border border-foreground/[0.07]">
                     <img src={track.thumbnail} alt={track.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-xs font-bold text-white">
+                    <div className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-zinc-300 to-zinc-700 text-xs font-bold text-zinc-950">
                       {index + 1}
                     </div>
                     <div className="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100">
@@ -121,7 +121,7 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
           {/* Remaining songs */}
           {rest.length > 0 && (
             <section className="space-y-4">
-              <h2 className="text-lg font-bold">More trending</h2>
+              <h2 className="font-[Manrope] text-xl font-medium text-zinc-200">More trending</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {rest.map((track, index) => (
                   <Card key={track.id} className="glass-card hover-lift group cursor-pointer" onClick={() => onPlayTrack(track, trendingSongs)}>
@@ -133,7 +133,7 @@ export const TrendingView: React.FC<TrendingViewProps> = ({ onPlayTrack }) => {
                             <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
                           </span>
                         </div>
-                        <div className="absolute top-2 left-2 w-6 h-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-2 left-2 w-6 h-6 bg-gradient-to-br from-zinc-300 to-zinc-700 rounded-full flex items-center justify-center">
                           <span className="text-xs font-bold text-white">{index + 13}</span>
                         </div>
                       </div>

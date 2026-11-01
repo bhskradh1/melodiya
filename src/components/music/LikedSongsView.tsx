@@ -119,15 +119,15 @@ export const LikedSongsView: React.FC<LikedSongsViewProps> = ({ onPlayTrack }) =
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto max-w-[92rem] space-y-7 p-5 pb-32 md:p-8">
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-red-500 rounded-lg flex items-center justify-center">
+          <div className="grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-300 to-zinc-700 text-zinc-950">
             <Heart className="w-6 h-6 text-white fill-current" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold">Liked Songs</h1>
+            <div><p className="sonora-eyebrow">Saved for later</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100">Liked Songs</h1></div>
             <p className="text-muted-foreground">
               {likedSongs.length} song{likedSongs.length !== 1 ? 's' : ''}
             </p>
@@ -135,7 +135,7 @@ export const LikedSongsView: React.FC<LikedSongsViewProps> = ({ onPlayTrack }) =
           <Button
             onClick={playAllLikedSongs}
             disabled={likedSongs.length === 0}
-            className="bg-gradient-primary hover:opacity-90"
+            className="rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 px-5 text-xs font-semibold text-zinc-950 hover:brightness-110"
           >
             <Play className="w-4 h-4 mr-2 fill-current" />
             Play All
@@ -158,7 +158,7 @@ export const LikedSongsView: React.FC<LikedSongsViewProps> = ({ onPlayTrack }) =
                     <img
                       src={song.thumbnail_url || '/placeholder.svg'}
                       alt={song.title}
-                      className="w-12 h-12 rounded object-cover"
+                      className="h-12 w-12 rounded-xl border border-white/10 object-cover"
                     />
                     <div className="absolute inset-0 bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button

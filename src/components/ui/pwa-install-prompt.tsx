@@ -46,7 +46,7 @@ export const PWAInstallPrompt: React.FC = () => {
         </div>
         
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm">Install Melodiya</h3>
+          <h3 className="font-semibold text-sm">Install Sonora</h3>
           <p className="text-xs text-muted-foreground mt-1">
             {isIOS && !canInstall
               ? 'Tap the Share button, then "Add to Home Screen" for a full-screen app'

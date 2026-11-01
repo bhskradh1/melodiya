@@ -19,6 +19,7 @@ interface Track {
 interface HomeViewProps {
   onPlayTrack: (track: Track, playlist?: Track[]) => void;
   onViewChange?: (view: string) => void;
+  onSearchQuery?: (query: string) => void;
 }
 
 const getGreeting = () => {
@@ -33,26 +34,22 @@ const getGreeting = () => {
 
 const TrackCard: React.FC<{ track: Track; onPlay: (t: Track) => void; index: number }> = ({ track, onPlay, index }) => (
   <button
+    type="button"
     onClick={() => onPlay(track)}
-    className="group w-[150px] sm:w-[168px] shrink-0 snap-start text-left"
-    style={{ animationDelay: `${index * 50}ms` }}
+    className="group w-[138px] shrink-0 snap-start text-left sm:w-[158px]"
+    style={{ animationDelay: `${index * 45}ms` }}
   >
-    <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-foreground/[0.07] bg-card/40 shadow-[0_10px_30px_-14px_hsl(var(--background))]">
-      <img
-        src={track.thumbnail}
-        alt={track.title}
-        loading="lazy"
-        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/10 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-90" />
-      <div className="absolute bottom-2.5 right-2.5 flex h-10 w-10 translate-y-3 items-center justify-center rounded-full bg-primary opacity-0 shadow-[0_8px_24px_-6px_hsl(var(--primary))] transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-        <Play className="ml-0.5 h-4 w-4 fill-current text-primary-foreground" />
-      </div>
-    </div>
-    <div className="mt-2.5 min-w-0 px-0.5">
-      <p className="truncate text-sm font-semibold leading-snug">{track.title}</p>
-      <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
-    </div>
+    <span className="cover relative aspect-square w-full rounded-2xl">
+      <img src={track.thumbnail || '/placeholder.svg'} alt={track.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+      <span className="cover-shine" />
+      <span className="absolute bottom-2 right-2 grid h-9 w-9 translate-y-2 place-items-center rounded-full bg-zinc-100 text-zinc-950 opacity-0 shadow-xl transition-all group-hover:translate-y-0 group-hover:opacity-100">
+        <Play className="ml-0.5 h-4 w-4 fill-current" />
+      </span>
+    </span>
+    <span className="mt-3 block min-w-0 px-0.5">
+      <span className="block truncate text-[12px] font-semibold leading-snug text-zinc-200">{track.title}</span>
+      <span className="mt-1 block truncate text-[11px] text-zinc-500">{track.artist}</span>
+    </span>
   </button>
 );
 
@@ -70,54 +67,21 @@ const Row: React.FC<{
   };
 
   return (
-    <section className="space-y-4">
+    <section className="mt-11 space-y-4">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+          {subtitle && <p className="sonora-eyebrow mb-1">{subtitle}</p>}
+          <h2 className="font-[Manrope] text-xl font-medium tracking-[-.035em] text-zinc-200 md:text-2xl">{title}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {showArrows && (
-            <div className="hidden md:flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Scroll left"
-                className="h-8 w-8 rounded-full p-0"
-                onClick={() => scrollRail(-1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Scroll right"
-                className="h-8 w-8 rounded-full p-0"
-                onClick={() => scrollRail(1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          {onViewAll && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-full text-xs text-muted-foreground hover:text-foreground"
-              onClick={onViewAll}
-            >
-              View all <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
-          )}
+          {showArrows && <div className="hidden items-center gap-1 md:flex">
+            <Button variant="ghost" size="sm" aria-label="Scroll left" className="h-8 w-8 rounded-full p-0 text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100" onClick={() => scrollRail(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" aria-label="Scroll right" className="h-8 w-8 rounded-full p-0 text-zinc-500 hover:bg-white/[.06] hover:text-zinc-100" onClick={() => scrollRail(1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>}
+          {onViewAll && <button type="button" onClick={onViewAll} className="flex items-center gap-1 text-xs text-zinc-500 transition hover:text-zinc-200">View all <ChevronRight className="h-3 w-3" /></button>}
         </div>
       </div>
-      <div
-        ref={railRef}
-        className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        {children}
-      </div>
+      <div ref={railRef} className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 md:-mx-10 md:px-10" style={{ WebkitOverflowScrolling: 'touch' }}>{children}</div>
     </section>
   );
 };
@@ -143,7 +107,7 @@ const Chip: React.FC<{ icon: React.ReactNode; label: string; onClick: () => void
 
 /* ─────────── main component ─────────── */
 
-export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, onSearchQuery }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -158,6 +122,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const topFive = trendingTracks.slice(0, 5);
   const featured = topFive[featIndex] ?? topFive[0] ?? null;
   const restTrending = trendingTracks.slice(5);
+  const quickPickTracks = (recentlyPlayed.length ? recentlyPlayed : trendingTracks).slice(0, 5);
+  const quickPickLabels = ['Daily Mix 01', 'Discover Weekly', 'Release Radar', 'Night Drive', 'Deep Focus'];
+  const popularArtists = Array.from(new Map([...trendingTracks, ...recentlyPlayed].map((track) => [track.artist, track])).values()).slice(0, 6);
 
   const moveFeatured = useCallback(
     (dir: 1 | -1) => {
@@ -232,198 +199,111 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   };
 
 
+  const listenerName =
+    user?.user_metadata?.display_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split('@')[0] ||
+    'listener';
+
+  const moods = [
+    { name: 'Late night', caption: 'Midnight electronics', style: 'after', query: 'late night electronic music' },
+    { name: 'Deep focus', caption: 'Minimal and immersive', style: 'orbit', query: 'deep focus ambient music' },
+    { name: 'Slow mornings', caption: 'Warm and unhurried', style: 'glass', query: 'slow morning acoustic music' },
+    { name: 'Night drive', caption: 'Motion after dark', style: 'chrome', query: 'night drive synthwave music' },
+    { name: 'Quiet hours', caption: 'Soft ambient spaces', style: 'nocturne', query: 'quiet ambient instrumental music' },
+  ];
+
   return (
     <div className="relative min-h-full overflow-x-hidden">
-      {/* Ambient glow */}
-      <div className="pointer-events-none absolute -top-40 left-1/4 h-[460px] w-[460px] rounded-full bg-primary/20 blur-[140px]" />
-      <div className="pointer-events-none absolute top-32 right-0 h-[360px] w-[360px] rounded-full bg-accent/10 blur-[120px]" />
+      <div className="pointer-events-none absolute -top-36 left-[28%] h-[420px] w-[420px] rounded-full bg-white/[.035] blur-[150px]" />
+      <div className="pointer-events-none absolute right-0 top-72 h-[340px] w-[340px] rounded-full bg-lime-100/[.025] blur-[130px]" />
 
-      <div className="relative z-10 mx-auto max-w-6xl space-y-10 p-5 md:p-8 pb-32">
-        {/* ── Greeting ── */}
-        <header className="flex items-center justify-between gap-4">
+      <div className="relative z-10 mx-auto max-w-[92rem] space-y-0 px-5 pb-32 pt-4 md:px-10 md:pt-6">
+        <header className="mb-7 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">{greeting}</p>
-            <h1 className="mt-1 text-3xl md:text-[2.6rem] font-bold leading-[1.05]">
-              What do you want to
-              <span className="bg-gradient-primary bg-clip-text text-transparent"> hear</span>?
-            </h1>
+            <p className="sonora-eyebrow">{getGreeting()}</p>
+            <h1 className="mt-2 font-[Manrope] text-[2rem] font-medium leading-[1.05] tracking-[-.055em] text-zinc-100 md:text-[2.75rem]">What do you want to hear?</h1>
+            
+          </div>
+          <div className="hidden items-center gap-2 rounded-full border border-white/[.08] bg-white/[.025] px-3 py-2 text-[9px] font-medium uppercase tracking-[.18em] text-zinc-500 sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-lime-200 shadow-[0_0_10px_rgba(216,249,155,.6)]" /> Your listening space
           </div>
         </header>
 
-        {/* ── Featured hero slider (top 5 of the week) ── */}
-        <section
-          className="relative overflow-hidden rounded-[28px] border border-foreground/[0.08] bg-card/40 backdrop-blur-2xl shadow-[0_28px_80px_-40px_hsl(var(--background))]"
-          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-          onTouchEnd={(e) => {
-            if (touchStartX.current === null) return;
-            const dx = e.changedTouches[0].clientX - touchStartX.current;
-            if (Math.abs(dx) > 45) moveFeatured(dx < 0 ? 1 : -1);
-            touchStartX.current = null;
-          }}
-        >
-          {featured && (
-            <img
-              src={featured.thumbnail}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 h-full w-full scale-125 object-cover opacity-25 blur-2xl"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-background/60 to-background/90" />
-
-          <div className="relative z-10 flex flex-col gap-6 p-6 md:flex-row md:items-center md:gap-8 md:p-9">
-            <div className="relative mx-auto aspect-square w-40 shrink-0 overflow-hidden rounded-2xl shadow-[0_24px_60px_-24px_hsl(var(--primary))] md:mx-0 md:w-48">
-              {trendingLoading || !featured ? (
-                <div className="h-full w-full animate-pulse bg-foreground/10" />
-              ) : (
-                <img src={featured.thumbnail} alt={featured.title} className="h-full w-full object-cover" />
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1 text-center md:text-left">
-              <div className="flex items-center justify-center gap-2 md:justify-start">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary backdrop-blur-xl">
-                  <Sparkles className="h-3 w-3" /> Featured today
-                </span>
-                {topFive.length > 1 && (
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    {featIndex + 1}/{topFive.length}
-                  </span>
-                )}
-              </div>
-              <h2 className="mt-3 truncate text-2xl md:text-4xl font-bold">
-                {featured ? featured.title : 'Loading picks…'}
-              </h2>
-              <p className="mt-1 truncate text-sm text-muted-foreground">
-                {featured ? featured.artist : 'Fresh tracks are on the way'}
-              </p>
-
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 md:justify-start">
-                <Button
-                  size="lg"
-                  disabled={!featured}
-                  onClick={() => featured && onPlayTrack(featured, trendingTracks)}
-                  className="rounded-full bg-gradient-primary px-7 font-semibold text-primary-foreground shadow-[0_14px_40px_-14px_hsl(var(--primary))] transition-transform hover:scale-[1.03]"
-                >
-                  <Play className="mr-2 h-4 w-4 fill-current" /> Play now
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => onViewChange?.('trending')}
-                  className="rounded-full border-foreground/15 bg-foreground/[0.04] px-6 backdrop-blur-xl hover:bg-foreground/[0.09]"
-                >
-                  Explore trending
-                </Button>
-              </div>
-
-              {topFive.length > 1 && (
-                <div className="mt-5 flex items-center justify-center gap-2 md:justify-start">
-                  {topFive.map((t, i) => (
-                    <button
-                      key={t.id}
-                      aria-label={`Show featured track ${i + 1}`}
-                      onClick={() => setFeatIndex(i)}
-                      className={`h-1.5 rounded-full transition-all ${
-                        i === featIndex ? 'w-6 bg-primary' : 'w-1.5 bg-foreground/25 hover:bg-foreground/40'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {topFive.length > 1 && (
-            <>
-              <button
-                aria-label="Previous featured track"
-                onClick={() => moveFeatured(-1)}
-                className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-foreground/10 bg-background/60 p-2 backdrop-blur-xl transition-colors hover:bg-background/80 md:flex"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                aria-label="Next featured track"
-                onClick={() => moveFeatured(1)}
-                className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-foreground/10 bg-background/60 p-2 backdrop-blur-xl transition-colors hover:bg-background/80 md:flex"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </>
-          )}
+        <section aria-label="Quick picks" className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-4">
+          <button type="button" onClick={() => onViewChange?.('liked')} className="group flex min-w-0 items-center overflow-hidden rounded-xl border border-white/[.08] bg-white/[.055] text-left transition hover:bg-white/[.09]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center bg-gradient-to-br from-zinc-200 to-zinc-600 text-zinc-950 md:h-16 md:w-16"><Heart className="h-5 w-5 fill-current" /></span>
+            <span className="min-w-0 flex-1 truncate px-3 text-xs font-semibold text-zinc-200 md:text-sm">Liked Songs</span>
+            <span className="mr-3 hidden h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-950 shadow-lg group-hover:grid"><Play className="h-3.5 w-3.5 fill-current" /></span>
+          </button>
+          {quickPickTracks.map((track, index) => (
+            <button key={track.videoId} type="button" onClick={() => onPlayTrack(track, quickPickTracks)} className="group flex min-w-0 items-center overflow-hidden rounded-xl border border-white/[.08] bg-white/[.055] text-left transition hover:bg-white/[.09]">
+              <img src={track.thumbnail || '/placeholder.svg'} alt="" className="h-12 w-12 shrink-0 object-cover md:h-16 md:w-16" loading="lazy" />
+              <span className="min-w-0 flex-1 px-3">
+                <strong className="block truncate text-xs font-semibold text-zinc-200 md:text-sm">{quickPickLabels[index]}</strong>
+                <small className="mt-1 block truncate text-[10px] text-zinc-600">{track.artist}</small>
+              </span>
+              <span className="mr-3 hidden h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-950 shadow-lg group-hover:grid"><Play className="h-3.5 w-3.5 fill-current" /></span>
+            </button>
+          ))}
         </section>
 
+        <section className="relative mt-8 min-h-[18rem] overflow-hidden rounded-[1.4rem] border border-white/[.09] bg-[linear-gradient(112deg,rgba(32,34,33,.97),rgba(14,15,15,.94))] shadow-2xl shadow-black/30 md:min-h-[22rem]">
+          {featured && <img src={featured.thumbnail} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-[.10] blur-3xl" />}
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,16,16,.97),rgba(15,16,16,.78)_52%,rgba(9,10,10,.35))]" />
+          <div className="relative z-10 max-w-xl px-6 py-8 md:px-12 md:py-12">
+            <div className="mb-4 flex items-center gap-2 text-[9px] font-semibold tracking-[.22em] text-zinc-400"><span className="h-1.5 w-1.5 rounded-full bg-lime-200 shadow-[0_0_12px_rgba(216,249,155,.6)]" /> FEATURED MIX</div>
+            <h2 className="font-[Manrope] text-4xl font-medium leading-[.98] tracking-[-.055em] text-zinc-100 md:text-6xl">Metallic<br /><span className="bg-gradient-to-r from-zinc-100 to-zinc-500 bg-clip-text text-transparent">memories.</span></h2>
+            <p className="mt-4 max-w-sm text-xs leading-6 text-zinc-400 md:text-sm">A hand-picked starting point from your current listening world.{featured ? ` Featuring ${featured.artist}.` : ''}</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button type="button" disabled={!featured} onClick={() => featured && onPlayTrack(featured, trendingTracks)} className="h-11 rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 px-5 text-xs font-semibold text-zinc-950 shadow-xl hover:brightness-110"><Play className="mr-2 h-4 w-4 fill-current" /> Play mix</Button>
+              <Button type="button" variant="outline" onClick={() => onViewChange?.('trending')} className="h-11 rounded-full border-white/15 bg-white/[.035] px-5 text-xs text-zinc-300 hover:bg-white/[.08] hover:text-white">Explore trending</Button>
+            </div>
+          </div>
+          <div className="vinyl-art"><span /><i /><b>S<br /><small>01</small></b></div>
+          {featured && <div className="absolute bottom-5 right-5 z-10 hidden items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur-xl md:flex"><img src={featured.thumbnail} alt="" className="h-11 w-11 rounded-lg object-cover" /><span className="max-w-36"><strong className="block truncate text-[10px] text-zinc-200">{featured.title}</strong><small className="mt-1 block truncate text-[9px] text-zinc-500">{featured.artist}</small></span></div>}
+        </section>
 
-        {/* ── Quick chips ── */}
-        <div className="no-scrollbar -mx-5 flex gap-2.5 overflow-x-auto px-5 md:-mx-8 md:px-8">
-          <Chip icon={<Music className="h-4 w-4" />} label="Your Library" onClick={() => onViewChange?.('library')} active />
-          <Chip icon={<TrendingUp className="h-4 w-4" />} label="Trending" onClick={() => onViewChange?.('trending')} />
-          <Chip icon={<Heart className="h-4 w-4" />} label="Liked Songs" onClick={() => onViewChange?.('liked')} />
-          <Chip icon={<Clock className="h-4 w-4" />} label="Recently Played" onClick={() => onViewChange?.('recently-played')} />
-        </div>
-
-        {/* ── Jump back in ── */}
-        {recentlyPlayed.length > 0 && (
-          <Row title="Jump back in" subtitle="Pick up where you left off" onViewAll={() => onViewChange?.('recently-played')}>
-            {recentlyPlayed.map((track, i) => (
-              <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />
+        {(recentlyPlayed.length > 0 || trendingTracks.length > 0) && (
+          <Row title="Recently played" subtitle="Jump back in" onViewAll={() => onViewChange?.('recently-played')} showArrows>
+            {(recentlyPlayed.length ? recentlyPlayed : trendingTracks).slice(0, 8).map((track, index) => (
+              <TrackCard key={track.videoId} track={track} onPlay={(item) => onPlayTrack(item, recentlyPlayed.length ? recentlyPlayed : trendingTracks)} index={index} />
             ))}
           </Row>
         )}
 
-        {/* ── Popular this week ── */}
-        <Row title="Popular this week" subtitle="What everyone is streaming" showArrows onViewAll={() => onViewChange?.('trending')}>
-          {trendingLoading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="w-[150px] shrink-0 sm:w-[168px]">
-                  <div className="aspect-square w-full animate-pulse rounded-2xl bg-foreground/[0.06]" />
-                  <div className="mt-2.5 h-3 w-4/5 animate-pulse rounded bg-foreground/[0.06]" />
-                  <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-foreground/[0.05]" />
-                </div>
-              ))
-            : restTrending.length > 0
-            ? restTrending.map((track, i) => <TrackCard key={track.id} track={track} onPlay={onPlayTrack} index={i} />)
-            : <p className="py-8 text-sm text-muted-foreground">Could not load trending songs</p>}
+        <Row title="Made for you" subtitle={listenerName ? `Only for ${listenerName}` : 'Only for you'} onViewAll={() => onViewChange?.('search')} showArrows>
+          {personalLoading && personalRows.length === 0
+            ? Array.from({ length: 5 }).map((_, index) => <div key={index} className="w-[138px] shrink-0 sm:w-[158px]"><div className="aspect-square animate-pulse rounded-2xl bg-white/[.045]" /><div className="mt-3 h-3 w-4/5 animate-pulse rounded bg-white/[.045]" /><div className="mt-2 h-2 w-1/2 animate-pulse rounded bg-white/[.035]" /></div>)
+            : personalRows.length > 0
+              ? personalRows.slice(0, 2).flatMap((row) => row.tracks).slice(0, 8).map((track, index) => (
+                  <TrackCard key={track.id} track={track as Track} onPlay={(item) => {
+                    const row = personalRows.find((candidate) => candidate.tracks.some((candidateTrack) => candidateTrack.id === item.id));
+                    onPlayTrack(item, row?.tracks as Track[] | undefined);
+                  }} index={index} />
+                ))
+              : trendingTracks.slice(0, 8).map((track, index) => <TrackCard key={track.videoId} track={track} onPlay={(item) => onPlayTrack(item, trendingTracks)} index={index} />)}
         </Row>
 
-        {/* ── Personalized rows ── */}
-        {personalLoading && personalRows.length === 0 ? (
-          <Row title="Made for you" subtitle="Tuning to your taste…" showArrows>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="w-[150px] shrink-0 sm:w-[168px]">
-                <div className="aspect-square w-full animate-pulse rounded-2xl bg-foreground/[0.06]" />
-                <div className="mt-2.5 h-3 w-4/5 animate-pulse rounded bg-foreground/[0.06]" />
-                <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-foreground/[0.05]" />
-              </div>
-            ))}
-          </Row>
-        ) : (
-          personalRows.map((row) => (
-            <Row key={row.key} title={row.title} subtitle={row.subtitle} showArrows onViewAll={() => onViewChange?.('settings')}>
-              {row.tracks.map((track, i) => (
-                <TrackCard key={`${row.key}-${track.id}`} track={track as Track} onPlay={(t) => onPlayTrack(t, row.tracks as Track[])} index={i} />
-              ))}
-            </Row>
-          ))
-        )}
-
-        {/* ── Karaoke shortcut ── */}
-        <button
-          type="button"
-          onClick={() => onViewChange?.('karaoke')}
-          className="flex w-full items-center gap-3 rounded-[28px] border border-foreground/[0.08] bg-card/35 p-5 text-left backdrop-blur-2xl transition-transform hover:-translate-y-0.5 md:p-7"
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
-            <Mic2 className="h-4 w-4 text-primary-foreground" />
-          </span>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold">Karaoke Zone</h2>
-            <p className="text-xs text-muted-foreground">Sing along with synced lyrics</p>
+        <section className="mt-11">
+          <div><p className="sonora-eyebrow">Your sound map</p><h2 className="mt-1 font-[Manrope] text-xl font-medium text-zinc-200">Browse by mood</h2></div>
+          <div className="no-scrollbar mt-5 flex gap-3 overflow-x-auto pb-2">
+            {moods.map((mood) => <button key={mood.name} type="button" onClick={() => onSearchQuery?.(mood.query)} className={`cover cover-${mood.style} relative min-h-32 w-52 shrink-0 overflow-hidden rounded-2xl p-5 text-left transition hover:-translate-y-0.5`}><span className="relative z-10"><strong className="block font-[Manrope] text-lg text-zinc-100">{mood.name}</strong><small className="mt-1 block text-xs text-zinc-300/60">{mood.caption}</small></span><span className="cover-shine" /></button>)}
           </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-        </button>
+        </section>
 
+        <section className="mt-11">
+          <div><p className="sonora-eyebrow">Community favorites</p><h2 className="mt-1 font-[Manrope] text-xl font-medium text-zinc-200">Popular artists</h2></div>
+          <div className="mt-5 grid grid-cols-3 gap-5 sm:grid-cols-4 lg:grid-cols-6">
+            {popularArtists.map((track) => <button key={track.artist} type="button" onClick={() => onSearchQuery?.(track.artist)} className="min-w-0 text-center" aria-label={`Search for ${track.artist}`}><span className="cover mx-auto aspect-square w-full max-w-28 rounded-full"><img src={track.thumbnail || '/placeholder.svg'} alt="" className="h-full w-full object-cover" loading="lazy" /><span className="cover-shine" /></span><strong className="mt-3 block truncate text-xs text-zinc-300">{track.artist}</strong><small className="mt-1 block text-[10px] text-zinc-600">Artist</small></button>)}
+          </div>
+        </section>
+
+        <button type="button" onClick={() => onViewChange?.('karaoke')} className="mt-11 flex w-full items-center gap-4 rounded-2xl border border-white/[.08] bg-white/[.025] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white/[.05] md:p-7">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-zinc-200 to-zinc-500 text-zinc-950"><Mic2 className="h-4 w-4" /></span>
+          <span className="min-w-0 flex-1"><strong className="block font-[Manrope] text-lg font-medium text-zinc-200">Karaoke room</strong><small className="mt-1 block text-xs text-zinc-500">Sing along with synced lyrics</small></span>
+          <ChevronRight className="h-5 w-5 text-zinc-600" />
+        </button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { AuthPage } from '@/components/auth/AuthPage';
-import { MelodiyaApp } from '@/components/music/MelodiyaApp';
+import { SonoraApp } from '@/components/music/MelodiyaApp';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { PreferencesProvider } from '@/contexts/PreferencesContext';
 
@@ -12,7 +12,7 @@ const AppContent: React.FC = () => {
     // Same look as the splash in index.html so there is no visible jump
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <img src="/logo.png" alt="" className="h-24 w-24 animate-pulse" />
+        <span className="sonora-brand-mark h-16 w-16"><i/><i/><i/><i/></span>
       </div>
     );
   }
@@ -21,7 +21,7 @@ const AppContent: React.FC = () => {
     return <AuthPage />;
   }
 
-  return <MelodiyaApp />;
+  return <SonoraApp />;
 };
 
 const Index = () => {

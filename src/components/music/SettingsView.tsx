@@ -167,12 +167,14 @@ export const SettingsView: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 pb-[calc(8rem+env(safe-area-inset-bottom))] space-y-5 sm:space-y-6 w-full max-w-2xl mx-auto min-w-0">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
+    <div className="mx-auto w-full max-w-[92rem] min-w-0 space-y-6 px-5 pb-32 pt-4 md:px-10 md:pt-6">
+      <div className="mb-2">
+        <p className="sonora-eyebrow mb-2">Your space</p>
+        <h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Settings</h1>
+        <p className="mt-2 text-xs text-zinc-500">Tune your account, listening preferences and experience.</p>
       </div>
 
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
       {/* Account */}
       <Card className="glass-card">
         <CardHeader>
@@ -203,7 +205,7 @@ export const SettingsView: React.FC = () => {
               placeholder="Your username"
             />
           </div>
-          <Button onClick={saveProfile} disabled={saving} className="bg-gradient-primary hover:opacity-90">
+          <Button onClick={saveProfile} disabled={saving} className="rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 px-5 text-xs font-semibold text-zinc-950 hover:brightness-110">
             {saving ? 'Saving...' : 'Save Profile'}
           </Button>
         </CardContent>
@@ -502,8 +504,10 @@ export const SettingsView: React.FC = () => {
         </CardContent>
       </Card>
 
+      </div>
+
       {/* Sign Out */}
-      <Card className="glass-card border-destructive/20">
+      <Card className="glass-card border-white/[.08]">
         <CardContent className="pt-6">
           <Button
             variant="destructive"

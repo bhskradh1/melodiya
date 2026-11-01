@@ -67,16 +67,16 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ onPlayTrack }) => {
 
   return (
     <div className="relative min-h-full overflow-x-hidden">
-      <div className="pointer-events-none absolute -top-40 left-1/4 h-[420px] w-[420px] rounded-full bg-primary/20 blur-[140px]" />
+      <div className="pointer-events-none absolute -top-40 left-1/4 h-[420px] w-[420px] rounded-full bg-white/[.035] blur-[150px]" />
 
-      <div className="relative z-10 mx-auto max-w-5xl space-y-8 p-5 pb-32 md:p-8">
+      <div className="relative z-10 mx-auto w-full max-w-[92rem] space-y-8 px-5 pb-32 pt-4 md:px-10 md:pt-6">
         <header className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-primary shadow-[0_10px_28px_-12px_hsl(var(--primary))]">
-            <Mic2 className="h-5 w-5 text-primary-foreground" />
+          <span className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-300 to-zinc-700 text-zinc-950">
+            <Mic2 className="h-5 w-5 text-zinc-950" />
           </span>
           <div>
-            <h1 className="text-3xl font-bold">Karaoke</h1>
-            <p className="text-sm text-muted-foreground">Sing along with synced lyrics</p>
+            <p className="sonora-eyebrow mb-1">Sing it your way</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Karaoke</h1>
+            <p className="mt-2 text-xs text-zinc-500">Find an instrumental and sing along with synced lyrics.</p>
           </div>
         </header>
 
@@ -87,13 +87,13 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ onPlayTrack }) => {
               placeholder="Search any karaoke song…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-11 rounded-full border-foreground/[0.08] bg-foreground/[0.04] pl-10 backdrop-blur-xl focus-visible:ring-primary/40"
+              className="search-spotlight h-11 rounded-full border-white/[.08] bg-white/[.025] pl-10 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
             />
           </div>
           <Button
             type="submit"
             disabled={searching || !query.trim()}
-            className="h-11 shrink-0 rounded-full bg-gradient-primary px-6 font-semibold text-primary-foreground"
+            className="h-11 shrink-0 rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 px-6 text-xs font-semibold text-zinc-950 hover:brightness-110"
           >
             {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
           </Button>
@@ -105,9 +105,9 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ onPlayTrack }) => {
               key={k.name}
               onClick={() => handleCategory(k)}
               disabled={loadingCategory === k.name}
-              className="group relative flex h-24 flex-col justify-between overflow-hidden rounded-2xl border border-foreground/[0.08] bg-foreground/[0.04] p-3.5 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-foreground/[0.08] disabled:opacity-70 md:h-28"
+              className="group relative flex h-24 flex-col justify-between overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] p-3.5 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[.06] disabled:opacity-70 md:h-28"
             >
-              <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/25 blur-2xl transition-transform duration-500 group-hover:scale-150" />
+              <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/[.045] blur-2xl transition-transform duration-500 group-hover:scale-150" />
               <span className="relative z-10 text-2xl">
                 {loadingCategory === k.name ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : k.emoji}
               </span>
@@ -124,14 +124,14 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ onPlayTrack }) => {
                 <button
                   key={track.id}
                   onClick={() => onPlayTrack(track, results)}
-                  className="group flex w-full items-center gap-3 rounded-2xl border border-foreground/[0.06] bg-foreground/[0.03] p-2.5 text-left transition-colors hover:bg-foreground/[0.07]"
+                  className="group flex w-full items-center gap-3 rounded-2xl border border-white/[.07] bg-white/[.025] p-2.5 text-left transition-colors hover:bg-foreground/[0.07]"
                 >
                   <img src={track.thumbnail} alt={track.title} loading="lazy" className="h-12 w-12 rounded-xl object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{track.title}</p>
                     <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
                   </div>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[.08] text-zinc-200 opacity-0 transition-opacity group-hover:opacity-100">
                     <Play className="ml-0.5 h-4 w-4 fill-current" />
                   </span>
                 </button>

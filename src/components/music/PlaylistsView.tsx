@@ -161,11 +161,11 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
   }
 
   return (
-    <div className="p-5 md:p-8 space-y-7 max-w-7xl mx-auto">
+    <div className="mx-auto max-w-[92rem] space-y-7 p-5 pb-32 md:p-8 md:pb-32">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground mb-2">Your collection</p><h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Playlists</h1>
+          <p className="sonora-eyebrow mb-2">Built by you</p><h1 className="font-[Manrope] text-3xl font-medium tracking-[-.045em] text-zinc-100 md:text-4xl">Your Playlists</h1>
           <p className="text-muted-foreground">
             {playlists.length} playlist{playlists.length !== 1 ? 's' : ''}
           </p>
@@ -173,7 +173,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="rounded-full border border-foreground/15 bg-foreground/[0.09] text-foreground hover:bg-foreground/[0.15]">
+            <Button className="rounded-full bg-gradient-to-br from-zinc-100 to-zinc-400 px-5 text-xs font-semibold text-zinc-950 hover:brightness-110">
               <Plus className="w-4 h-4 mr-2" />
               Create Playlist
             </Button>
@@ -232,7 +232,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
                           className="w-full h-full object-cover rounded-lg"
                         />
                       ) : (
-                        <div className="flex flex-col items-center gap-2 text-foreground/60"><ListMusic className="w-12 h-12" /><span className="text-[10px] font-semibold uppercase tracking-[0.3em]">Melodiya mix</span></div>
+                        <div className="flex flex-col items-center gap-2 text-foreground/60"><ListMusic className="w-12 h-12" /><span className="text-[10px] font-semibold uppercase tracking-[0.3em]">Sonora mix</span></div>
                       )}
                       <div className="absolute inset-0 bg-black/35 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Button
