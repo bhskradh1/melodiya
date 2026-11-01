@@ -212,10 +212,6 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
               <Play className="w-4 h-4 mr-2" />
               Play All
             </Button>
-            <Button variant="outline">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Songs
-            </Button>
           </div>
         </div>
       </div>
