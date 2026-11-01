@@ -1,16 +1,16 @@
 {
   "id": "/",
-  "name": "Melodiya - Your Sound, Your World",
-  "short_name": "Melodiya",
-  "description": "Discover, stream, and enjoy millions of songs with an elegant music streaming experience. Create playlists, discover new music, and enjoy your favorite tracks anywhere.",
+  "name": "Sonora — Music for your moments",
+  "short_name": "Sonora",
+  "description": "Discover music, build playlists, and enjoy your listening space.",
   "start_url": "/",
   "display": "standalone",
   "display_override": [
     "standalone",
     "minimal-ui"
   ],
-  "background_color": "#0d0a14",
-  "theme_color": "#0d0a14",
+  "background_color": "#080909",
+  "theme_color": "#080909",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
