@@ -262,7 +262,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('Melodiya', options)
+    self.registration.showNotification('Sonora', options)
   );
 });
 
