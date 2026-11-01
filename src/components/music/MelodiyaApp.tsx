@@ -276,20 +276,24 @@ export const MelodiyaApp: React.FC = () => {
 
   const fetchRelatedTracks = async (track: Track): Promise<Track[]> => {
     try {
+      const code = preferences.preferred_language || '';
       const { data, error } = await supabase.functions.invoke('youtube-search', {
         body: {
           related: {
             videoId: track.videoId,
             title: track.title,
             artist: track.artist,
-            language: LANGUAGE_LABELS[preferences.preferred_language] || '',
+            musicBrainzId: track.musicBrainzId,
+            language: LANGUAGE_LABELS[code] || '',
+            languageCode: /^[a-z]{2}$/i.test(code) ? code : '',
             genres: preferences.favorite_genres || [],
-            // everything already queued/played, so no song repeats
+            // Everything already queued/played, so nothing repeats.
+            // Artists are sent in play order; the server blocks only the latest 8.
             excludeTitles: playlist.map(t => t.title),
             excludeVideoIds: playlist.map(t => t.videoId),
-            excludeArtists: [track.artist, ...playlist.map(t => t.artist)],
-            musicBrainzId: track.musicBrainzId,
+            excludeArtists: playlist.map(t => t.artist),
             excludeMusicBrainzIds: playlist.map(t => t.musicBrainzId).filter(Boolean),
+            limit: 15,
           },
         },
       });
