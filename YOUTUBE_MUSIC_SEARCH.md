@@ -1,33 +1,52 @@
 # YouTube Music search provider
 
-Melodiya now has an optional, metadata-only YouTube Music search endpoint at
-`/api/ytmusic-search`. It uses the unauthenticated search capability of
-`ytmusicapi`; it does not extract audio, download tracks, or alter playback.
+Melodiya uses an authenticated, metadata-only search endpoint at
+`/api/ytmusic-search`. It is restricted to YouTube Music's artist/catalogue
+**Songs** results. It never queries the general **Videos** category and never
+falls back to YouTube Data API video search.
+
+The ytmusicapi documentation distinguishes:
+- `songs`: actual catalogue songs uploaded by artists.
+- `videos`: regular YouTube videos that may be uploaded by any user.
+
+## Official-music filtering
+
+The endpoint admits only results that:
+- Have `resultType = song`.
+- Have a valid video ID and a named artist linked to a YouTube channel ID.
+- Are available according to YouTube Music catalogue metadata.
+- Are no longer than 15 minutes.
+- Do not look like jukebox collections, non-stop lists, medleys, mashups,
+  compilations, merged songs, full-album uploads, karaoke, cover/tribute
+  uploads, slowed/nightcore/sped-up edits or DJ-style mixes.
+
+This is a strict artist/catalogue filter, not a manual verification of every
+underlying uploader. YouTube Music does not expose a universally reliable
+"official uploader" boolean for every individual result. Some legitimate
+releases are delivered through auto-generated artist Topic/catalogue channels.
 
 ## Runtime configuration
 
-Set these encrypted Vercel project environment variables for Production,
-Preview, and Development:
-
+Vercel environment variables:
 - `MUSIC_SUPABASE_URL`: the Melodiya Supabase project URL.
-- `MUSIC_SUPABASE_ANON_KEY`: the Melodiya Supabase publishable/anon key.
+- `MUSIC_SUPABASE_ANON_KEY`: the Melodiya Supabase publishable/anon key,
+  stored as a sensitive environment variable.
 
-The endpoint checks the supplied Supabase access token against
-`/auth/v1/user`. It does not accept a caller-provided user ID as proof of
-authentication.
+The endpoint verifies the supplied access token against Supabase Auth and
+does not trust a caller-provided user ID.
 
 ## Search behaviour
 
-- Searches the YouTube Music public catalogue for songs only.
+- Searches artist/catalogue songs only; no general YouTube video search.
 - Returns up to 25 results per request.
 - Uses a five-minute in-memory cache on warm serverless instances.
 - Applies a best-effort limit of 30 searches per signed-in user per minute per
-  warm instance. Vercel can recycle or scale instances, so this is not a
-  globally persistent quota.
-- Melodiya tries this provider first and falls back to the existing
-  `youtube-search` Supabase Edge Function if the new provider is unavailable
-  or returns no tracks.
+  warm instance. Serverless instances can be recycled or scaled, so this is not
+  a globally persistent quota.
+- Search, personalized recommendations and weekly trending share the same
+  strict provider. A provider failure is shown as an error rather than silently
+  switching to unrestricted user-uploaded videos.
 
-The provider uses an unofficial YouTube Music interface and may break if
-YouTube changes it. It is not an unlimited-search guarantee and remains subject
-to YouTube-side throttling and applicable terms.
+The YouTube Music interface is unofficial and can be throttled or changed by
+YouTube. This is not a guarantee of unlimited searches. Search returns
+metadata/video IDs only; playback stays on Melodiya's existing player.
