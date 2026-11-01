@@ -38,15 +38,18 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
 # Videos results, which can be uploaded by any YouTube user. Do not fall back
 # to general YouTube video search for this product.
 UNWANTED_TITLE_PATTERN = re.compile(
-    r"\\b(?:"
-    r"jukebox\\s+(?:songs?|hits?|collection|mix)|"
-    r"non[\\s-]?stop|medley|mash[\\s-]?up|compilation|"
-    r"full\\s+album|all\\s+songs|greatest\\s+hits|best\\s+of|"
-    r"continuous\\s+mix|merged\\s+songs?|karaoke|"
-    r"cover\\s+(?:song|version)|tribute\\s+(?:to|album)|"
-    r"slowed(?:\\s|$)|nightcore|sped[\\s-]?up|"
-    r"8d\\s+audio|dj\\s+mix|bass\\s+boosted"
-    r")\\b",
+    r"\b(?:"
+    r"jukebox\s+(?:songs?|hits?|collection|mix)|"
+    r"non[\s-]?stop|medley|mash[\s-]?up|compilation|"
+    r"full\s+album|all\s+songs|greatest\s+hits|best\s+of|"
+    r"continuous\s+mix|merged\s+songs?|karaoke|"
+    r"cover\s+(?:song|version)|tribute\s+(?:to|album)|"
+    r"slowed(?:\s|$)|nightcore|sped[\s-]?up|"
+    r"8d\s+audio|dj\s+mix|bass\s+boosted|"
+    r"nonstop\s+hits|song\s+collection|full\s+jukebox|"
+    r"remix\s+collection|mashup|megamix|"
+    r"merged\s+tracks?|combined\s+songs?"
+    r")\b",
     re.IGNORECASE,
 )
 
