@@ -4,14 +4,12 @@ interface AppSettings {
   darkMode: boolean;
   crossfade: boolean;
   normalizeVolume: boolean;
-  showExplicit: boolean;
   notifications: boolean;
   autoOpenNowPlaying: boolean;
   defaultVolume: number;
   crossfadeSeconds: number;
   reduceMotion: boolean;
   lyricsAutoScroll: boolean;
-  backgroundPlayback: boolean;
 }
 
 interface SettingsContextType extends AppSettings {
@@ -22,14 +20,12 @@ const defaultSettings: AppSettings = {
   darkMode: true,
   crossfade: false,
   normalizeVolume: false,
-  showExplicit: true,
   notifications: false,
   autoOpenNowPlaying: true,
   defaultVolume: 75,
   crossfadeSeconds: 5,
   reduceMotion: false,
   lyricsAutoScroll: true,
-  backgroundPlayback: true,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
