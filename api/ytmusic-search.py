@@ -60,6 +60,16 @@ def _normalize_track(item: dict[str, Any]) -> dict[str, str] | None:
     if item.get("resultType") != "song":
         return None
 
+    # ytmusicapi documents:
+    # ATV = original-artist audio track with cover art
+    # OMV = original-artist music video
+    # UGC = user-generated upload. Reject it and unknown types.
+    if item.get("videoType") not in {
+        "MUSIC_VIDEO_TYPE_ATV",
+        "MUSIC_VIDEO_TYPE_OMV",
+    }:
+        return None
+
     video_id = str(item.get("videoId") or "").strip()
     title = str(item.get("title") or "").strip()
     if not video_id or not title or UNWANTED_TITLE_PATTERN.search(title):
