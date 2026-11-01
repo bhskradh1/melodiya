@@ -258,7 +258,7 @@ const getLastFmRecommendations = async (
     if (!trackTitle || !trackArtist) continue;
 
     const mbid = String(item?.mbid || '').trim();
-    const musicBrainzId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(mbid) ? mbid : undefined;
+    const musicBrainzId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mbid) ? mbid : undefined;
     const key = musicBrainzId || (normalizeTitle(trackTitle) + '|' + normalizeTitle(trackArtist));
     if (seenIds.has(key) || seenNames.has(key)) continue;
     seenIds.add(key);
