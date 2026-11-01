@@ -25,7 +25,7 @@ interface LikedSong {
 }
 
 interface LikedSongsViewProps {
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Track, playlist?: Track[]) => void;
 }
 
 export const LikedSongsView: React.FC<LikedSongsViewProps> = ({ onPlayTrack }) => {
@@ -85,15 +85,26 @@ export const LikedSongsView: React.FC<LikedSongsViewProps> = ({ onPlayTrack }) =
     }
   };
 
+  const getLikedTracks = (): Track[] => likedSongs.map(song => ({
+    id: song.id,
+    title: song.title,
+    artist: song.artist || 'Unknown Artist',
+    thumbnail: song.thumbnail_url || '/placeholder.svg',
+    videoId: song.youtube_video_id,
+  }));
+
   const playLikedSong = (song: LikedSong) => {
-    const track: Track = {
-      id: song.id,
-      title: song.title,
-      artist: song.artist || 'Unknown Artist',
-      thumbnail: song.thumbnail_url || '/placeholder.svg',
-      videoId: song.youtube_video_id
-    };
-    onPlayTrack(track);
+    const tracks = getLikedTracks();
+    const selectedTrack = tracks.find(track => track.id === song.id);
+    if (!selectedTrack) return;
+
+    // Pass the complete liked-songs queue so Next advances through the list.
+    onPlayTrack(selectedTrack, tracks);
+  };
+
+  const playAllLikedSongs = () => {
+    const tracks = getLikedTracks();
+    if (tracks.length > 0) onPlayTrack(tracks[0], tracks);
   };
 
   if (loading) {
@@ -115,12 +126,20 @@ export const LikedSongsView: React.FC<LikedSongsViewProps> = ({ onPlayTrack }) =
           <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-red-500 rounded-lg flex items-center justify-center">
             <Heart className="w-6 h-6 text-white fill-current" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold">Liked Songs</h1>
             <p className="text-muted-foreground">
               {likedSongs.length} song{likedSongs.length !== 1 ? 's' : ''}
             </p>
           </div>
+          <Button
+            onClick={playAllLikedSongs}
+            disabled={likedSongs.length === 0}
+            className="bg-gradient-primary hover:opacity-90"
+          >
+            <Play className="w-4 h-4 mr-2 fill-current" />
+            Play All
+          </Button>
         </div>
       </div>
 
