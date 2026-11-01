@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { searchMelodiyaTracks } from '@/lib/musicSearch';
 import { LANGUAGE_LABELS, type UserPreferences } from '@/contexts/PreferencesContext';
 
 export interface RecTrack {
@@ -64,11 +64,7 @@ export const searchTracks = async (
 
   const request = (async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('youtube-search', {
-        body: { query: normalizedQuery },
-      });
-      if (error) throw error;
-      const tracks = (data?.tracks || []) as RecTrack[];
+      const tracks = await searchMelodiyaTracks(normalizedQuery);
       if (tracks.length) writeCache(normalizedQuery, tracks);
       return tracks;
     } catch (e) {
