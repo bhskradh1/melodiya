@@ -152,7 +152,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [featIndex, setFeatIndex] = useState(0);
   const touchStartX = React.useRef<number | null>(null);
   const { user } = useAuth();
-  const { preferences, version } = usePreferences();
+  const { preferences, version, loading: preferencesLoading } = usePreferences();
   const greeting = useMemo(getGreeting, []);
 
   const topFive = trendingTracks.slice(0, 5);
@@ -170,9 +170,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   );
 
   useEffect(() => {
+    if (preferencesLoading) return;
     let cancelled = false;
     setPersonalLoading(true);
-    fetchPersonalizedRows(preferences)
+    // Home recommendations are cache-only; opening Home must not issue searches.
+    fetchPersonalizedRows(preferences, false, false)
       .then((rows) => {
         if (!cancelled) setPersonalRows(rows);
       })
@@ -183,7 +185,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
     return () => {
       cancelled = true;
     };
-  }, [preferences, version]);
+  }, [preferences, version, preferencesLoading]);
 
 
   useEffect(() => {
