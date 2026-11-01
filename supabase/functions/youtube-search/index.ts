@@ -331,7 +331,7 @@ async function handleRelated(rel: {
       return value.length >= 3 &&
         value.length <= 28 &&
         !seedText.includes(value) &&
-        !/\\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\\b/i.test(value);
+        !/\b(official|video|audio|lyrics?|hd|4k|music|song|full|remastered)\b/i.test(value);
     }),
   ]
     .filter((tag, index, all) => all.findIndex((value) => value.toLowerCase() === tag.toLowerCase()) === index)
@@ -448,7 +448,7 @@ async function handleRelated(rel: {
       if (!matchesTitle) continue;
 
       const artistHaystack = (rawTitle + ' ' + channelTitle).toLowerCase();
-      const artistSignal = artistHaystack.includes(track.artist.toLowerCase()) ? 1 : 0.65;
+      const artistSignal = artistHaystack.includes(track.artist.toLowerCase()) ? 1 : 0.4;
       const score = track.match * artistSignal;
       if (score > mappedTitleScore) {
         mappedTitleScore = score;
@@ -492,9 +492,9 @@ async function handleRelated(rel: {
 
     const channelLower = channelTitle.toLowerCase();
     const officialSignal =
-      /\\btopic$/.test(channelLower) ||
-      /\\b(vevo|official)\\b/.test(channelLower) ||
-      /\\b(official audio|official music video)\\b/i.test(rawTitle) ||
+      /\btopic$/.test(channelLower) ||
+      /\b(vevo|official)\b/.test(channelLower) ||
+      /\b(official audio|official music video)\b/i.test(rawTitle) ||
       /provided to youtube by|licensed to youtube by/i.test(description)
         ? 1
         : 0.2;
