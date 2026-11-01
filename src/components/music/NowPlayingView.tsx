@@ -346,7 +346,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   return (
     <div className="fixed inset-0 z-[70] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
       style={{
-        background: `linear-gradient(180deg, hsl(280 60% 15%) 0%, hsl(215 30% 6%) 100%)`,
+        background: 'radial-gradient(circle at 50% 35%, #303330, #080909 60%)',
       }}
     >
       {/* Blurred album art background */}
@@ -363,7 +363,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
             <ChevronDown className="w-6 h-6" />
           </Button>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Now Playing</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Now Playing on Sonora</p>
           </div>
           <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-foreground/70 hover:text-foreground rounded-full" onClick={() => setShowLyrics(!showLyrics)}>
             <Music2 className={`w-5 h-5 ${showLyrics ? 'text-primary' : ''}`} />
@@ -379,7 +379,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
                 className={`w-full h-full object-cover rounded-2xl shadow-2xl ${isPlaying ? 'animate-pulse-subtle' : ''}`}
-                style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(168, 85, 247, 0.15)' }}
+                style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(216, 249, 155, 0.10)' }}
               />
               {isLoading && (
                 <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
@@ -474,7 +474,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                           `}
                           style={{
                             transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                            textShadow: isActive ? '0 0 20px hsl(280 100% 70% / 0.3)' : 'none',
+                            textShadow: isActive ? '0 0 20px rgba(216, 249, 155, 0.22)' : 'none',
                           }}
                           onClick={() => {
                             if (duration > 0) {
