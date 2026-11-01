@@ -17,7 +17,7 @@ export interface RecommendationRow {
   tracks: RecTrack[];
 }
 
-const CACHE_PREFIX = 'melodiya_recs_official_songs_'; // invalidate older unrestricted YouTube results
+const CACHE_PREFIX = 'melodiya_recs_verified_artist_songs_v2_'; // invalidate results cached under the looser filter
 const TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
 const inFlightSearches = new Map<string, Promise<RecTrack[]>>();
 
