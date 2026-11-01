@@ -57,7 +57,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   onPrevious
 }) => {
   const [volume, setVolume] = useState([75]);
-  const volumeInitRef = useRef(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -89,12 +88,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     }
   }, []);
 
-  // Apply the saved default volume once on mount
+  // Apply the saved default volume whenever the user changes it in Settings.
   useEffect(() => {
-    if (!volumeInitRef.current) {
-      volumeInitRef.current = true;
-      setVolume([defaultVolume]);
-    }
+    setVolume([defaultVolume]);
   }, [defaultVolume]);
   
   const { 
