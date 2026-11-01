@@ -548,7 +548,7 @@ export const SonoraApp: React.FC = () => {
       {isMobile && (
         <nav
           aria-label="Sonora navigation"
-          className="sonora-bottom-nav grid h-[4.35rem] shrink-0 grid-cols-4 items-stretch border-t px-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
+          className="sonora-bottom-nav grid h-[3.5rem] shrink-0 grid-cols-4 items-stretch border-t px-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
         >
           {bottomNavItems.map((item) => {
             const Icon = item.icon;
