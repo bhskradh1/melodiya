@@ -38,6 +38,7 @@ interface Track {
   duration?: string;
   audioUrl?: string;
   audio_url?: string;
+  musicBrainzId?: string;
 }
 
 export const MelodiyaApp: React.FC = () => {
@@ -287,6 +288,8 @@ export const MelodiyaApp: React.FC = () => {
             excludeTitles: playlist.map(t => t.title),
             excludeVideoIds: playlist.map(t => t.videoId),
             excludeArtists: [track.artist, ...playlist.map(t => t.artist)],
+            musicBrainzId: track.musicBrainzId,
+            excludeMusicBrainzIds: playlist.map(t => t.musicBrainzId).filter(Boolean),
           },
         },
       });
