@@ -62,6 +62,7 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
+				signal: 'hsl(var(--signal))',
 				// Music app specific colors
 				'player-bg': 'hsl(var(--player-bg))',
 				'sidebar-bg': 'hsl(var(--sidebar-bg))',
@@ -83,7 +84,7 @@ export default {
 			},
 			fontFamily: {
 				sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
-				display: ['"Space Grotesk"', 'system-ui', 'sans-serif']
+				display: ['Manrope', '"DM Sans"', 'system-ui', 'sans-serif']
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
