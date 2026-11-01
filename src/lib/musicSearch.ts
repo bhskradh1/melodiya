@@ -14,6 +14,11 @@ interface YtMusicSearchResponse {
   error?: string;
 }
 
+const SEARCH_CACHE_PREFIX = 'melodiya_official_songs_v2:';
+const SEARCH_CACHE_TTL_MS = 15 * 60 * 1000;
+const MAX_SEARCH_RESULTS = 20;
+const inFlightSearches = new Map<string, Promise<MelodiyaSearchTrack[]>>();
+
 const PRODUCTION_SEARCH_API =
   'https://melodiya-your-sound.vercel.app/api/ytmusic-search';
 
@@ -62,7 +67,7 @@ const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]>
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ query, limit: 50 }),
+    body: JSON.stringify({ query, limit: MAX_SEARCH_RESULTS }),
     signal: AbortSignal.timeout(12000),
   });
 
@@ -82,10 +87,63 @@ const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]>
  * general YouTube video search is allowed because that can return uploads
  * from arbitrary channels, mixes and user-generated videos.
  */
+const readSearchCache = (key: string): MelodiyaSearchTrack[] | null => {
+  try {
+    const raw = localStorage.getItem(SEARCH_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as {
+      savedAt?: number;
+      tracks?: MelodiyaSearchTrack[];
+    };
+    if (!cached.savedAt || Date.now() - cached.savedAt > SEARCH_CACHE_TTL_MS) {
+      localStorage.removeItem(SEARCH_CACHE_PREFIX + key);
+      return null;
+    }
+    return Array.isArray(cached.tracks) ? cached.tracks : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeSearchCache = (key: string, tracks: MelodiyaSearchTrack[]) => {
+  try {
+    localStorage.setItem(
+      SEARCH_CACHE_PREFIX + key,
+      JSON.stringify({ savedAt: Date.now(), tracks }),
+    );
+  } catch {
+    // Search must still work when browser storage is full or unavailable.
+  }
+};
+
+/**
+ * Search only the YouTube Music artist/catalogue Songs feed.
+ * Results are cached locally for 15 minutes to reduce repeat API requests.
+ */
 export const searchMelodiyaTracks = async (
   query: string,
 ): Promise<MelodiyaSearchTrack[]> => {
-  const normalized = query.trim();
+  const normalized = query.trim().replace(/\\s+/g, ' ');
   if (!normalized) return [];
-  return searchYouTubeMusic(normalized);
+
+  const cacheKey = normalized.toLocaleLowerCase();
+  const cached = readSearchCache(cacheKey);
+  if (cached) return cached;
+
+  const pending = inFlightSearches.get(cacheKey);
+  if (pending) return pending;
+
+  const request = searchYouTubeMusic(normalized)
+    .then((tracks) => {
+      writeSearchCache(cacheKey, tracks);
+      return tracks;
+    })
+    .finally(() => {
+      if (inFlightSearches.get(cacheKey) === request) {
+        inFlightSearches.delete(cacheKey);
+      }
+    });
+
+  inFlightSearches.set(cacheKey, request);
+  return request;
 };
