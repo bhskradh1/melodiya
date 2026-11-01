@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from http.server import BaseHTTPRequestHandler
 from typing import Any
@@ -33,19 +34,59 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
 
+# YouTube Music's Songs results are artist/catalogue entries, unlike its
+# Videos results, which can be uploaded by any YouTube user. Do not fall back
+# to general YouTube video search for this product.
+UNWANTED_TITLE_PATTERN = re.compile(
+    r"\\b(?:"
+    r"jukebox\\s+(?:songs?|hits?|collection|mix)|"
+    r"non[\\s-]?stop|medley|mash[\\s-]?up|compilation|"
+    r"full\\s+album|all\\s+songs|greatest\\s+hits|best\\s+of|"
+    r"continuous\\s+mix|merged\\s+songs?|karaoke|"
+    r"cover\\s+(?:song|version)|tribute\\s+(?:to|album)|"
+    r"slowed(?:\\s|$)|nightcore|sped[\\s-]?up|"
+    r"8d\\s+audio|dj\\s+mix|bass\\s+boosted"
+    r")\\b",
+    re.IGNORECASE,
+)
+
+
 def _normalize_track(item: dict[str, Any]) -> dict[str, str] | None:
+    # Admit only YouTube Music's song result type, never generic videos,
+    # user uploads, community playlists or other result categories.
+    if item.get("resultType") != "song":
+        return None
+
     video_id = str(item.get("videoId") or "").strip()
     title = str(item.get("title") or "").strip()
-    if not video_id or not title:
+    if not video_id or not title or UNWANTED_TITLE_PATTERN.search(title):
+        return None
+    if item.get("isAvailable") is False:
         return None
 
     artist_items = item.get("artists") or []
-    artists = [
-        str(artist.get("name") or "").strip()
-        for artist in artist_items
-        if isinstance(artist, dict) and artist.get("name")
-    ]
-    artist = ", ".join(artists) or str(item.get("artist") or "Unknown Artist")
+    artists: list[str] = []
+    for artist in artist_items:
+        if not isinstance(artist, dict):
+            continue
+        name = str(artist.get("name") or "").strip()
+        channel_id = str(artist.get("id") or "").strip()
+        # Require a linked artist channel so unattributed entries are rejected.
+        if name and channel_id.startswith("UC"):
+            artists.append(name)
+
+    if not artists:
+        return None
+
+    artist_text = ", ".join(dict.fromkeys(artists))
+    duration_seconds = item.get("duration_seconds")
+    try:
+        # A single-song catalogue result should not be long-form jukebox material.
+        if duration_seconds is not None and int(duration_seconds) > 900:
+            return None
+    except (TypeError, ValueError):
+        pass
+
     thumbnails = item.get("thumbnails") or []
     thumbnail = ""
     if isinstance(thumbnails, list):
@@ -58,7 +99,7 @@ def _normalize_track(item: dict[str, Any]) -> dict[str, str] | None:
         "id": video_id,
         "videoId": video_id,
         "title": title,
-        "artist": artist,
+        "artist": artist_text,
         "thumbnail": thumbnail,
         "duration": str(item.get("duration") or "Unknown"),
         "source": "youtube_music",
