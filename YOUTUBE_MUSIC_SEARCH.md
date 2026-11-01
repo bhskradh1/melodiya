@@ -13,6 +13,7 @@ The ytmusicapi documentation distinguishes:
 
 The endpoint admits only results that:
 - Have `resultType = song`.
+- Have `videoType = MUSIC_VIDEO_TYPE_ATV` (official artist audio track) or `MUSIC_VIDEO_TYPE_OMV` (official artist music video); reject `UGC` and unknown types.
 - Have a valid video ID and a named artist linked to a YouTube channel ID.
 - Are available according to YouTube Music catalogue metadata.
 - Are no longer than 15 minutes.
