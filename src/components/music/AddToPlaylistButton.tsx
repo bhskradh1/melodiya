@@ -98,7 +98,6 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
         title: track.title,
         artist: track.artist || 'Unknown Artist',
         thumbnail_url: track.thumbnail,
-        added_by: user.id,
       });
       if (error) throw error;
 
