@@ -80,8 +80,13 @@ export const SettingsView: React.FC = () => {
   };
 
   const savePrefs = async (updates: Partial<UserPreferences>) => {
-    await updatePreferences(updates);
-    toast({ title: 'Preference saved' });
+    try {
+      await updatePreferences(updates);
+      toast({ title: 'Preference saved' });
+    } catch (error) {
+      console.error('Could not save preference:', error);
+      toast({ title: 'Could not save preference', description: 'Please try again.', variant: 'destructive' });
+    }
   };
 
   const toggleGenre = (genre: string) => {
