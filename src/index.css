@@ -246,8 +246,6 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
 
 
 /* Sonora design system port */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
-
 html, body, #root { scrollbar-width: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar, #root::-webkit-scrollbar { display: none; }
 body { font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
