@@ -127,7 +127,7 @@ class _MelodiyaUpdateManagerState extends State<MelodiyaUpdateManager>
       }
 
       if (latestBuild <= currentBuild) {
-        if (userInitiated) _showStatus('You are using the latest version of Melodiya.');
+        if (userInitiated) _showStatus('You are using the latest version of Sonora.');
         return;
       }
 
@@ -165,7 +165,7 @@ class _MelodiyaUpdateManagerState extends State<MelodiyaUpdateManager>
             color: Color(0xFFA855F7),
             size: 34,
           ),
-          title: const Text('Melodiya update available'),
+          title: const Text('Sonora update available'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,7 +230,7 @@ class _MelodiyaUpdateManagerState extends State<MelodiyaUpdateManager>
       ..hideCurrentSnackBar()
       ..showSnackBar(const SnackBar(
         duration: Duration(minutes: 4),
-        content: Text('Downloading Melodiya update…'),
+        content: Text('Downloading Sonora update…'),
       ));
 
     final client = http.Client();

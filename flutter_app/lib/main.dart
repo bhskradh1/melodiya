@@ -13,7 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-const _appName = 'Melodiya';
+const _appName = 'Sonora';
 const _port = 43110;
 const _origin = 'http://127.0.0.1:$_port';
 late _MelodiyaAudioHandler _audioHandler;
@@ -21,17 +21,17 @@ late _MelodiyaAudioHandler _audioHandler;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Color(0xFF0A0A0A),
+    statusBarColor: Color(0xFF080909),
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF0A0A0A),
+    systemNavigationBarColor: Color(0xFF080909),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
   _audioHandler = await AudioService.init(
     builder: _MelodiyaAudioHandler.new,
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.melodiya.melodiya_app.audio',
-      androidNotificationChannelName: 'Melodiya playback',
-      androidNotificationChannelDescription: 'Now playing controls for Melodiya',
+      androidNotificationChannelName: 'Sonora playback',
+      androidNotificationChannelDescription: 'Now playing controls for Sonora',
       androidNotificationOngoing: true,
     ),
   ) as _MelodiyaAudioHandler;
@@ -55,7 +55,7 @@ class _MelodiyaAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     final artwork = Uri.tryParse(artworkUrl);
     mediaItem.add(MediaItem(
       id: 'youtube:$videoId',
-      album: 'Melodiya · YouTube',
+      album: 'Sonora · YouTube',
       title: title.isEmpty ? 'Unknown track' : title,
       artist: artist.isEmpty ? 'Unknown artist' : artist,
       artUri: artwork != null && (artwork.scheme == 'https' || artwork.scheme == 'http')
@@ -149,9 +149,9 @@ class MelodiyaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        scaffoldBackgroundColor: const Color(0xFF080909),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFA855F7),
+          seedColor: const Color(0xFFD4D4D8),
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
@@ -195,7 +195,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
     _nativeAudioPlayer = AudioPlayer();
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0A0A0A))
+      ..setBackgroundColor(const Color(0xFF080909))
       ..addJavaScriptChannel(
         'MelodiyaBridge',
         onMessageReceived: (message) {
@@ -345,7 +345,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
               uri,
               tag: MediaItem(
                 id: uri.toString(),
-                album: 'Melodiya',
+                album: 'Sonora',
                 title: title == null || title.isEmpty ? 'Unknown track' : title,
                 artist: artist == null || artist.isEmpty ? 'Unknown artist' : artist,
                 artUri: artworkUri,
@@ -563,7 +563,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
     final shouldExit = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Exit Melodiya?'),
+        title: const Text('Exit Sonora?'),
         content: const Text('Do you want to close the app?'),
         actions: [
           TextButton(
@@ -598,7 +598,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
     try {
       final status = await Permission.notification.request();
       if (!status.isGranted) {
-        debugPrint('Melodiya notification permission was not granted.');
+        debugPrint('Sonora notification permission was not granted.');
       }
     } catch (error) {
       debugPrint('Could not request notification permission: $error');
@@ -685,7 +685,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
                 Positioned.fill(
                   child: IgnorePointer(
                     child: ColoredBox(
-                      color: const Color(0xFF0A0A0A),
+                      color: const Color(0xFF080909),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -697,13 +697,13 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
                               fit: BoxFit.contain,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.music_note_rounded,
-                                color: Color(0xFFA855F7),
+                                color: Color(0xFFD4D4D8),
                                 size: 72,
                               ),
                             ),
                             const SizedBox(height: 16),
                             const Text(
-                              'Melodiya',
+                              'Sonora',
                               style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 16),
@@ -713,7 +713,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
                                 minHeight: 2,
                                 value: _progress >= 100 ? null : _progress / 100,
                                 backgroundColor: Colors.white12,
-                                color: const Color(0xFFA855F7),
+                                color: const Color(0xFFD4D4D8),
                               ),
                             ),
                           ],
@@ -725,7 +725,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
               if (_error != null)
                 Positioned.fill(
                   child: ColoredBox(
-                    color: const Color(0xFF0A0A0A),
+                    color: const Color(0xFF080909),
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.all(28),
@@ -738,7 +738,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
                               height: 68,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.music_note_rounded,
-                                color: Color(0xFFA855F7),
+                                color: Color(0xFFD4D4D8),
                                 size: 64,
                               ),
                             ),
@@ -748,7 +748,7 @@ class _MelodiyaHomeState extends State<_MelodiyaHome> with WidgetsBindingObserve
                                     fontSize: 24, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 10),
                             const Text(
-                              'Melodiya could not start. Check the bundled assets and internet connection, then retry.',
+                              'Sonora could not start. Check the bundled assets and internet connection, then retry.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.white70, height: 1.5),
                             ),
