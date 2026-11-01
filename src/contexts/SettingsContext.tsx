@@ -5,10 +5,10 @@ interface AppSettings {
   crossfade: boolean;
   normalizeVolume: boolean;
   showExplicit: boolean;
-  dataSaver: boolean;
   notifications: boolean;
   autoOpenNowPlaying: boolean;
   defaultVolume: number;
+  crossfadeSeconds: number;
   reduceMotion: boolean;
   lyricsAutoScroll: boolean;
   backgroundPlayback: boolean;
@@ -23,10 +23,10 @@ const defaultSettings: AppSettings = {
   crossfade: false,
   normalizeVolume: false,
   showExplicit: true,
-  dataSaver: false,
   notifications: false,
   autoOpenNowPlaying: true,
   defaultVolume: 75,
+  crossfadeSeconds: 5,
   reduceMotion: false,
   lyricsAutoScroll: true,
   backgroundPlayback: true,
