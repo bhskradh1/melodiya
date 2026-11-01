@@ -22,7 +22,7 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     --primary: 280 100% 55%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 220 12% 7%;
     --secondary: 220 14% 92%;
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 92%;
@@ -86,7 +86,7 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
     --sidebar-background: 220 12% 9%;
     --sidebar-foreground: 210 14% 92%;
     --sidebar-primary: 210 12% 76%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary-foreground: 220 12% 7%;
     --sidebar-accent: 220 10% 18%;
     --sidebar-accent-foreground: 210 14% 94%;
     --sidebar-border: 215 10% 24%;
