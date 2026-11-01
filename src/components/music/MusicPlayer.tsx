@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { YouTubePlayer } from './YouTubePlayer';
 import { NowPlayingView } from './NowPlayingView';
+import { AddToPlaylistButton } from './AddToPlaylistButton';
 import { usePWA } from '@/hooks/use-pwa';
 
 import { 
@@ -561,6 +562,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
           <div className="flex items-center gap-1">
+            <AddToPlaylistButton track={currentTrack} />
             <Button
               variant="ghost"
               size="sm"
@@ -616,6 +618,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
             <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
+          <AddToPlaylistButton track={currentTrack} />
           <Button
             variant="ghost"
             size="sm"

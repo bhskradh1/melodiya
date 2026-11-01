@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Music, Plus, Play, MoreVertical, Trash2, Share2 } from 'lucide-react';
+import { Music, Plus, Play, Trash2, Sparkles, ListMusic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -161,11 +161,11 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-5 md:p-8 space-y-7 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Your Playlists</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground mb-2">Your collection</p><h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Playlists</h1>
           <p className="text-muted-foreground">
             {playlists.length} playlist{playlists.length !== 1 ? 's' : ''}
           </p>
@@ -173,7 +173,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
         
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-primary hover:opacity-90">
+            <Button className="rounded-full border border-foreground/15 bg-foreground/[0.09] text-foreground hover:bg-foreground/[0.15]">
               <Plus className="w-4 h-4 mr-2" />
               Create Playlist
             </Button>
@@ -216,15 +216,15 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
 
       {/* Playlists Grid */}
       {playlists.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {playlists.map((playlist) => (
-              <Card key={playlist.id} className="glass-card hover-lift group cursor-pointer">
+              <Card key={playlist.id} className="group cursor-pointer overflow-hidden rounded-2xl border border-foreground/[0.10] bg-gradient-to-br from-foreground/[0.09] via-card/50 to-foreground/[0.025] shadow-xl backdrop-blur-2xl transition-all duration-300 hover:-translate-y-1 hover:border-foreground/20">
                 <CardContent className="p-4">
                   <div 
                     className="space-y-3"
                     onClick={() => onViewPlaylist(playlist.id)}
                   >
-                    <div className="relative aspect-square bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
+                    <div className="relative aspect-[1.35/1] overflow-hidden rounded-xl border border-foreground/10 bg-[radial-gradient(circle_at_18%_18%,hsl(var(--foreground)/.28),transparent_42%),linear-gradient(145deg,hsl(var(--foreground)/.14),hsl(var(--card)/.8)_55%,hsl(var(--foreground)/.05))] flex items-center justify-center">
                       {playlist.cover_image_url ? (
                         <img
                           src={playlist.cover_image_url}
@@ -232,12 +232,12 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
                           className="w-full h-full object-cover rounded-lg"
                         />
                       ) : (
-                        <Music className="w-12 h-12 text-muted-foreground" />
+                        <div className="flex flex-col items-center gap-2 text-foreground/60"><ListMusic className="w-12 h-12" /><span className="text-[10px] font-semibold uppercase tracking-[0.3em]">Melodiya mix</span></div>
                       )}
-                      <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/35 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Button
                           size="sm"
-                          className="h-10 w-10 p-0 rounded-full bg-primary hover:bg-primary/90"
+                          className="h-12 w-12 p-0 rounded-full border border-white/25 bg-white/90 text-slate-950 shadow-xl hover:bg-white"
                           onClick={async (e) => {
                             e.stopPropagation();
                             // Fetch all songs for this playlist and play all
@@ -263,7 +263,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
                     </div>
                     
                     <div className="space-y-1">
-                      <h3 className="font-medium text-sm truncate">{playlist.name}</h3>
+                      <div className="flex items-center justify-between gap-2"><h3 className="font-semibold text-base truncate">{playlist.name}</h3><Sparkles className="h-4 w-4 shrink-0 text-foreground/40" /></div>
                       <p className="text-xs text-muted-foreground">
                         {playlist.song_count} song{playlist.song_count !== 1 ? 's' : ''}
                       </p>
@@ -273,7 +273,7 @@ export const PlaylistsView: React.FC<PlaylistsViewProps> = ({ onPlayTrack, onVie
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-end gap-1 mt-2">
+                  <div className="flex items-center justify-end gap-2 mt-4 border-t border-foreground/[0.08] pt-3">
                     <SharePlaylistDialog
                       playlistId={playlist.id}
                       playlistName={playlist.name}

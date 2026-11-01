@@ -22,7 +22,7 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     --primary: 280 100% 55%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 220 12% 7%;
     --secondary: 220 14% 92%;
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 92%;
@@ -46,7 +46,7 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 280 100% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary-foreground: 220 12% 7%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
@@ -54,43 +54,43 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
   }
 
   .dark {
-    --background: 255 32% 6%;
-    --foreground: 270 30% 97%;
-    --card: 260 33% 12%;
-    --card-foreground: 270 30% 97%;
-    --popover: 260 33% 11%;
-    --popover-foreground: 270 30% 97%;
-    --primary: 263 83% 58%;
+    --background: 220 12% 7%;
+    --foreground: 210 14% 94%;
+    --card: 220 11% 12%;
+    --card-foreground: 210 14% 94%;
+    --popover: 220 12% 11%;
+    --popover-foreground: 210 14% 94%;
+    --primary: 210 12% 76%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 270 95% 75%;
-    --secondary: 260 25% 16%;
-    --secondary-foreground: 270 30% 97%;
-    --muted: 258 22% 18%;
-    --muted-foreground: 265 15% 68%;
-    --accent: 270 95% 75%;
-    --accent-foreground: 255 32% 8%;
+    --primary-glow: 210 16% 88%;
+    --secondary: 220 10% 19%;
+    --secondary-foreground: 210 14% 94%;
+    --muted: 220 9% 17%;
+    --muted-foreground: 215 9% 66%;
+    --accent: 205 12% 62%;
+    --accent-foreground: 220 12% 7%;
     --destructive: 0 72% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 260 22% 19%;
-    --input: 260 22% 19%;
-    --ring: 263 83% 58%;
-    --player-bg: 258 34% 8%;
-    --sidebar-bg: 258 34% 9%;
-    --hover-bg: 260 25% 20%;
-    --gradient-primary: linear-gradient(135deg, hsl(263 83% 58%), hsl(270 95% 75%));
-    --gradient-secondary: linear-gradient(135deg, hsl(280 70% 45%), hsl(255 80% 62%));
-    --gradient-hero: linear-gradient(135deg, hsl(263 83% 58%), hsl(292 80% 62%));
-    --gradient-card: linear-gradient(135deg, hsl(260 33% 12%), hsl(258 22% 18%));
-    --shadow-glow: 0 0 40px hsl(270 95% 75% / 0.3);
-    --shadow-elegant: 0 10px 30px -10px hsl(255 32% 4% / 0.6);
-    --sidebar-background: 258 34% 9%;
-    --sidebar-foreground: 270 20% 92%;
-    --sidebar-primary: 263 83% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 260 25% 16%;
-    --sidebar-accent-foreground: 270 30% 97%;
-    --sidebar-border: 260 22% 18%;
-    --sidebar-ring: 263 83% 58%;
+    --border: 215 10% 25%;
+    --input: 215 10% 25%;
+    --ring: 210 12% 76%;
+    --player-bg: 220 12% 9%;
+    --sidebar-bg: 220 12% 9%;
+    --hover-bg: 215 9% 22%;
+    --gradient-primary: linear-gradient(135deg, hsl(210 10% 58%), hsl(210 16% 82%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 10% 35%), hsl(205 12% 58%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 10% 30%), hsl(205 12% 62%));
+    --gradient-card: linear-gradient(135deg, hsl(220 11% 14%), hsl(220 9% 19%));
+    --shadow-glow: 0 0 40px hsl(210 16% 82% / 0.16);
+    --shadow-elegant: 0 10px 30px -10px hsl(220 12% 2% / 0.7);
+    --sidebar-background: 220 12% 9%;
+    --sidebar-foreground: 210 14% 92%;
+    --sidebar-primary: 210 12% 76%;
+    --sidebar-primary-foreground: 220 12% 7%;
+    --sidebar-accent: 220 10% 18%;
+    --sidebar-accent-foreground: 210 14% 94%;
+    --sidebar-border: 215 10% 24%;
+    --sidebar-ring: 210 12% 76%;
   }
 
 }
@@ -123,8 +123,8 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
     -webkit-text-size-adjust: 100%;
     @apply bg-background text-foreground font-sans;
     background-image:
-      radial-gradient(60rem 40rem at 12% -10%, hsl(var(--primary) / 0.14), transparent 60%),
-      radial-gradient(50rem 35rem at 100% 0%, hsl(var(--accent) / 0.10), transparent 55%),
+      radial-gradient(60rem 40rem at 12% -10%, hsl(var(--foreground) / 0.11), transparent 60%),
+      radial-gradient(50rem 35rem at 100% 0%, hsl(var(--accent) / 0.08), transparent 55%),
       radial-gradient(45rem 40rem at 50% 120%, hsl(var(--primary) / 0.10), transparent 60%);
     background-attachment: fixed;
   }
@@ -148,16 +148,16 @@ All colors MUST be HSL. Dark theme with vibrant gradients.
 @layer components {
   /* ── Glassmorphism surfaces ── */
   .glass-card {
-    @apply relative bg-card/40 backdrop-blur-2xl border border-foreground/[0.08] shadow-[0_8px_32px_-12px_hsl(var(--background)/0.8)];
+    @apply relative bg-card/45 backdrop-blur-2xl border border-foreground/[0.11] shadow-[0_8px_32px_-12px_hsl(var(--background)/0.8)];
   }
 
   .glass-panel {
-    @apply relative rounded-2xl bg-card/35 backdrop-blur-2xl border border-foreground/[0.08]
+    @apply relative rounded-2xl bg-card/40 backdrop-blur-2xl border border-foreground/[0.11]
            shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.08),0_12px_40px_-16px_hsl(var(--background)/0.9)];
   }
 
   .glass-tile {
-    @apply relative rounded-xl bg-foreground/[0.04] backdrop-blur-xl border border-foreground/[0.07]
+    @apply relative rounded-xl bg-foreground/[0.055] backdrop-blur-xl border border-foreground/[0.10]
            transition-all duration-300 hover:bg-foreground/[0.08] hover:border-primary/30;
   }
 

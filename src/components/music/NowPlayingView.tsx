@@ -2,6 +2,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { AddToPlaylistButton } from './AddToPlaylistButton';
 import {
   Play,
   Pause,
@@ -545,6 +546,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
           </div>
 
           <div className="flex items-center justify-between max-w-sm mx-auto w-full">
+            <AddToPlaylistButton track={currentTrack} />
             <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`} onClick={onToggleLike}>
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
             </Button>

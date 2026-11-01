@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, ArrowLeft, Music, Trash2, Plus } from 'lucide-react';
+import { Play, ArrowLeft, Music, Trash2, ListMusic, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -169,7 +169,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-5 md:p-8 space-y-7 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBack}>
@@ -179,8 +179,8 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
       </div>
 
       {/* Playlist Info */}
-      <div className="flex items-start gap-6">
-        <div className="relative w-48 h-48 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
+      <div className="relative flex flex-col sm:flex-row items-start gap-6 overflow-hidden rounded-3xl border border-foreground/10 bg-gradient-to-br from-foreground/[0.10] via-card/50 to-foreground/[0.025] p-5 md:p-7 shadow-xl backdrop-blur-2xl">
+        <div className="relative w-full sm:w-48 h-48 shrink-0 overflow-hidden rounded-2xl border border-foreground/10 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--foreground)/.30),transparent_42%),linear-gradient(145deg,hsl(var(--foreground)/.16),hsl(var(--card)/.8)_55%,hsl(var(--foreground)/.04))] flex items-center justify-center shadow-xl">
           {playlist.cover_image_url ? (
             <img
               src={playlist.cover_image_url}
@@ -188,13 +188,13 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
               className="w-full h-full object-cover rounded-lg"
             />
           ) : (
-            <Music className="w-16 h-16 text-muted-foreground" />
+            <div className="flex flex-col items-center gap-2 text-foreground/60"><ListMusic className="w-16 h-16" /><span className="text-[10px] font-semibold uppercase tracking-[0.3em]">Melodiya</span></div>
           )}
         </div>
         
         <div className="flex-1 space-y-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{playlist.name}</h1>
+            <p className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"><Sparkles className="h-3.5 w-3.5" /> Your collection</p><h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2">{playlist.name}</h1>
             {playlist.description && (
               <p className="text-muted-foreground mb-4">{playlist.description}</p>
             )}
@@ -207,14 +207,10 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
             <Button 
               onClick={playAllSongs}
               disabled={songs.length === 0}
-              className="bg-gradient-primary hover:opacity-90"
+              className="rounded-full bg-foreground text-background shadow-lg hover:bg-foreground/90"
             >
               <Play className="w-4 h-4 mr-2" />
               Play All
-            </Button>
-            <Button variant="outline">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Songs
             </Button>
           </div>
         </div>
@@ -222,15 +218,15 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
 
       {/* Songs List */}
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold">Songs</h2>
+        <div className="flex items-end justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground mb-1">In this mix</p><h2 className="text-xl font-semibold">Tracks</h2></div><span className="text-xs text-muted-foreground">{songs.length} total</span></div>
         
         {songs.length > 0 ? (
           <div className="space-y-2">
             {songs.map((song, index) => (
-              <Card key={song.id} className="glass-card hover-lift">
+              <Card key={song.id} className="overflow-hidden rounded-2xl border border-foreground/[0.09] bg-gradient-to-r from-foreground/[0.065] to-card/35 backdrop-blur-xl transition-colors hover:border-foreground/20 hover:bg-foreground/[0.08]">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-8 text-center text-muted-foreground text-sm">
+                    <div className="w-7 text-center font-mono text-xs text-muted-foreground/70">
                       {index + 1}
                     </div>
                     
@@ -238,7 +234,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                       <img
                         src={song.thumbnail_url || '/placeholder.svg'}
                         alt={song.title}
-                        className="w-12 h-12 rounded object-cover"
+                        className="w-12 h-12 rounded-xl object-cover shadow-md"
                       />
                       <div className="absolute inset-0 bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Button
