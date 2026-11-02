@@ -6,7 +6,8 @@ import { fetchWeeklyTrending } from '@/lib/trending';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { fetchPersonalizedRows, type RecommendationRow } from '@/lib/recommendations';
-import { fetchArtistSongs, fetchPopularArtists, searchMelodiyaTracks, type MusicArtist } from '@/lib/musicSearch';
+import { fetchPopularArtists, type MusicArtist } from '@/lib/musicSearch';
+import type { MusicMood } from './MusicDiscoveryDetailView';
 import { LANGUAGE_LABELS } from '@/contexts/PreferencesContext';
 
 interface Track {
@@ -21,6 +22,8 @@ interface Track {
 interface HomeViewProps {
   onPlayTrack: (track: Track, playlist?: Track[]) => void;
   onViewChange?: (view: string) => void;
+  onSelectArtist: (artist: MusicArtist) => void;
+  onSelectMood: (mood: MusicMood) => void;
 }
 
 const getGreeting = () => {
@@ -213,7 +216,7 @@ const SkeletonCard = () => (
 
 /* ─────────── main component ─────────── */
 
-export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange, onSelectArtist, onSelectMood }) => {
   const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -221,14 +224,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
   const [personalLoading, setPersonalLoading] = useState(true);
   const [popularArtists, setPopularArtists] = useState<MusicArtist[]>([]);
   const [artistsLoading, setArtistsLoading] = useState(true);
-  const [selectedArtist, setSelectedArtist] = useState<MusicArtist | null>(null);
-  const [artistSongs, setArtistSongs] = useState<Track[]>([]);
-  const [artistSongsLoading, setArtistSongsLoading] = useState(false);
-  const [artistSongsError, setArtistSongsError] = useState('');
-  const [selectedMood, setSelectedMood] = useState<{ id: string; title: string; query: string } | null>(null);
-  const [moodTracks, setMoodTracks] = useState<Track[]>([]);
-  const [moodLoading, setMoodLoading] = useState(false);
-  const [moodError, setMoodError] = useState('');
   const [featIndex, setFeatIndex] = useState(0);
   const touchStartX = React.useRef<number | null>(null);
   const { user } = useAuth();
@@ -299,45 +294,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
       cancelled = true;
     };
   }, [preferences, version, preferencesLoading]);
-
-  const handleMoodSelect = async (mood: { id: string; title: string; query: string }) => {
-    setSelectedMood(mood);
-    setMoodTracks([]);
-    setMoodError('');
-    setMoodLoading(true);
-    try {
-      const tracks = await searchMelodiyaTracks(mood.query);
-      setMoodTracks(tracks as Track[]);
-      if (tracks.length === 0) setMoodError('No official tracks were found for this mood yet.');
-    } catch (error) {
-      console.error('Failed to load mood tracks:', error);
-      setMoodError('Could not load this mood right now. Please try again.');
-    } finally {
-      setMoodLoading(false);
-    }
-  };
-
-  const handleArtistSelect = async (artist: MusicArtist) => {
-    setSelectedArtist(artist);
-    setArtistSongs([]);
-    setArtistSongsError('');
-    setArtistSongsLoading(true);
-    try {
-      const result = await fetchArtistSongs(artist.browseId, artist.name, 30);
-      setSelectedArtist((current) => current?.browseId === artist.browseId
-        ? { ...current, name: result.artist }
-        : current);
-      setArtistSongs(result.tracks as Track[]);
-      if (result.tracks.length === 0) {
-        setArtistSongsError('No official songs are currently available for this artist.');
-      }
-    } catch (error) {
-      console.error('Failed to load artist songs:', error);
-      setArtistSongsError('Could not load this artist\'s songs right now. Please try again.');
-    } finally {
-      setArtistSongsLoading(false);
-    }
-  };
 
   const fetchRecentlyPlayed = async () => {
     try {
@@ -510,10 +466,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
               title="Late night"
               subtitle="After-hours R&B and mellow electronics"
               variant="night"
-              loading={moodLoading && selectedMood?.id === 'late-night'}
-              onClick={() => handleMoodSelect({
+              onClick={() => onSelectMood({
                 id: 'late-night',
                 title: 'Late night',
+                subtitle: 'After-hours R&B and mellow electronics',
+                description: 'After-hours R&B and mellow electronics',
                 query: 'late night R&B chill electronic songs',
               })}
             />
@@ -521,142 +478,50 @@ export const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onViewChange })
               title="Deep focus"
               subtitle="Minimal, calm sounds for concentration"
               variant="focus"
-              loading={moodLoading && selectedMood?.id === 'deep-focus'}
-              onClick={() => handleMoodSelect({
+              onClick={() => onSelectMood({
                 id: 'deep-focus',
                 title: 'Deep focus',
+                subtitle: 'Minimal, calm sounds for concentration',
+                description: 'Minimal, calm sounds for concentration',
                 query: 'deep focus ambient electronic calm songs',
               })}
             />
           </div>
-          {selectedMood && (
-            <div className="space-y-3 rounded-2xl border border-foreground/[0.08] bg-foreground/[0.02] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-[.18em] text-muted-foreground">Mood selection</p>
-                  <h3 className="mt-1 text-base font-medium text-zinc-200">{selectedMood.title}</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedMood(null); setMoodTracks([]); setMoodError(''); }}
-                  className="text-xs text-muted-foreground hover:text-zinc-100"
-                >
-                  Close
-                </button>
-              </div>
-              {moodLoading ? (
-                <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Finding official tracks…
-                </div>
-              ) : moodError ? (
-                <p className="py-3 text-sm text-muted-foreground">{moodError}</p>
-              ) : (
-                <div className="space-y-1">
-                  {moodTracks.map((track, index) => (
-                    <button
-                      key={track.videoId}
-                      type="button"
-                      onClick={() => onPlayTrack(track, moodTracks)}
-                      className="flex w-full min-w-0 items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-foreground/[0.05]"
-                    >
-                      <span className="w-5 shrink-0 text-[10px] text-zinc-600">{String(index + 1).padStart(2, '0')}</span>
-                      <img src={track.thumbnail} alt="" className="size-10 shrink-0 rounded-lg object-cover" loading="lazy" />
-                      <span className="min-w-0 flex-1">
-                        <strong className="block truncate text-xs font-medium text-zinc-200">{track.title}</strong>
-                        <small className="block truncate text-[10px] text-zinc-600">{track.artist}</small>
-                      </span>
-                      <Play className="h-4 w-4 shrink-0 text-zinc-400" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </section>
 
         {/* ── Popular artists ── */}
-        {selectedArtist ? (
-          <section className="space-y-4">
-            <button
-              type="button"
-              onClick={() => { setSelectedArtist(null); setArtistSongs([]); setArtistSongsError(''); }}
-              className="inline-flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-zinc-100"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back to popular artists
-            </button>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground/70">Artist catalogue</p>
-              <h2 className="mt-1 text-2xl font-medium text-zinc-100">{selectedArtist.name}</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Official songs · Most popular first</p>
+        <section className="space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground/70">Picked for your taste</p>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <h2 className="text-xl font-medium text-zinc-200">Popular artists</h2>
+              <span className="text-[10px] text-zinc-600">
+                {preferences.favorite_genres.length ? preferences.favorite_genres.slice(0, 2).join(' · ') : 'Based on popular music'}
+              </span>
             </div>
-            {artistSongsLoading ? (
-              <div className="flex items-center gap-3 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" /> Loading official songs…
-              </div>
-            ) : artistSongsError ? (
-              <div className="rounded-2xl border border-foreground/[0.08] bg-foreground/[0.025] px-5 py-8 text-center text-sm text-muted-foreground">
-                {artistSongsError}
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-2xl border border-foreground/[0.08] bg-foreground/[0.02]">
-                {artistSongs.map((track, index) => (
-                  <button
-                    key={track.videoId}
-                    type="button"
-                    onClick={() => onPlayTrack(track, artistSongs)}
-                    className="group flex w-full min-w-0 items-center gap-3 border-b border-foreground/[0.06] px-3 py-2.5 text-left transition-colors last:border-0 hover:bg-foreground/[0.04]"
-                  >
-                    <span className="w-5 shrink-0 text-[10px] text-zinc-600">{String(index + 1).padStart(2, '0')}</span>
-                    <img src={track.thumbnail} alt="" loading="lazy" className="size-11 shrink-0 rounded-lg border border-foreground/[0.08] object-cover" />
-                    <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-sm font-medium text-zinc-200">{track.title}</strong>
-                      <small className="mt-0.5 block truncate text-xs text-zinc-600">{track.artist}</small>
-                    </span>
-                    <Play className="h-4 w-4 shrink-0 text-zinc-500 transition-colors group-hover:text-zinc-100" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : (
-          <section className="space-y-4">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground/70">Picked for your taste</p>
-              <div className="mt-1 flex items-end justify-between gap-3">
-                <h2 className="text-xl font-medium text-zinc-200">Popular artists</h2>
-                <span className="text-[10px] text-zinc-600">
-                  {preferences.favorite_genres.length ? preferences.favorite_genres.slice(0, 2).join(' · ') : 'Based on popular music'}
-                </span>
-              </div>
+          </div>
+          {artistsLoading ? (
+            <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="mx-auto aspect-square w-full max-w-[8.5rem] animate-pulse rounded-full bg-foreground/[0.06]" />
+                  <div className="mx-auto h-3 w-3/4 animate-pulse rounded bg-foreground/[0.05]" />
+                </div>
+              ))}
             </div>
-            {artistsLoading ? (
-              <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="mx-auto aspect-square w-full max-w-[8.5rem] animate-pulse rounded-full bg-foreground/[0.06]" />
-                    <div className="mx-auto h-3 w-3/4 animate-pulse rounded bg-foreground/[0.05]" />
-                  </div>
-                ))}
-              </div>
-            ) : popularArtists.length > 0 ? (
-              <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
-                {popularArtists.map((artist, index) => (
-                  <ArtistCard
-                    key={artist.browseId}
-                    artist={artist}
-                    index={index}
-                    onClick={() => handleArtistSelect(artist)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-foreground/[0.08] bg-foreground/[0.025] px-5 py-8 text-center">
-                <Sparkles className="mx-auto mb-3 h-5 w-5 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Choose your favourite genres in Settings to discover artists that match your taste.</p>
-              </div>
-            )}
-          </section>
-        )}
+          ) : popularArtists.length > 0 ? (
+            <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
+              {popularArtists.map((artist, index) => (
+                <ArtistCard key={artist.browseId} artist={artist} index={index} onClick={() => onSelectArtist(artist)} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-foreground/[0.08] bg-foreground/[0.025] px-5 py-8 text-center">
+              <Sparkles className="mx-auto mb-3 h-5 w-5 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Choose your favourite genres in Settings to discover artists that match your taste.</p>
+            </div>
+          )}
+        </section>
 
         {/* ── Popular this week ── */}
         <Row title="Popular this week" subtitle="What everyone is streaming" showArrows onViewAll={() => onViewChange?.('trending')}>
