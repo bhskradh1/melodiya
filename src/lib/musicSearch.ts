@@ -48,7 +48,9 @@ const normalizeTrack = (value: unknown): MelodiyaSearchTrack | null => {
   };
 };
 
-const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]> => {
+const postMusicSearchApi = async (
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> => {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
 
@@ -61,19 +63,93 @@ const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]>
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ query, limit: MAX_SEARCH_RESULTS }),
-    signal: AbortSignal.timeout(12000),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
   });
 
+  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as YtMusicSearchResponse;
-    throw new Error(payload.error || `YouTube Music search failed (${response.status})`);
+    throw new Error(
+      String(payload.error || `YouTube Music request failed (${response.status})`),
+    );
   }
+  return payload;
+};
 
-  const payload = (await response.json()) as YtMusicSearchResponse;
+const searchYouTubeMusic = async (query: string): Promise<MelodiyaSearchTrack[]> => {
+  const payload = await postMusicSearchApi({ action: 'search', query, limit: MAX_SEARCH_RESULTS });
   return Array.isArray(payload.tracks)
     ? payload.tracks.map(normalizeTrack).filter((track): track is MelodiyaSearchTrack => !!track)
     : [];
+};
+
+export interface MusicArtist {
+  id: string;
+  browseId: string;
+  name: string;
+  thumbnail: string;
+  subscribers?: string;
+  genre?: string;
+}
+
+export interface ArtistSongsResult {
+  artist: string;
+  tracks: MelodiyaSearchTrack[];
+}
+
+/** Discover artists from the listener's saved genre and language preferences. */
+export const fetchPopularArtists = async (
+  genres: string[],
+  language: string,
+  limit = 6,
+): Promise<MusicArtist[]> => {
+  const payload = await postMusicSearchApi({
+    action: 'artists',
+    genres: genres.slice(0, 3),
+    language,
+    limit: Math.max(1, Math.min(12, limit)),
+  });
+
+  if (!Array.isArray(payload.artists)) return [];
+  return payload.artists
+    .map((value): MusicArtist | null => {
+      if (!value || typeof value !== 'object') return null;
+      const artist = value as Record<string, unknown>;
+      const browseId = String(artist.browseId || artist.id || '').trim();
+      const name = String(artist.name || '').trim();
+      if (!browseId.startsWith('UC') || !name) return null;
+      return {
+        id: browseId,
+        browseId,
+        name,
+        thumbnail: String(artist.thumbnail || ''),
+        subscribers: String(artist.subscribers || ''),
+        genre: String(artist.genre || ''),
+      };
+    })
+    .filter((artist): artist is MusicArtist => artist !== null);
+};
+
+/** Load an artist's official YouTube Music top-songs list in catalogue order. */
+export const fetchArtistSongs = async (
+  artistId: string,
+  artistName: string,
+  limit = 30,
+): Promise<ArtistSongsResult> => {
+  if (!artistId.startsWith('UC')) throw new Error('Invalid artist selection');
+  const payload = await postMusicSearchApi({
+    action: 'artist_songs',
+    artistId,
+    artistName,
+    limit: Math.max(1, Math.min(50, limit)),
+  });
+  const tracks = Array.isArray(payload.tracks)
+    ? payload.tracks.map(normalizeTrack).filter((track): track is MelodiyaSearchTrack => !!track)
+    : [];
+  return {
+    artist: String(payload.artist || artistName),
+    tracks,
+  };
 };
 
 /**
