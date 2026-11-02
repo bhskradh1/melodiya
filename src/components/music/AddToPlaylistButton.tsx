@@ -42,18 +42,27 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!open || !user) {
-      if (open && !user) {
+    let cancelled = false;
+
+    if (!user) {
+      setPlaylists([]);
+      setSavedIds([]);
+      setMembershipLoading(false);
+      setLoading(false);
+      if (open) {
         toast({ title: 'Sign in to save songs', description: 'Your playlists are linked to your account.' });
         setOpen(false);
       }
       return;
     }
 
-    let cancelled = false;
     const loadPlaylists = async () => {
-      setLoading(true);
+      // The compact + control also needs membership state before the dialog opens.
+      setPlaylists([]);
+      setSavedIds([]);
       setMembershipLoading(true);
+      if (open) setLoading(true);
+
       const { data, error } = await supabase
         .from('playlists')
         .select('id, name, playlist_songs(count)')
@@ -62,7 +71,11 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
 
       if (cancelled) return;
       if (error) {
-        toast({ title: 'Could not load playlists', description: error.message, variant: 'destructive' });
+        if (open) {
+          toast({ title: 'Could not load playlists', description: error.message, variant: 'destructive' });
+        } else {
+          console.error('Could not load playlists for membership check:', error);
+        }
         setPlaylists([]);
         setSavedIds([]);
         setLoading(false);
@@ -84,7 +97,6 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
         return;
       }
 
-      // Check membership for this exact song across all of the user's playlists.
       const { data: memberships, error: membershipError } = await supabase
         .from('playlist_songs')
         .select('playlist_id')
