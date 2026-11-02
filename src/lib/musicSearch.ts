@@ -26,15 +26,9 @@ const getSearchApiUrl = (): string => {
   const configured = import.meta.env.VITE_YTMUSIC_SEARCH_API_URL?.trim();
   if (configured) return configured;
 
-  const isLocalAppOrigin =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.protocol === 'capacitor:');
-
-  return isLocalAppOrigin
-    ? PRODUCTION_SEARCH_API
-    : `${window.location.origin}/api/ytmusic-search`;
+  // The Sonora frontend may be hosted separately from the existing search API.
+  // Use the stable API deployment by default; deployments can override it above.
+  return PRODUCTION_SEARCH_API;
 };
 
 const normalizeTrack = (value: unknown): MelodiyaSearchTrack | null => {
