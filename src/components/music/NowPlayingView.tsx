@@ -89,6 +89,8 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const lyricsRequestIdRef = useRef(0);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const activePreviewLyricRef = useRef<HTMLParagraphElement>(null);
+  const previewLyricsContainerRef = useRef<HTMLDivElement>(null);
   const { lyricsAutoScroll } = useSettings();
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(lyricsAutoScroll);
 
@@ -143,10 +145,14 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return idx;
   }, [syncedLines, currentTime, lyricsOffset]);
 
-  // Detect user manual scroll to temporarily disable auto-scroll
+  // Manual scrolling pauses automatic following briefly in either lyrics mode.
   useEffect(() => {
-    const container = lyricsContainerRef.current;
-    if (!container) return;
+    const containers = [
+      previewLyricsContainerRef.current,
+      lyricsContainerRef.current,
+    ].filter((container): container is HTMLDivElement => !!container);
+    if (containers.length === 0) return;
+
     const handleScroll = () => {
       if (!userScrollRef.current) {
         userScrollRef.current = true;
@@ -158,21 +164,30 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         setAutoScrollEnabled(true);
       }, 4000);
     };
-    container.addEventListener('wheel', handleScroll, { passive: true });
-    container.addEventListener('touchmove', handleScroll, { passive: true });
+
+    containers.forEach((container) => {
+      container.addEventListener('wheel', handleScroll, { passive: true });
+      container.addEventListener('touchmove', handleScroll, { passive: true });
+    });
     return () => {
-      container.removeEventListener('wheel', handleScroll);
-      container.removeEventListener('touchmove', handleScroll);
+      containers.forEach((container) => {
+        container.removeEventListener('wheel', handleScroll);
+        container.removeEventListener('touchmove', handleScroll);
+      });
       if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
     };
   }, [showLyrics, syncedLines, plainLyrics]);
 
-  // Scroll only the lyrics pane. scrollIntoView can move the page behind
-  // a fixed mobile player, which makes lyrics appear to jump out of view.
+  // Keep the active lyric centered in compact mode by default, or in the
+  // expanded lyrics view after the listener opens it.
   useEffect(() => {
-    const container = lyricsContainerRef.current;
-    const activeLine = activeLyricRef.current;
-    if (!container || !activeLine || !autoScrollEnabled || !isSynced) return;
+    const container = showLyrics
+      ? lyricsContainerRef.current
+      : previewLyricsContainerRef.current;
+    const activeLine = showLyrics
+      ? activeLyricRef.current
+      : activePreviewLyricRef.current;
+    if (!isVisible || !container || !activeLine || !autoScrollEnabled || !isSynced) return;
 
     const containerRect = container.getBoundingClientRect();
     const lineRect = activeLine.getBoundingClientRect();
@@ -185,7 +200,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       top: Math.max(0, nextTop),
       behavior: 'smooth',
     });
-  }, [activeLineIndex, autoScrollEnabled, isSynced]);
+  }, [activeLineIndex, autoScrollEnabled, isSynced, showLyrics, isVisible]);
 
   // Auto-scroll for plain lyrics (no timestamps) — scroll at a constant rate
   useEffect(() => {
@@ -193,11 +208,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       cancelAnimationFrame(plainScrollRef.current);
       plainScrollRef.current = null;
     }
-    if (!autoScrollEnabled || !plainLyrics || !showLyrics || isSynced || !isPlaying) return;
-    const container = lyricsContainerRef.current;
+    if (!autoScrollEnabled || !plainLyrics || !isVisible || isSynced || !isPlaying) return;
+    const container = showLyrics
+      ? lyricsContainerRef.current
+      : previewLyricsContainerRef.current;
     if (!container) return;
 
-    const pixelsPerSecond = 30 * scrollSpeed;
+    const pixelsPerSecond = (showLyrics ? 30 : 20) * scrollSpeed;
     let lastTime: number | null = null;
 
     const step = (timestamp: number) => {
@@ -213,7 +230,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return () => {
       if (plainScrollRef.current) cancelAnimationFrame(plainScrollRef.current);
     };
-  }, [autoScrollEnabled, plainLyrics, showLyrics, isSynced, isPlaying, scrollSpeed]);
+  }, [autoScrollEnabled, plainLyrics, showLyrics, isSynced, isPlaying, scrollSpeed, isVisible]);
 
   const normalizeMatchText = (value: string) => value
     .toLocaleLowerCase()
@@ -362,7 +379,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   };
 
   useEffect(() => {
-    if (!showLyrics) {
+    if (!isVisible) {
       lyricsRequestIdRef.current += 1;
       return;
     }
@@ -370,7 +387,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return () => {
       lyricsRequestIdRef.current += 1;
     };
-  }, [currentTrack.videoId, showLyrics]);
+  }, [currentTrack.videoId, isVisible]);
+
+  useEffect(() => {
+    if (!showLyrics && previewLyricsContainerRef.current) {
+      previewLyricsContainerRef.current.scrollTop = 0;
+    }
+  }, [currentTrack.videoId, showLyrics, syncedLines]);
 
   useEffect(() => {
     const storageKey = `sonora-lyrics-offset:${currentTrack.videoId}`;
@@ -435,8 +458,8 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         {/* Main Content Area */}
         <div className={`flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-hidden px-5 pt-1 md:flex-row ${showLyrics ? 'items-stretch md:items-center' : 'items-center'}`}>
           {/* Artwork moves aside on desktop and yields the full phone panel to lyrics on mobile. */}
-          <div className={`flex flex-col items-center gap-4 ${showLyrics ? 'hidden md:flex md:w-1/2' : 'w-full'} transition-all duration-300`}>
-            <div className={`relative aspect-square ${showLyrics ? 'w-48 md:w-72' : 'w-[min(78vw,21rem)] md:w-80'} transition-all duration-300`}>
+          <div className={`flex flex-col items-center gap-3 ${showLyrics ? 'hidden md:flex md:w-1/2' : 'w-full'} transition-all duration-300`}>
+            <div className={`relative aspect-square ${showLyrics ? 'w-48 md:w-72' : 'w-[min(55vw,15rem)] md:w-72'} transition-all duration-300`}>
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
@@ -453,6 +476,76 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
               <h2 className="text-2xl md:text-3xl font-medium tracking-[-.035em] truncate text-zinc-100">{currentTrack.title}</h2>
               <p className="mt-1.5 text-sm text-zinc-500">{currentTrack.artist}</p>
             </div>
+
+            {!showLyrics && (
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label="Playing lyrics. Double-click to open full lyrics."
+                onDoubleClick={() => setShowLyrics(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') setShowLyrics(true);
+                }}
+                className="group mt-1 block w-full max-w-md select-none overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.018))] px-4 py-2.5 text-left outline-none transition-colors hover:border-white/[0.16] hover:bg-white/[0.045] focus-visible:ring-2 focus-visible:ring-zinc-400"
+                style={{ touchAction: 'manipulation' }}
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <span className="text-[9px] font-semibold uppercase tracking-[.2em] text-zinc-600">Playing lyrics</span>
+                  <span className="text-[9px] text-zinc-600 transition-colors group-hover:text-zinc-300">
+                    Double-click to expand
+                  </span>
+                </div>
+                <div
+                  ref={previewLyricsContainerRef}
+                  className="h-[4.1rem] overflow-y-auto overscroll-contain scroll-smooth scrollbar-none"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+                >
+                  {lyricsLoading && (
+                    <div className="flex h-full items-center justify-center gap-2 text-xs text-zinc-500">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading lyrics…
+                    </div>
+                  )}
+                  {lyricsError && !lyricsLoading && (
+                    <p className="flex h-full items-center justify-center text-center text-xs text-zinc-500">
+                      Lyrics unavailable for this recording
+                    </p>
+                  )}
+                  {isSynced && syncedLines && !lyricsLoading && (
+                    <div className="space-y-1 py-4">
+                      {syncedLines.map((line, index) => (
+                        <p
+                          key={index}
+                          ref={index === activeLineIndex ? activePreviewLyricRef : undefined}
+                          className={`rounded-md px-2 py-1 text-xs leading-relaxed transition-colors duration-300 ${
+                            index === activeLineIndex
+                              ? 'bg-white/[0.07] font-medium text-zinc-100'
+                              : index < activeLineIndex
+                                ? 'text-zinc-700'
+                                : 'text-zinc-500'
+                          }`}
+                        >
+                          {line.text}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {!isSynced && plainLyrics && !lyricsLoading && (
+                    <div className="space-y-1 py-2">
+                      {plainLyrics.split('\n').map((line, index) => (
+                        <p
+                          key={index}
+                          ref={index === 0 ? activePreviewLyricRef : undefined}
+                          className="px-2 py-0.5 text-xs leading-relaxed text-zinc-400"
+                        >
+                          {line || '\u00A0'}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-[#111313] to-transparent" />
+              </div>
+            )}
           </div>
 
           {/* Lyrics Panel */}
@@ -648,9 +741,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
           <div className={`mx-auto flex w-full max-w-xs items-center justify-center gap-8 pt-1 ${showLyrics ? 'hidden md:flex' : 'flex'}`}>
             <Button variant="ghost" size="sm" aria-label="Shuffle" className={`h-9 w-9 rounded-full p-0 ${isShuffle ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={onToggleShuffle}>
               <Shuffle className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" aria-label="Lyrics" className={`h-9 w-9 rounded-full p-0 ${showLyrics ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={() => setShowLyrics(!showLyrics)}>
-              <Music2 className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" aria-label="Repeat" className={`h-9 w-9 rounded-full p-0 ${isRepeat ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={onToggleRepeat}>
               <Repeat className="h-4 w-4" />
