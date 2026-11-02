@@ -196,7 +196,7 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="glass-panel max-w-sm">
+      <DialogContent className="glass-panel max-h-[85dvh] max-w-sm overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ListMusic className="h-5 w-5 text-foreground/80" />
