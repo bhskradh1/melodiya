@@ -450,7 +450,14 @@ export const MelodiyaApp: React.FC = () => {
       case 'settings':
         return <SettingsView />;
       default:
-        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={setActiveView} />;
+        return (
+          <HomeView
+            onPlayTrack={handlePlayTrack}
+            onViewChange={navigateToView}
+            onSelectArtist={(artist) => navigateToView('artist-detail', null, { artist })}
+            onSelectMood={(mood) => navigateToView('mood-detail', null, { mood })}
+          />
+        );
     }
   };
 
@@ -538,6 +545,7 @@ export const MelodiyaApp: React.FC = () => {
             const Icon = item.icon;
             const isActive =
               activeView === item.id ||
+              (item.id === 'home' && ['artist-detail', 'mood-detail'].includes(activeView)) ||
               (item.id === 'library' &&
                 ['library', 'liked', 'playlists', 'shared-playlists', 'recently-played', 'playlist-detail'].includes(activeView));
             return (
