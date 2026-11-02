@@ -85,6 +85,8 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const [isSynced, setIsSynced] = useState(false);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsError, setLyricsError] = useState<string | null>(null);
+  const [lyricsOffset, setLyricsOffset] = useState(0);
+  const lyricsRequestIdRef = useRef(0);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const { lyricsAutoScroll } = useSettings();
@@ -107,38 +109,39 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Parse LRC format: [mm:ss.xx] text -> { time, text }
+  // Parse LRC timestamps such as [mm:ss], [mm:ss.xx], and multiple tags on one line.
   const parseSyncedLyrics = useCallback((lrc: string): SyncedLine[] => {
     const lines: SyncedLine[] = [];
-    for (const line of lrc.split('\n')) {
-      const match = line.match(/^\[(\d{2}):(\d{2})\.(\d{2,3})\]\s?(.*)/);
-      if (match) {
-        const mins = parseInt(match[1]);
-        const secs = parseInt(match[2]);
-        const ms = parseInt(match[3].padEnd(3, '0'));
-        const time = mins * 60 + secs + ms / 1000;
-        const text = match[4].trim();
-        if (text) lines.push({ time, text });
+    for (const rawLine of lrc.split('\n')) {
+      const timestampPattern = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+      const timestamps = Array.from(rawLine.matchAll(timestampPattern));
+      const text = rawLine.replace(timestampPattern, '').trim();
+      if (!text || timestamps.length === 0) continue;
+
+      for (const match of timestamps) {
+        const minutes = Number(match[1]);
+        const seconds = Number(match[2]);
+        const fraction = match[3] ? Number(`0.${match[3]}`) : 0;
+        if (Number.isFinite(minutes) && seconds < 60) {
+          lines.push({ time: minutes * 60 + seconds + fraction, text });
+        }
       }
     }
     return lines.sort((a, b) => a.time - b.time);
   }, []);
 
-  // Find current active line index based on playback time with adaptive offset
+  // LRC timestamps are treated as the song timeline. A user-adjustable offset
+  // compensates for different intros/edits in the official video being played.
   const activeLineIndex = useMemo(() => {
     if (!syncedLines || syncedLines.length === 0) return -1;
-    // Use a small look-ahead so lyrics highlight just before the vocal starts
-    const adjustedTime = currentTime + 0.3;
+    const lyricTime = currentTime - lyricsOffset;
     let idx = -1;
     for (let i = 0; i < syncedLines.length; i++) {
-      if (adjustedTime >= syncedLines[i].time) {
-        idx = i;
-      } else {
-        break;
-      }
+      if (lyricTime >= syncedLines[i].time) idx = i;
+      else break;
     }
     return idx;
-  }, [syncedLines, Math.floor(currentTime * 4)]); // update ~4 times per second for smoother tracking
+  }, [syncedLines, currentTime, lyricsOffset]);
 
   // Detect user manual scroll to temporarily disable auto-scroll
   useEffect(() => {
@@ -202,77 +205,44 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     };
   }, [autoScrollEnabled, plainLyrics, showLyrics, isSynced, isPlaying, scrollSpeed]);
 
-  // Fetch lyrics when track changes or lyrics tab opened
-  useEffect(() => {
-    if (showLyrics && currentTrack) {
-      fetchLyrics();
-    }
-  }, [currentTrack.videoId, showLyrics]);
+  const normalizeMatchText = (value: string) => value
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(?:official|audio|video|lyrics?|hd|hq|4k|mv|topic|vevo)\b/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 
-  const fetchLyrics = async () => {
-    setLyricsLoading(true);
-    setLyricsError(null);
-    setSyncedLines(null);
-    setPlainLyrics(null);
-    setIsSynced(false);
+  const tokenCoverage = (left: string, right: string) => {
+    const leftTokens = new Set(normalizeMatchText(left).split(/\s+/).filter(Boolean));
+    const rightTokens = new Set(normalizeMatchText(right).split(/\s+/).filter(Boolean));
+    if (!leftTokens.size || !rightTokens.size) return 0;
+    let shared = 0;
+    for (const token of leftTokens) if (rightTokens.has(token)) shared += 1;
+    return shared / Math.min(leftTokens.size, rightTokens.size);
+  };
 
-    const cleanTitle = currentTrack.title
-      .replace(/\(.*?\)/g, '')
-      .replace(/\[.*?\]/g, '')
-      .replace(/official\s*(music\s*)?video/gi, '')
-      .replace(/lyrics?\s*video/gi, '')
-      .replace(/audio/gi, '')
-      .replace(/hd|hq|4k|mv/gi, '')
-      .replace(/\|.*$/g, '')
-      .replace(/ft\.?|feat\.?/gi, '')
-      .replace(/karao?ke/gi, '')
-      .replace(/instrumental/gi, '')
-      .replace(/backing\s*track/gi, '')
-      .replace(/with\s*lyrics/gi, '')
-      .replace(/piano\s*version/gi, '')
-      .replace(/acoustic\s*version/gi, '')
-      .replace(/cover/gi, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
+  const lyricsCandidateMatchesTrack = (candidate: any, expectedArtist: string, expectedTitle: string) => {
+    const candidateTitle = String(candidate?.trackName || candidate?.track_name || candidate?.title || '');
+    const candidateArtist = String(candidate?.artistName || candidate?.artist_name || candidate?.artist || '');
+    if (!candidateTitle || !candidateArtist) return false;
 
-    const cleanArtist = currentTrack.artist
-      .replace(/\s*-\s*Topic$/i, '')
-      .replace(/VEVO$/i, '')
-      .replace(/\s*Official$/i, '')
-      .replace(/karao?ke/gi, '')
-      .replace(/\|.*$/g, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
+    const targetTitle = normalizeMatchText(expectedTitle);
+    const resultTitle = normalizeMatchText(candidateTitle);
+    const titleClose = targetTitle === resultTitle ||
+      targetTitle.includes(resultTitle) ||
+      resultTitle.includes(targetTitle) ||
+      tokenCoverage(expectedTitle, candidateTitle) >= 0.72;
+    const targetArtist = normalizeMatchText(expectedArtist);
+    const resultArtist = normalizeMatchText(candidateArtist);
+    const artistClose = targetArtist === resultArtist ||
+      targetArtist.includes(resultArtist) ||
+      resultArtist.includes(targetArtist) ||
+      tokenCoverage(expectedArtist, candidateArtist) >= 0.55;
 
-    try {
-      // 1. LRCLIB exact match (preserves synced lyrics)
-      if (await tryLrclib(cleanArtist, cleanTitle)) return;
-
-      // 2. LRCLIB search
-      if (await tryLrclibSearch(`${cleanArtist} ${cleanTitle}`)) return;
-
-      // 3. lyrics.ovh fallback (plain only)
-      if (await tryLyricsOvh(cleanArtist, cleanTitle)) return;
-
-      // 4. Shorter title attempts
-      const shortTitle = cleanTitle.split(/[-|,]/)[0].trim();
-      if (shortTitle !== cleanTitle && shortTitle.length > 2) {
-        if (await tryLrclib(cleanArtist, shortTitle)) return;
-        if (await tryLrclibSearch(shortTitle)) return;
-        if (await tryLyricsOvh(cleanArtist, shortTitle)) return;
-      }
-
-      // 5. Try with just the title (no artist) for better matching
-      if (cleanTitle.length > 3) {
-        if (await tryLrclibSearch(cleanTitle)) return;
-      }
-
-      setLyricsError('Lyrics not available for this song');
-    } catch {
-      setLyricsError('Could not load lyrics');
-    } finally {
-      setLyricsLoading(false);
-    }
+    // Require both title and artist agreement. Do not accept the first synced
+    // result just because it happens to contain timestamps.
+    return titleClose && artistClose;
   };
 
   const setLyricsFromLrc = (data: any): boolean => {
@@ -280,67 +250,116 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       const parsed = parseSyncedLyrics(data.syncedLyrics);
       if (parsed.length > 0) {
         setSyncedLines(parsed);
+        setPlainLyrics(null);
         setIsSynced(true);
         return true;
       }
     }
     if (data.plainLyrics) {
-      setPlainLyrics(data.plainLyrics.trim());
+      setPlainLyrics(String(data.plainLyrics).trim());
+      setSyncedLines(null);
       setIsSynced(false);
       return true;
     }
     return false;
   };
 
-  const tryLrclib = async (artist: string, title: string): Promise<boolean> => {
-    try {
-      const res = await fetch(
-        `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`,
-        { headers: { 'User-Agent': 'Melodiya Music App v1.0' } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (setLyricsFromLrc(data)) { setLyricsLoading(false); return true; }
+  const fetchLyrics = async () => {
+    const requestId = ++lyricsRequestIdRef.current;
+    const isLatestRequest = () => lyricsRequestIdRef.current === requestId;
+    const cleanTitle = currentTrack.title
+      .replace(/\(.*?\)/g, ' ')
+      .replace(/\[.*?\]/g, ' ')
+      .replace(/official\s*(music\s*)?video/gi, ' ')
+      .replace(/lyrics?\s*video/gi, ' ')
+      .replace(/\b(?:official audio|audio|hd|hq|4k|mv)\b/gi, ' ')
+      .replace(/\|.*$/g, ' ')
+      .replace(/\s*[-–—]\s*(?:official|lyrics|audio).*$/i, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const cleanArtist = currentTrack.artist
+      .replace(/\s*[-–—]\s*(?:topic|vevo|official).*$/i, ' ')
+      .replace(/\b(?:official|topic|vevo)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    setLyricsLoading(true);
+    setLyricsError(null);
+    setSyncedLines(null);
+    setPlainLyrics(null);
+    setIsSynced(false);
+    setLyricsOffset(0);
+
+    const tryExactMatch = async () => {
+      try {
+        const response = await fetch(
+          \`https://lrclib.net/api/get?artist_name=\${encodeURIComponent(cleanArtist)}&track_name=\${encodeURIComponent(cleanTitle)}\`,
+          { headers: { 'User-Agent': 'Sonora Music App v1.0' } }
+        );
+        if (!response.ok) return false;
+        const data = await response.json();
+        if (!isLatestRequest() || !lyricsCandidateMatchesTrack(data, cleanArtist, cleanTitle)) return false;
+        return setLyricsFromLrc(data);
+      } catch (error) {
+        console.warn('LRCLIB exact match failed:', error);
+        return false;
       }
-    } catch (e) { console.log('LRCLIB get failed:', e); }
-    return false;
+    };
+
+    const trySearchMatch = async () => {
+      try {
+        const response = await fetch(
+          \`https://lrclib.net/api/search?q=\${encodeURIComponent(\`\${cleanArtist} \${cleanTitle}\`)}\`,
+          { headers: { 'User-Agent': 'Sonora Music App v1.0' } }
+        );
+        if (!response.ok) return false;
+        const results = await response.json();
+        if (!isLatestRequest() || !Array.isArray(results)) return false;
+
+        const matching = results
+          .filter((item: any) => lyricsCandidateMatchesTrack(item, cleanArtist, cleanTitle))
+          .map((item: any) => ({
+            item,
+            score:
+              tokenCoverage(cleanTitle, String(item.trackName || '')) * 2 +
+              tokenCoverage(cleanArtist, String(item.artistName || '')) +
+              (item.syncedLyrics ? 0.2 : 0),
+          }))
+          .sort((a: any, b: any) => b.score - a.score);
+
+        const best = matching[0]?.item;
+        return best ? setLyricsFromLrc(best) : false;
+      } catch (error) {
+        console.warn('LRCLIB search failed:', error);
+        return false;
+      }
+    };
+
+    try {
+      if (cleanTitle && cleanArtist && await tryExactMatch()) return;
+      if (cleanTitle && cleanArtist && await trySearchMatch()) return;
+      if (isLatestRequest()) {
+        setLyricsError('No verified lyrics match this recording yet. Try another official version or check again later.');
+      }
+    } finally {
+      if (isLatestRequest()) setLyricsLoading(false);
+    }
   };
 
-  const tryLrclibSearch = async (query: string): Promise<boolean> => {
-    try {
-      const res = await fetch(
-        `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`,
-        { headers: { 'User-Agent': 'Melodiya Music App v1.0' } }
-      );
-      if (res.ok) {
-        const results = await res.json();
-        if (Array.isArray(results) && results.length > 0) {
-          const withSynced = results.find((r: any) => r.syncedLyrics);
-          const best = withSynced || results[0];
-          if (setLyricsFromLrc(best)) { setLyricsLoading(false); return true; }
-        }
-      }
-    } catch (e) { console.log('LRCLIB search failed:', e); }
-    return false;
-  };
+  useEffect(() => {
+    if (!showLyrics) {
+      lyricsRequestIdRef.current += 1;
+      return;
+    }
+    void fetchLyrics();
+    return () => {
+      lyricsRequestIdRef.current += 1;
+    };
+  }, [currentTrack.videoId, showLyrics]);
 
-  const tryLyricsOvh = async (artist: string, title: string): Promise<boolean> => {
-    try {
-      const res = await fetch(
-        `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.lyrics) {
-          setPlainLyrics(data.lyrics.trim());
-          setIsSynced(false);
-          setLyricsLoading(false);
-          return true;
-        }
-      }
-    } catch (e) { console.log('lyrics.ovh failed:', e); }
-    return false;
-  };
+  useEffect(() => {
+    setLyricsOffset(0);
+  }, [currentTrack.videoId]);
 
   if (!isVisible) return null;
 
@@ -353,24 +372,40 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="flex h-16 items-center justify-between px-6 pt-2">
-          <span className="text-[9px] font-medium uppercase tracking-[.28em] text-zinc-600">Now playing</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Close player"
-            className="h-10 w-10 rounded-full border border-white/[0.08] bg-white/[0.025] p-0 text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="flex h-16 shrink-0 items-center justify-between px-5 pt-2">
+          <div className="min-w-0">
+            <span className="text-[9px] font-medium uppercase tracking-[.28em] text-zinc-600">Now playing</span>
+            <span className="ml-2 hidden truncate text-[10px] text-zinc-500 sm:inline">{currentTrack.artist}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={showLyrics ? 'Hide lyrics' : 'Show lyrics'}
+              aria-pressed={showLyrics}
+              className={\`h-10 gap-2 rounded-full border px-3 text-xs transition-colors \${showLyrics ? 'border-zinc-300/30 bg-zinc-100/10 text-zinc-100' : 'border-white/[0.08] bg-white/[0.025] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'}\`}
+              onClick={() => setShowLyrics((visible) => !visible)}
+            >
+              <Music2 className="h-4 w-4" />
+              Lyrics
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close player"
+              className="h-10 w-10 rounded-full border border-white/[0.08] bg-white/[0.025] p-0 text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 pt-1 gap-6 overflow-hidden min-h-0">
-          {/* Album Art / Left Side */}
-          <div className={`flex flex-col items-center gap-6 ${showLyrics ? 'md:w-1/2 w-full' : 'w-full'} transition-all duration-500`}>
-            <div className={`relative aspect-square ${showLyrics ? 'w-48 md:w-72' : 'w-[min(78vw,21rem)] md:w-80'} transition-all duration-500`}>
+        <div className={`flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-hidden px-5 pt-1 md:flex-row ${showLyrics ? 'items-stretch md:items-center' : 'items-center'}`}>
+          {/* Artwork moves aside on desktop and yields the full phone panel to lyrics on mobile. */}
+          <div className={`flex flex-col items-center gap-4 ${showLyrics ? 'hidden md:flex md:w-1/2' : 'w-full'} transition-all duration-300`}
+            <div className={`relative aspect-square ${showLyrics ? 'w-48 md:w-72' : 'w-[min(78vw,21rem)] md:w-80'} transition-all duration-300`}>
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
@@ -391,47 +426,75 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
 
           {/* Lyrics Panel */}
           {showLyrics && (
-            <div className="md:w-1/2 w-full flex-1 min-h-0 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-300">
+            <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-300 md:w-1/2">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Music2 className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Lyrics {isSynced && <span className="text-primary text-xs ml-1">• Synced</span>}
-                  </h3>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-200">
+                      Lyrics {isSynced ? <span className="ml-1 text-[10px] text-zinc-400">• Synced</span> : <span className="ml-1 text-[10px] text-zinc-600">• Plain text</span>}
+                    </h3>
+                    <p className="mt-1 truncate text-[10px] text-zinc-600">{currentTrack.title} · {currentTrack.artist}</p>
+                  </div>
                 </div>
-                {/* Scroll speed control */}
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                    onClick={() => setShowSpeedControl(!showSpeedControl)}
-                  >
-                    <Gauge className="w-3.5 h-3.5" />
-                    {scrollSpeed}x
-                  </Button>
-                  {showSpeedControl && (
-                    <div className="absolute right-0 top-full mt-1 bg-card/90 backdrop-blur-xl border border-border/30 rounded-xl p-2 flex gap-1 z-50 shadow-xl">
-                      {SCROLL_SPEEDS.map((s) => (
-                        <Button
-                          key={s.value}
-                          variant={scrollSpeed === s.value ? 'default' : 'ghost'}
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            setScrollSpeed(s.value);
-                            setShowSpeedControl(false);
-                          }}
-                        >
-                          {s.label}
-                        </Button>
-                      ))}
+                <div className="flex shrink-0 items-center gap-1">
+                  {isSynced && (
+                    <div className="flex items-center rounded-full border border-white/[0.08] bg-white/[0.025] px-1">
+                      <button
+                        type="button"
+                        aria-label="Show lyrics half a second earlier"
+                        className="h-7 min-w-7 rounded-full px-1 text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100"
+                        onClick={() => setLyricsOffset((value) => Math.max(-10, Math.round((value - 0.5) * 10) / 10))}
+                      >
+                        −0.5
+                      </button>
+                      <span className="min-w-12 text-center text-[9px] tabular-nums text-zinc-500">
+                        {lyricsOffset > 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Delay lyrics half a second"
+                        className="h-7 min-w-7 rounded-full px-1 text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100"
+                        onClick={() => setLyricsOffset((value) => Math.min(10, Math.round((value + 0.5) * 10) / 10))}
+                      >
+                        +0.5
+                      </button>
                     </div>
                   )}
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1 px-2 text-xs text-zinc-500 hover:text-zinc-100"
+                      onClick={() => setShowSpeedControl(!showSpeedControl)}
+                      aria-label="Change plain lyrics scroll speed"
+                    >
+                      <Gauge className="h-3.5 w-3.5" />
+                      {scrollSpeed}x
+                    </Button>
+                    {showSpeedControl && (
+                      <div className="absolute right-0 top-full z-50 mt-1 flex gap-1 rounded-xl border border-white/10 bg-[#151717] p-2 shadow-xl">
+                        {SCROLL_SPEEDS.map((s) => (
+                          <Button
+                            key={s.value}
+                            variant={scrollSpeed === s.value ? 'default' : 'ghost'}
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => {
+                              setScrollSpeed(s.value);
+                              setShowSpeedControl(false);
+                            }}
+                          >
+                            {s.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto pr-1 scroll-smooth scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div ref={lyricsContainerRef} className="min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto pr-1 scroll-smooth scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
                 {lyricsLoading && (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -459,18 +522,18 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                           key={i}
                           ref={isActive ? activeLyricRef : undefined}
                           className={`
-                            text-lg md:text-xl leading-relaxed font-medium py-1.5 px-2 rounded-lg cursor-pointer
+                            text-base md:text-xl leading-relaxed font-medium py-2 px-3 rounded-lg cursor-pointer
                             transition-all duration-300 ease-out
                             ${isActive
-                              ? 'text-foreground scale-105 origin-left bg-primary/10'
+                              ? 'text-zinc-100 scale-[1.02] origin-left bg-white/[0.055]'
                               : isPast
-                                ? 'text-muted-foreground/40'
-                                : 'text-muted-foreground/60 hover:text-muted-foreground/80'
+                                ? 'text-zinc-700'
+                                : 'text-zinc-500 hover:text-zinc-300'
                             }
                           `}
                           style={{
                             transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                            textShadow: isActive ? '0 0 20px hsl(280 100% 70% / 0.3)' : 'none',
+                            textShadow: 'none',
                           }}
                           onClick={() => {
                             if (duration > 0) {
@@ -508,7 +571,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         </div>
 
         {/* Bottom Controls */}
-        <div className="px-6 pb-8 pt-4 space-y-4">
+        <div className="shrink-0 border-t border-white/[0.06] bg-[#070808] px-5 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 space-y-3">
           <div className="space-y-2">
             <Slider
               value={[progressPercentage]}
@@ -551,7 +614,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
             <AddToPlaylistButton track={currentTrack} />
           </div>
 
-          <div className="mx-auto flex w-full max-w-xs items-center justify-center gap-8 pt-1">
+          <div className={`mx-auto flex w-full max-w-xs items-center justify-center gap-8 pt-1 ${showLyrics ? 'hidden md:flex' : 'flex'}`}>
             <Button variant="ghost" size="sm" aria-label="Shuffle" className={`h-9 w-9 rounded-full p-0 ${isShuffle ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={onToggleShuffle}>
               <Shuffle className="h-4 w-4" />
             </Button>
