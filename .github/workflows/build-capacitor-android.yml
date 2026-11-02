@@ -53,6 +53,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The SDK "tools" package is obsolete; current runners already use command-line tools.
+          packages: platform-tools
 
       - name: Generate Capacitor Android project
         run: |
