@@ -510,7 +510,13 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         {/* Bottom Controls */}
         <div className="px-6 pb-8 pt-4 space-y-4">
           <div className="space-y-2">
-            <Slider value={[progressPercentage]} onValueChange={onSeek} max={100} step={0.1} className="w-full" />
+            <Slider
+              value={[progressPercentage]}
+              onValueChange={onSeek}
+              max={100}
+              step={0.1}
+              className="w-full [&>span:first-child]:bg-zinc-800 [&>span:first-child>span]:bg-zinc-200 [&>span[role=slider]]:border-zinc-200 [&>span[role=slider]]:bg-zinc-100 [&>span[role=slider]]:focus-visible:ring-zinc-400"
+            />
             <div className="flex justify-between">
               <span className="text-xs text-muted-foreground font-mono">{formatTime(currentTime)}</span>
               <span className="text-xs text-muted-foreground font-mono">{formatTime(duration)}</span>
