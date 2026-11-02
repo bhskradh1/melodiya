@@ -49,7 +49,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack }) => {
     }
 
     // Coalesce rapid duplicate submissions (including double taps) for the same query.
-    const normalizedQuery = q.toLowerCase().replace(/\\s+/g, ' ');
+    const normalizedQuery = q.toLowerCase().replace(/\s+/g, ' ');
     const last = lastSubmittedRef.current;
     if (searchInFlightRef.current) return;
     if (last?.query === normalizedQuery && Date.now() - last.at < 5000) return;
