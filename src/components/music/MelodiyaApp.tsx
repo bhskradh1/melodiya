@@ -13,6 +13,8 @@ import { TrendingView } from './TrendingView';
 import { SettingsView } from './SettingsView';
 import { FriendsView } from './FriendsView';
 import { KaraokeView } from './KaraokeView';
+import { MusicDiscoveryDetailView, type MusicMood } from './MusicDiscoveryDetailView';
+import type { MusicArtist } from '@/lib/musicSearch';
 import { AdminView } from '../admin/AdminView';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -53,6 +55,8 @@ export const MelodiyaApp: React.FC = () => {
   const [isPlaylistMode, setIsPlaylistMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<MusicArtist | null>(null);
+  const [selectedMood, setSelectedMood] = useState<MusicMood | null>(null);
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { preferences } = usePreferences();
@@ -60,12 +64,18 @@ export const MelodiyaApp: React.FC = () => {
 
   // Keep a real browser-history entry for each in-app screen. Installed
   // Android PWAs use this stack for the system Back gesture/button.
-  const navigateToView = (view: string, playlistId: string | null = null) => {
+  const navigateToView = (
+    view: string,
+    playlistId: string | null = null,
+    discovery?: { artist?: MusicArtist; mood?: MusicMood },
+  ) => {
     const currentState = window.history.state as {
       __melodiyaAppNavigation?: boolean;
       __melodiyaSidebarOverlay?: boolean;
       activeView?: string;
       selectedPlaylistId?: string | null;
+      selectedArtist?: MusicArtist | null;
+      selectedMood?: MusicMood | null;
       depth?: number;
     } | null;
 
@@ -82,6 +92,8 @@ export const MelodiyaApp: React.FC = () => {
       depth: Number(currentState?.depth ?? 0) + 1,
       activeView: view,
       selectedPlaylistId: playlistId,
+      selectedArtist: discovery?.artist ?? null,
+      selectedMood: discovery?.mood ?? null,
     };
 
     // Choosing an item in the open drawer replaces its temporary overlay
@@ -96,6 +108,8 @@ export const MelodiyaApp: React.FC = () => {
 
     lastRootBackAtRef.current = 0;
     setSelectedPlaylistId(playlistId);
+    setSelectedArtist(discovery?.artist ?? null);
+    setSelectedMood(discovery?.mood ?? null);
     setActiveView(view);
   };
 
@@ -108,6 +122,8 @@ export const MelodiyaApp: React.FC = () => {
       depth: 0,
       activeView,
       selectedPlaylistId,
+      selectedArtist,
+      selectedMood,
     };
 
     window.history.pushState(
@@ -138,6 +154,8 @@ export const MelodiyaApp: React.FC = () => {
       depth: 0,
       activeView: 'home',
       selectedPlaylistId: null,
+      selectedArtist: null,
+      selectedMood: null,
     };
     const exitGuardState = {
       __melodiyaAppNavigation: true,
@@ -145,6 +163,8 @@ export const MelodiyaApp: React.FC = () => {
       depth: 0,
       activeView: 'home',
       selectedPlaylistId: null,
+      selectedArtist: null,
+      selectedMood: null,
     };
 
     // React StrictMode may re-run effects in development; initialize the
@@ -168,6 +188,8 @@ export const MelodiyaApp: React.FC = () => {
         __melodiyaRoot?: boolean;
         activeView?: string;
         selectedPlaylistId?: string | null;
+        selectedArtist?: MusicArtist | null;
+        selectedMood?: MusicMood | null;
       } | null;
 
       if (state?.__melodiyaAppNavigation && state.__melodiyaRoot) {
@@ -189,6 +211,8 @@ export const MelodiyaApp: React.FC = () => {
       if (state?.__melodiyaAppNavigation) {
         lastRootBackAtRef.current = 0;
         setSelectedPlaylistId(state.selectedPlaylistId ?? null);
+        setSelectedArtist(state.selectedArtist ?? null);
+        setSelectedMood(state.selectedMood ?? null);
         setActiveView(state.activeView ?? 'home');
         return;
       }
@@ -203,6 +227,8 @@ export const MelodiyaApp: React.FC = () => {
 
       lastRootBackAtRef.current = now;
       setSelectedPlaylistId(null);
+      setSelectedArtist(null);
+      setSelectedMood(null);
       setActiveView('home');
       toast('Press back again to exit Sonora');
       window.history.pushState(exitGuardState, '', window.location.href);
@@ -377,7 +403,22 @@ export const MelodiyaApp: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'home':
-        return <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} />;
+        return (
+          <HomeView
+            onPlayTrack={handlePlayTrack}
+            onViewChange={navigateToView}
+            onSelectArtist={(artist) => navigateToView('artist-detail', null, { artist })}
+            onSelectMood={(mood) => navigateToView('mood-detail', null, { mood })}
+          />
+        );
+      case 'artist-detail':
+        return selectedArtist ? (
+          <MusicDiscoveryDetailView artist={selectedArtist} onBack={() => window.history.back()} onPlayTrack={handlePlayTrack} />
+        ) : <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} onSelectArtist={(artist) => navigateToView('artist-detail', null, { artist })} onSelectMood={(mood) => navigateToView('mood-detail', null, { mood })} />;
+      case 'mood-detail':
+        return selectedMood ? (
+          <MusicDiscoveryDetailView mood={selectedMood} onBack={() => window.history.back()} onPlayTrack={handlePlayTrack} />
+        ) : <HomeView onPlayTrack={handlePlayTrack} onViewChange={navigateToView} onSelectArtist={(artist) => navigateToView('artist-detail', null, { artist })} onSelectMood={(mood) => navigateToView('mood-detail', null, { mood })} />;
       case 'search':
         return <SearchView onPlayTrack={handlePlayTrack} />;
       case 'trending':
