@@ -129,7 +129,7 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
           aria-label="Add song to playlist"
           title="Add to playlist"
           className={compact
-            ? 'h-9 w-9 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/10'
+            ? 'h-10 w-10 p-0 rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/10 hover:text-zinc-100'
             : 'h-10 gap-2 rounded-full border border-foreground/15 bg-foreground/[0.06] px-4 hover:bg-foreground/10'}
         >
           <Plus className="h-4 w-4" />
