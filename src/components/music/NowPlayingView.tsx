@@ -308,7 +308,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     const tryExactMatch = async () => {
       try {
         const response = await fetch(
-          \`https://lrclib.net/api/get?artist_name=\${encodeURIComponent(cleanArtist)}&track_name=\${encodeURIComponent(cleanTitle)}\`,
+          `https://lrclib.net/api/get?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`,
           { headers: { 'User-Agent': 'Sonora Music App v1.0' } }
         );
         if (!response.ok) return false;
@@ -324,7 +324,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     const trySearchMatch = async () => {
       try {
         const response = await fetch(
-          \`https://lrclib.net/api/search?q=\${encodeURIComponent(\`\${cleanArtist} \${cleanTitle}\`)}\`,
+          `https://lrclib.net/api/search?q=${encodeURIComponent(`${cleanArtist} ${cleanTitle}`)}`,
           { headers: { 'User-Agent': 'Sonora Music App v1.0' } }
         );
         if (!response.ok) return false;
@@ -414,7 +414,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
               size="sm"
               aria-label={showLyrics ? 'Hide lyrics' : 'Show lyrics'}
               aria-pressed={showLyrics}
-              className={\`h-10 gap-2 rounded-full border px-3 text-xs transition-colors \${showLyrics ? 'border-zinc-300/30 bg-zinc-100/10 text-zinc-100' : 'border-white/[0.08] bg-white/[0.025] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'}\`}
+              className={`h-10 gap-2 rounded-full border px-3 text-xs transition-colors ${showLyrics ? 'border-zinc-300/30 bg-zinc-100/10 text-zinc-100' : 'border-white/[0.08] bg-white/[0.025] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'}`}
               onClick={() => setShowLyrics((visible) => !visible)}
             >
               <Music2 className="h-4 w-4" />
