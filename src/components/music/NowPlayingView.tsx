@@ -167,14 +167,24 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     };
   }, [showLyrics, syncedLines, plainLyrics]);
 
-  // Auto-scroll to active lyric line (synced mode)
+  // Scroll only the lyrics pane. scrollIntoView can move the page behind
+  // a fixed mobile player, which makes lyrics appear to jump out of view.
   useEffect(() => {
-    if (autoScrollEnabled && isSynced && activeLyricRef.current) {
-      activeLyricRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }
+    const container = lyricsContainerRef.current;
+    const activeLine = activeLyricRef.current;
+    if (!container || !activeLine || !autoScrollEnabled || !isSynced) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const lineRect = activeLine.getBoundingClientRect();
+    const nextTop = container.scrollTop +
+      (lineRect.top - containerRect.top) -
+      (container.clientHeight / 2) +
+      (lineRect.height / 2);
+
+    container.scrollTo({
+      top: Math.max(0, nextTop),
+      behavior: 'smooth',
+    });
   }, [activeLineIndex, autoScrollEnabled, isSynced]);
 
   // Auto-scroll for plain lyrics (no timestamps) — scroll at a constant rate
@@ -294,7 +304,6 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
     setSyncedLines(null);
     setPlainLyrics(null);
     setIsSynced(false);
-    setLyricsOffset(0);
 
     const tryExactMatch = async () => {
       try {
@@ -364,8 +373,24 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   }, [currentTrack.videoId, showLyrics]);
 
   useEffect(() => {
-    setLyricsOffset(0);
+    const storageKey = `sonora-lyrics-offset:${currentTrack.videoId}`;
+    try {
+      const saved = Number(localStorage.getItem(storageKey));
+      setLyricsOffset(Number.isFinite(saved) ? Math.max(-10, Math.min(10, saved)) : 0);
+    } catch {
+      setLyricsOffset(0);
+    }
   }, [currentTrack.videoId]);
+
+  const updateLyricsOffset = (nextOffset: number) => {
+    const bounded = Math.max(-10, Math.min(10, Math.round(nextOffset * 10) / 10));
+    setLyricsOffset(bounded);
+    try {
+      localStorage.setItem(`sonora-lyrics-offset:${currentTrack.videoId}`, String(bounded));
+    } catch {
+      // Timing can still be adjusted for this session when storage is unavailable.
+    }
+  };
 
   if (!isVisible) return null;
 
@@ -450,7 +475,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                         type="button"
                         aria-label="Show lyrics half a second earlier"
                         className="h-7 min-w-7 rounded-full px-1 text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100"
-                        onClick={() => setLyricsOffset((value) => Math.max(-10, Math.round((value - 0.5) * 10) / 10))}
+                        onClick={() => updateLyricsOffset(lyricsOffset - 0.5)}
                       >
                         −0.5
                       </button>
@@ -461,7 +486,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                         type="button"
                         aria-label="Delay lyrics half a second"
                         className="h-7 min-w-7 rounded-full px-1 text-[10px] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100"
-                        onClick={() => setLyricsOffset((value) => Math.min(10, Math.round((value + 0.5) * 10) / 10))}
+                        onClick={() => updateLyricsOffset(lyricsOffset + 0.5)}
                       >
                         +0.5
                       </button>
