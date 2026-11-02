@@ -240,9 +240,15 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
       resultArtist.includes(targetArtist) ||
       tokenCoverage(expectedArtist, candidateArtist) >= 0.55;
 
-    // Require both title and artist agreement. Do not accept the first synced
-    // result just because it happens to contain timestamps.
-    return titleClose && artistClose;
+    const candidateDuration = Number(candidate?.duration);
+    const durationClose = !Number.isFinite(candidateDuration) ||
+      candidateDuration <= 0 ||
+      duration <= 0 ||
+      Math.abs(candidateDuration - duration) <= Math.max(8, duration * 0.05);
+
+    // Require title, artist and a reasonably close recording duration. This
+    // rejects many alternate edits/remixes whose lyric timestamps drift.
+    return titleClose && artistClose && durationClose;
   };
 
   const setLyricsFromLrc = (data: any): boolean => {
@@ -404,7 +410,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
         {/* Main Content Area */}
         <div className={`flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-hidden px-5 pt-1 md:flex-row ${showLyrics ? 'items-stretch md:items-center' : 'items-center'}`}>
           {/* Artwork moves aside on desktop and yields the full phone panel to lyrics on mobile. */}
-          <div className={`flex flex-col items-center gap-4 ${showLyrics ? 'hidden md:flex md:w-1/2' : 'w-full'} transition-all duration-300`}
+          <div className={`flex flex-col items-center gap-4 ${showLyrics ? 'hidden md:flex md:w-1/2' : 'w-full'} transition-all duration-300`}>
             <div className={`relative aspect-square ${showLyrics ? 'w-48 md:w-72' : 'w-[min(78vw,21rem)] md:w-80'} transition-all duration-300`}>
               <img
                 src={currentTrack.thumbnail}
@@ -537,7 +543,7 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                           }}
                           onClick={() => {
                             if (duration > 0) {
-                              const seekPercent = (line.time / duration) * 100;
+                              const seekPercent = (Math.max(0, line.time + lyricsOffset) / duration) * 100;
                               onSeek([seekPercent]);
                             }
                           }}
