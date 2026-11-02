@@ -117,7 +117,7 @@ const writeSearchCache = (key: string, tracks: MelodiyaSearchTrack[]) => {
 export const searchMelodiyaTracks = async (
   query: string,
 ): Promise<MelodiyaSearchTrack[]> => {
-  const normalized = query.trim().replace(/\\s+/g, ' ');
+  const normalized = query.trim().replace(/\s+/g, ' ');
   if (!normalized) return [];
 
   const cacheKey = normalized.toLocaleLowerCase();
