@@ -36,20 +36,24 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [membershipLoading, setMembershipLoading] = useState(false);
+  const savedPlaylists = playlists.filter((playlist) => savedIds.includes(playlist.id));
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!open) return;
-    if (!user) {
-      toast({ title: 'Sign in to save songs', description: 'Your playlists are linked to your account.' });
-      setOpen(false);
+    if (!open || !user) {
+      if (open && !user) {
+        toast({ title: 'Sign in to save songs', description: 'Your playlists are linked to your account.' });
+        setOpen(false);
+      }
       return;
     }
 
     let cancelled = false;
     const loadPlaylists = async () => {
       setLoading(true);
+      setMembershipLoading(true);
       const { data, error } = await supabase
         .from('playlists')
         .select('id, name, playlist_songs(count)')
@@ -59,21 +63,48 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
       if (cancelled) return;
       if (error) {
         toast({ title: 'Could not load playlists', description: error.message, variant: 'destructive' });
-      } else {
-        setPlaylists((data || []).map((playlist: any) => ({
-          id: playlist.id,
-          name: playlist.name,
-          song_count: playlist.playlist_songs?.[0]?.count || 0,
-        })));
+        setPlaylists([]);
         setSavedIds([]);
+        setLoading(false);
+        setMembershipLoading(false);
+        return;
+      }
+
+      const loadedPlaylists = (data || []).map((playlist: any) => ({
+        id: playlist.id,
+        name: playlist.name,
+        song_count: playlist.playlist_songs?.[0]?.count || 0,
+      }));
+      setPlaylists(loadedPlaylists);
+
+      if (loadedPlaylists.length === 0) {
+        setSavedIds([]);
+        setLoading(false);
+        setMembershipLoading(false);
+        return;
+      }
+
+      // Check membership for this exact song across all of the user's playlists.
+      const { data: memberships, error: membershipError } = await supabase
+        .from('playlist_songs')
+        .select('playlist_id')
+        .eq('youtube_video_id', track.videoId)
+        .in('playlist_id', loadedPlaylists.map((playlist) => playlist.id));
+
+      if (cancelled) return;
+      if (membershipError) {
+        console.error('Could not check playlist membership:', membershipError);
+        setSavedIds([]);
+      } else {
+        setSavedIds([...new Set((memberships || []).map((item: any) => item.playlist_id))]);
       }
       setLoading(false);
+      setMembershipLoading(false);
     };
 
-    loadPlaylists();
+    void loadPlaylists();
     return () => { cancelled = true; };
-  }, [open, user, toast]);
-
+  }, [open, user, track.videoId, toast]);
   const addToPlaylist = async (playlist: PlaylistOption) => {
     if (!user || savingId) return;
     setSavingId(playlist.id);
@@ -126,14 +157,31 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
           type="button"
           variant="ghost"
           size="sm"
-          aria-label="Add song to playlist"
-          title="Add to playlist"
+          aria-label={savedPlaylists.length
+            ? `Song saved in ${savedPlaylists.length} playlist${savedPlaylists.length === 1 ? '' : 's'}: ${savedPlaylists.map((item) => item.name).join(', ')}. Manage playlists.`
+            : 'Add song to playlist'}
+          title={savedPlaylists.length
+            ? `Saved in: ${savedPlaylists.map((item) => item.name).join(', ')}`
+            : 'Add to playlist'}
           className={compact
-            ? 'h-10 w-10 p-0 rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/10 hover:text-zinc-100'
+            ? `relative h-10 w-10 rounded-full border p-0 transition-colors ${savedPlaylists.length ? 'border-zinc-300/25 bg-zinc-100/10 text-zinc-100 hover:bg-zinc-100/15' : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/10 hover:text-zinc-100'}`
             : 'h-10 gap-2 rounded-full border border-foreground/15 bg-foreground/[0.06] px-4 hover:bg-foreground/10'}
         >
-          <Plus className="h-4 w-4" />
-          {!compact && <span className="text-sm">Add to playlist</span>}
+          {membershipLoading
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : savedPlaylists.length > 0
+              ? <Check className="h-4 w-4" />
+              : <Plus className="h-4 w-4" />}
+          {!compact && (
+            <span className="text-sm">
+              {savedPlaylists.length ? `In ${savedPlaylists.length} playlist${savedPlaylists.length === 1 ? '' : 's'}` : 'Add to playlist'}
+            </span>
+          )}
+          {compact && savedPlaylists.length > 0 && (
+            <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full border border-[#070808] bg-zinc-100 px-1 text-[9px] font-semibold leading-4 text-zinc-950">
+              {savedPlaylists.length}
+            </span>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="glass-panel max-w-sm">
@@ -150,6 +198,24 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
             <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
           </div>
         </div>
+        {savedPlaylists.length > 0 && (
+          <div className="rounded-xl border border-zinc-300/15 bg-zinc-100/[0.045] p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+              <Check className="h-4 w-4 shrink-0" />
+              Already in {savedPlaylists.length} playlist{savedPlaylists.length === 1 ? '' : 's'}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {savedPlaylists.map((playlist) => (
+                <span key={playlist.id} className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] text-zinc-300">
+                  {playlist.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-zinc-500">
+          {savedPlaylists.length ? 'Add to another playlist' : 'Choose a playlist'}
+        </p>
         <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
           {loading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -179,7 +245,7 @@ export const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ track,
               {savingId === playlist.id
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : savedIds.includes(playlist.id)
-                  ? <Check className="h-4 w-4 text-emerald-400" />
+                  ? <Check className="h-4 w-4 text-zinc-100" />
                   : <Plus className="h-4 w-4 text-muted-foreground" />}
             </button>
           ))}
