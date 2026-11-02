@@ -37,10 +37,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, onCl
     ?? (email ? email.split('@')[0] : 'Listener');
   const initial = (displayName[0] ?? 'M').toUpperCase();
 
-  // On mobile, Home/Search/Trending/Library live in the bottom nav bar,
-  // so they should not appear in the hamburger drawer.
+  // Keep Search and Trending reachable from the mobile drawer as well
+  // as the compact bottom navigation.
   const navItems = isMobile
     ? [
+        { id: 'search', label: 'Search', icon: Search },
+        { id: 'trending', label: 'Trending', icon: TrendingUp },
         { id: 'karaoke', label: 'Karaoke', icon: Mic2 },
         { id: 'friends', label: 'Friends', icon: Users },
       ]
