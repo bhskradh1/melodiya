@@ -91,6 +91,8 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const activePreviewLyricRef = useRef<HTMLParagraphElement>(null);
   const previewLyricsContainerRef = useRef<HTMLDivElement>(null);
+  const previewTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPreviewTapRef = useRef(0);
   const { lyricsAutoScroll } = useSettings();
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(lyricsAutoScroll);
 
@@ -483,6 +485,29 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
                 tabIndex={0}
                 aria-label="Playing lyrics. Double-click to open full lyrics."
                 onDoubleClick={() => setShowLyrics(true)}
+                onTouchStart={(event) => {
+                  const touch = event.changedTouches[0];
+                  previewTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+                }}
+                onTouchEnd={(event) => {
+                  const start = previewTouchStartRef.current;
+                  previewTouchStartRef.current = null;
+                  if (!start) return;
+                  const touch = event.changedTouches[0];
+                  const moved = Math.hypot(touch.clientX - start.x, touch.clientY - start.y);
+                  if (moved > 12) return;
+
+                  const now = Date.now();
+                  if (now - lastPreviewTapRef.current < 360) {
+                    lastPreviewTapRef.current = 0;
+                    setShowLyrics(true);
+                  } else {
+                    lastPreviewTapRef.current = now;
+                  }
+                }}
+                onTouchCancel={() => {
+                  previewTouchStartRef.current = null;
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') setShowLyrics(true);
                 }}
