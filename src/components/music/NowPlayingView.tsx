@@ -17,6 +17,7 @@ import {
   Music2,
   Loader2,
   Gauge,
+  X,
 } from 'lucide-react';
 
 interface Track {
@@ -344,42 +345,36 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
-      style={{
-        background: `linear-gradient(180deg, hsl(280 60% 15%) 0%, hsl(215 30% 6%) 100%)`,
-      }}
+    <div
+      className="fixed inset-0 z-[70] flex flex-col overflow-hidden bg-[#070808] text-zinc-100 animate-in slide-in-from-bottom duration-300"
+      style={{ background: '#070808' }}
     >
-      {/* Blurred album art background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <img src={currentTrack.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover scale-150 blur-[80px] opacity-30" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
-      </div>
 
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4">
-          <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-foreground/70 hover:text-foreground rounded-full" onClick={onClose}>
-            <ChevronDown className="w-6 h-6" />
-          </Button>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Now Playing</p>
-          </div>
-          <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-foreground/70 hover:text-foreground rounded-full" onClick={() => setShowLyrics(!showLyrics)}>
-            <Music2 className={`w-5 h-5 ${showLyrics ? 'text-primary' : ''}`} />
+        <div className="flex h-16 items-center justify-between px-6 pt-2">
+          <span className="text-[9px] font-medium uppercase tracking-[.28em] text-zinc-600">Now playing</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Close player"
+            className="h-10 w-10 rounded-full border border-white/[0.08] bg-white/[0.025] p-0 text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 gap-6 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 pt-1 gap-6 overflow-hidden min-h-0">
           {/* Album Art / Left Side */}
           <div className={`flex flex-col items-center gap-6 ${showLyrics ? 'md:w-1/2 w-full' : 'w-full'} transition-all duration-500`}>
-            <div className={`relative ${showLyrics ? 'w-48 h-48 md:w-72 md:h-72' : 'w-64 h-64 md:w-80 md:h-80'} transition-all duration-500`}>
+            <div className={`relative aspect-square ${showLyrics ? 'w-48 md:w-72' : 'w-[min(78vw,21rem)] md:w-80'} transition-all duration-500`}>
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
-                className={`w-full h-full object-cover rounded-2xl shadow-2xl ${isPlaying ? 'animate-pulse-subtle' : ''}`}
-                style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 80px rgba(168, 85, 247, 0.15)' }}
+                className={`h-full w-full rounded-[1.6rem] border border-white/[0.09] object-cover grayscale-[.25] shadow-[0_22px_55px_rgba(0,0,0,.48)] ${isPlaying ? 'animate-pulse-subtle' : ''}`}
               />
               {isLoading && (
                 <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
@@ -388,8 +383,9 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
               )}
             </div>
             <div className="text-center w-full max-w-sm">
-              <h2 className="text-xl md:text-2xl font-bold truncate">{currentTrack.title}</h2>
-              <p className="text-muted-foreground mt-1">{currentTrack.artist}</p>
+              <p className="mb-2 text-[9px] font-medium uppercase tracking-[.26em] text-zinc-600">After hours</p>
+              <h2 className="text-2xl md:text-3xl font-medium tracking-[-.035em] truncate text-zinc-100">{currentTrack.title}</h2>
+              <p className="mt-1.5 text-sm text-zinc-500">{currentTrack.artist}</p>
             </div>
           </div>
 
@@ -521,37 +517,43 @@ export const NowPlayingView: React.FC<NowPlayingViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between max-w-sm mx-auto w-full">
-            <Button variant="ghost" size="sm" className={`h-10 w-10 p-0 rounded-full ${isShuffle ? 'text-primary' : 'text-muted-foreground'}`} onClick={onToggleShuffle}>
-              <Shuffle className="w-5 h-5" />
+          <div className="mx-auto flex w-full max-w-md items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={isLiked ? 'Unlike song' : 'Like song'}
+              className={`h-11 w-11 rounded-full p-0 ${isLiked ? 'text-zinc-100' : 'text-zinc-500'} hover:bg-white/[0.06] hover:text-zinc-100`}
+              onClick={onToggleLike}
+            >
+              <Heart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} />
             </Button>
-            <Button variant="ghost" size="sm" className="h-12 w-12 p-0 text-foreground hover:text-primary rounded-full" onClick={onPrevious}>
-              <SkipBack className="w-7 h-7" />
+            <Button variant="ghost" size="sm" aria-label="Previous track" className="h-11 w-11 rounded-full p-0 text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100" onClick={onPrevious}>
+              <SkipBack className="h-5 w-5" />
             </Button>
-            <Button size="lg" className="h-16 w-16 p-0 bg-foreground hover:bg-foreground/90 rounded-full shadow-xl" onClick={onPlayPause} disabled={isLoading}>
+            <Button size="lg" aria-label={isPlaying ? 'Pause' : 'Play'} className="h-[4.25rem] w-[4.25rem] rounded-full bg-zinc-100 p-0 text-zinc-950 shadow-[0_8px_25px_rgba(255,255,255,.12)] hover:bg-white" onClick={onPlayPause} disabled={isLoading}>
               {isLoading ? (
-                <div className="w-7 h-7 border-2 border-background border-t-transparent rounded-full animate-spin" />
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-950 border-t-transparent" />
               ) : isPlaying ? (
-                <Pause className="w-8 h-8 text-background" />
+                <Pause className="h-7 w-7 fill-current" />
               ) : (
-                <Play className="w-8 h-8 text-background ml-1" />
+                <Play className="ml-1 h-7 w-7 fill-current" />
               )}
             </Button>
-            <Button variant="ghost" size="sm" className="h-12 w-12 p-0 text-foreground hover:text-primary rounded-full" onClick={onNext}>
-              <SkipForward className="w-7 h-7" />
+            <Button variant="ghost" size="sm" aria-label="Next track" className="h-11 w-11 rounded-full p-0 text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100" onClick={onNext}>
+              <SkipForward className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="sm" className={`h-10 w-10 p-0 rounded-full ${isRepeat ? 'text-primary' : 'text-muted-foreground'}`} onClick={onToggleRepeat}>
-              <Repeat className="w-5 h-5" />
-            </Button>
+            <AddToPlaylistButton track={currentTrack} />
           </div>
 
-          <div className="flex items-center justify-between max-w-sm mx-auto w-full">
-            <AddToPlaylistButton track={currentTrack} />
-            <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${isLiked ? 'text-signal' : 'text-muted-foreground'}`} onClick={onToggleLike}>
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+          <div className="mx-auto flex w-full max-w-xs items-center justify-center gap-8 pt-1">
+            <Button variant="ghost" size="sm" aria-label="Shuffle" className={`h-9 w-9 rounded-full p-0 ${isShuffle ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={onToggleShuffle}>
+              <Shuffle className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showLyrics ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => setShowLyrics(!showLyrics)}>
-              <Music2 className="w-5 h-5" />
+            <Button variant="ghost" size="sm" aria-label="Lyrics" className={`h-9 w-9 rounded-full p-0 ${showLyrics ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={() => setShowLyrics(!showLyrics)}>
+              <Music2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" aria-label="Repeat" className={`h-9 w-9 rounded-full p-0 ${isRepeat ? 'text-zinc-100' : 'text-zinc-600'} hover:bg-white/[0.06]`} onClick={onToggleRepeat}>
+              <Repeat className="h-4 w-4" />
             </Button>
           </div>
         </div>
