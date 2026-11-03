@@ -10,7 +10,6 @@ import { YouTubePlayer } from './YouTubePlayer';
 import { NowPlayingView } from './NowPlayingView';
 import { AddToPlaylistButton } from './AddToPlaylistButton';
 import { usePWA } from '@/hooks/use-pwa';
-import { useBackgroundAudio } from '@/hooks/use-background-audio';
 
 import { 
   Play, 
@@ -80,8 +79,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume, crossfade, crossfadeSeconds } = useSettings();
   const nativeAudioUrl = currentTrack?.audioUrl ?? currentTrack?.audio_url ?? null;
   const useNativeAudio = Boolean(nativeAudioUrl && typeof window !== 'undefined' && window.MelodiyaNativeAudio);
-  // Keep the page marked as "playing audio" while minimised (skipped when the native player owns playback).
-  useBackgroundAudio(isPlaying && Boolean(currentTrack) && !useNativeAudio);
   const sendNativeAudioCommand = useCallback((payload: Record<string, unknown>) => {
     try {
       if (!window.MelodiyaNativeAudio) return false;
