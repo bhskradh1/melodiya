@@ -76,6 +76,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const previousNativeAudioUrlRef = useRef<string | null>(null);
   const lastNativeExternalPlayingRef = useRef<boolean | null>(null);
   const playerRef = useRef<any>(null);
+  const desiredPlayingRef = useRef(isPlaying);
+  desiredPlayingRef.current = isPlaying;
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -158,9 +160,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
   const handlePlayerReady = () => {
     setPlayerReady(true);
-    if (currentTrack && isPlaying) {
-      setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+    if (currentTrack && desiredPlayingRef.current) {
+      window.setTimeout(() => {
+        if (desiredPlayingRef.current && playerRef.current && typeof playerRef.current.playVideo === 'function') {
           playerRef.current.playVideo();
         }
       }, 500);
@@ -172,9 +174,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       setIsLoading(false);
     } else if (state === 3) {
       setIsLoading(true);
-    } else if (state === -1 && currentTrack && isPlaying) {
-      setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+    } else if (state === -1 && currentTrack && desiredPlayingRef.current) {
+      window.setTimeout(() => {
+        if (desiredPlayingRef.current && playerRef.current && typeof playerRef.current.playVideo === 'function') {
           playerRef.current.playVideo();
         }
       }, 1000);
@@ -192,12 +194,14 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         const loadedVideoId = videoData?.video_id;
         if (loadedVideoId !== currentTrack.videoId) {
           playerRef.current.loadVideoById(currentTrack.videoId);
-          setTimeout(() => {
+          window.setTimeout(() => {
+            if (!desiredPlayingRef.current || !playerRef.current) return;
             playerRef.current.seekTo(0, true);
             playerRef.current.playVideo();
           }, 1000);
         } else {
-          setTimeout(() => {
+          window.setTimeout(() => {
+            if (!desiredPlayingRef.current || !playerRef.current) return;
             playerRef.current.seekTo(currentTime, true);
             playerRef.current.playVideo();
           }, 100);
@@ -394,39 +398,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       }
     }
   }, [currentTime, duration, useNativeAudio]);
-
-  // Background watchdog: keep YouTube playing while the app is hidden/minimised
-  useEffect(() => {
-    const resumeIfStalled = () => {
-      if (!isPlaying || !playerRef.current) return;
-      try {
-        const state = playerRef.current.getPlayerState?.();
-        const current = playerRef.current.getCurrentTime?.();
-        if (state === 0) {
-          triggerNextTrack();
-        } else if (duration > 0 && current && (duration - current) < 1.5) {
-          triggerNextTrack();
-        } else if (state === 2 || state === -1) {
-          playerRef.current.playVideo?.();
-        }
-      } catch (e) {
-        console.error('Background watchdog error:', e);
-      }
-    };
-
-    const handleVisibilityChange = () => resumeIfStalled();
-    const interval = window.setInterval(resumeIfStalled, 2000);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, [isPlaying, duration]);
-
 
   useEffect(() => {
     if (!currentTrack) return;
