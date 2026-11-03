@@ -48,6 +48,8 @@ interface MusicPlayerProps {
   onPlayPause: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  /** Called when a song ends on its own (respects the autoplay setting). Falls back to onNext. */
+  onTrackEnded?: () => void;
 }
 
 export const MusicPlayer: React.FC<MusicPlayerProps> = ({
@@ -55,7 +57,8 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   isPlaying,
   onPlayPause,
   onNext,
-  onPrevious
+  onPrevious,
+  onTrackEnded
 }) => {
   const [volume, setVolume] = useState([75]);
   const [isMuted, setIsMuted] = useState(false);
@@ -222,7 +225,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         playerRef.current.playVideo();
       }
     } else {
-      onNext();
+      (onTrackEnded ?? onNext)();
     }
   };
 
