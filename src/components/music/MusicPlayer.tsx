@@ -368,10 +368,27 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
       navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) onPlayPause(); });
       navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) onPlayPause(); });
+      // Some Android/Chrome media cards expose rewind/fast-forward
+      // actions instead of track-navigation actions. Route both action types
+      // to the queue so these buttons change songs, not seconds.
       navigator.mediaSession.setActionHandler('nexttrack', () => onNext());
       navigator.mediaSession.setActionHandler('previoustrack', () => onPrevious());
       try {
+        navigator.mediaSession.setActionHandler('seekforward', () => onNext());
+      } catch {
+        /* seekforward is not supported by every browser */
+      }
+      try {
+        navigator.mediaSession.setActionHandler('seekbackward', () => onPrevious());
+      } catch {
+        /* seekbackward is not supported by every browser */
+      }
+      try {
         navigator.mediaSession.setActionHandler('stop', () => { if (isPlaying) onPlayPause(); });
+      } catch {
+        /* stop is not supported by every browser */
+      }
+      try {
         navigator.mediaSession.setActionHandler('seekto', (details: any) => {
           if (details.seekTime != null && playerRef.current?.seekTo) {
             playerRef.current.seekTo(details.seekTime, true);
@@ -379,7 +396,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           }
         });
       } catch {
-        /* not all platforms support these */
+        /* seekto is not supported by every browser */
       }
     }
   }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, useNativeAudio]);
