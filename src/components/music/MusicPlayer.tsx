@@ -48,7 +48,6 @@ interface MusicPlayerProps {
   onPlayPause: () => void;
   onNext: () => void;
   onPrevious: () => void;
-  onTrackEnded?: () => void;
 }
 
 export const MusicPlayer: React.FC<MusicPlayerProps> = ({
@@ -56,8 +55,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   isPlaying,
   onPlayPause,
   onNext,
-  onPrevious,
-  onTrackEnded
+  onPrevious
 }) => {
   const [volume, setVolume] = useState([75]);
   const [isMuted, setIsMuted] = useState(false);
@@ -224,7 +222,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         playerRef.current.playVideo();
       }
     } else {
-      (onTrackEnded ?? onNext)();
+      onNext();
     }
   };
 
@@ -251,52 +249,6 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const handleVideoEnd = () => {
     triggerNextTrack();
   };
-
-  // Restart the current song when Previous is pressed after it has played
-  // for more than 3 seconds; otherwise move to the previous queue item.
-  const handlePreviousAction = useCallback(() => {
-    const position = useNativeAudio ? nativeCurrentTime : currentTime;
-    if (position > 3) {
-      if (useNativeAudio) {
-        sendNativeAudioCommand({ command: 'seek', position: 0 });
-      } else {
-        try {
-          playerRef.current?.seekTo?.(0, true);
-        } catch (error) {
-          console.warn('Could not restart the current track:', error);
-        }
-      }
-      setCurrentTime(0);
-      setNativeCurrentTime(0);
-      return;
-    }
-    onPrevious();
-  }, [
-    useNativeAudio,
-    nativeCurrentTime,
-    currentTime,
-    sendNativeAudioCommand,
-    onPrevious,
-  ]);
-
-  // The Android notification's square button performs a real Stop:
-  // pause playback and reset the current song to its beginning.
-  const handleStop = useCallback(() => {
-    if (useNativeAudio) {
-      sendNativeAudioCommand({ command: 'pause' });
-      sendNativeAudioCommand({ command: 'seek', position: 0 });
-    } else {
-      try {
-        playerRef.current?.pauseVideo?.();
-        playerRef.current?.seekTo?.(0, true);
-      } catch (error) {
-        console.warn('Could not stop the current track:', error);
-      }
-    }
-    setCurrentTime(0);
-    setNativeCurrentTime(0);
-    if (isPlaying) onPlayPause();
-  }, [useNativeAudio, sendNativeAudioCommand, isPlaying, onPlayPause]);
 
   useEffect(() => {
     const previousUrl = previousNativeAudioUrlRef.current;
@@ -393,70 +345,37 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return () => window.removeEventListener('music-action', handleMusicAction as EventListener);
   }, [isPlaying, onPlayPause, onNext, onPrevious]);
 
-  // Media Session API powers the Android lock-screen / notification controls.
-  // Clear old handlers when the track disappears or playback switches modes.
+  // Media Session API for lock screen / notification controls
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-
-    const mediaSession = navigator.mediaSession;
-    if (!currentTrack || useNativeAudio) {
-      for (const action of ['play', 'pause', 'nexttrack', 'previoustrack', 'stop', 'seekto'] as MediaSessionAction[]) {
-        try {
-          mediaSession.setActionHandler(action, null);
-        } catch {
-          /* action is not supported by this browser */
-        }
-      }
-      if (!currentTrack) {
-        mediaSession.metadata = null;
-        mediaSession.playbackState = 'none';
-      }
-      return;
-    }
-
-    mediaSession.metadata = new MediaMetadata({
-      title: currentTrack.title,
-      artist: currentTrack.artist,
-      album: 'Sonora',
-      artwork: [
-        { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
-        { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-        { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
-      ],
-    });
-    mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-
-    const handlers: Partial<Record<MediaSessionAction, MediaSessionActionHandler>> = {
-      play: () => { if (!isPlaying) onPlayPause(); },
-      pause: () => { if (isPlaying) onPlayPause(); },
-      nexttrack: () => onNext(),
-      previoustrack: handlePreviousAction,
-      stop: handleStop,
-      seekto: (details) => {
-        if (details.seekTime == null) return;
-        if (playerRef.current?.seekTo) {
-          playerRef.current.seekTo(details.seekTime, true);
-          setCurrentTime(details.seekTime);
-        }
-      },
-    };
-
-    for (const [action, handler] of Object.entries(handlers) as [MediaSessionAction, MediaSessionActionHandler][]) {
+    if ('mediaSession' in navigator && currentTrack && !useNativeAudio) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: 'Sonora',
+        artwork: [
+          { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+        ],
+      });
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) onPlayPause(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) onPlayPause(); });
+      navigator.mediaSession.setActionHandler('nexttrack', () => onNext());
+      navigator.mediaSession.setActionHandler('previoustrack', () => onPrevious());
       try {
-        mediaSession.setActionHandler(action, handler);
+        navigator.mediaSession.setActionHandler('stop', () => { if (isPlaying) onPlayPause(); });
+        navigator.mediaSession.setActionHandler('seekto', (details: any) => {
+          if (details.seekTime != null && playerRef.current?.seekTo) {
+            playerRef.current.seekTo(details.seekTime, true);
+            setCurrentTime(details.seekTime);
+          }
+        });
       } catch {
-        /* action is not supported by this browser */
+        /* not all platforms support these */
       }
     }
-  }, [
-    currentTrack,
-    isPlaying,
-    onPlayPause,
-    onNext,
-    handlePreviousAction,
-    handleStop,
-    useNativeAudio,
-  ]);
+  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, useNativeAudio]);
 
   // Keep the notification scrubber in sync
   useEffect(() => {
@@ -507,17 +426,30 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
 
   useEffect(() => {
-    if (currentTrack && isPlaying) {
-      requestBackgroundSync('background-audio-sync');
-      if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        showNotification(`Now Playing: ${currentTrack.title}`, {
-          body: `by ${currentTrack.artist}`,
-          icon: currentTrack.thumbnail,
-          tag: 'music-player',
-          requireInteraction: false,
-          silent: true
-        });
-      }
+    if (!currentTrack) return;
+    if (isPlaying) requestBackgroundSync('background-audio-sync');
+    if (notificationsEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      // Action buttons are handled by the service worker (public/sw.js), which
+      // forwards the tap to the app as a 'music-action' event. The same tag
+      // replaces the previous notification, so the middle button flips between
+      // Pause and Play as the state changes.
+      const options: any = {
+        body: `${currentTrack.artist} • Sonora`,
+        icon: currentTrack.thumbnail,
+        badge: '/icon-192x192.png',
+        tag: 'music-player',
+        renotify: false,
+        requireInteraction: false,
+        silent: true,
+        actions: [
+          { action: 'previous', title: '⏮ Prev' },
+          isPlaying
+            ? { action: 'pause', title: '⏸ Pause' }
+            : { action: 'play', title: '▶ Play' },
+          { action: 'next', title: 'Next ⏭' },
+        ],
+      };
+      showNotification(`${isPlaying ? 'Now Playing' : 'Paused'}: ${currentTrack.title}`, options);
     }
   }, [currentTrack, isPlaying, notificationsEnabled]);
 
@@ -647,7 +579,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
               type="button"
               aria-label="Previous track"
               className="grid size-10 place-items-center text-zinc-500 active:text-zinc-100"
-              onClick={(e) => { e.stopPropagation(); handlePreviousAction(); }}
+              onClick={(e) => { e.stopPropagation(); onPrevious(); }}
             >
               <SkipBack className="w-[18px] h-[18px]" strokeWidth={1.7} />
             </button>
@@ -728,7 +660,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
             </Button>
             <Button variant="ghost" size="sm"
               className="h-8 w-8 p-0 text-foreground hover:text-primary"
-              onClick={handlePreviousAction}>
+              onClick={onPrevious}>
               <SkipBack className="w-4 h-4" />
             </Button>
             <Button size="sm"
