@@ -4,14 +4,16 @@ import { useEffect, useRef } from 'react';
  * Keeps audio alive when the app is minimised (Android WebView wrappers like
  * Median.co, Chrome PWA, mobile browsers).
  *
- * Two layers:
+ * Layers:
  * 1. A silent looping <audio> element owned by the page. Android grants audio
  *    focus (and shows the Media Session notification) only to a media element
  *    inside the page — the hidden YouTube iframe does not qualify. Keeping this
  *    element playing keeps the WebView in "playing audio" state so the OS does
  *    not suspend it on minimise.
- * 2. A Wake Lock (where supported) so aggressive power saving doesn't freeze
- *    the running timers.
+ * 2. A watchdog that restarts the silent element if the WebView pauses it.
+ *
+ * (No screen Wake Lock: it only keeps the screen on while visible and does
+ * nothing for background playback, so it just drained battery.)
  */
 
 // 1 second of silence, 8kHz mono WAV.
@@ -43,7 +45,6 @@ const buildSilentWavUrl = () => {
 export const useBackgroundAudio = (isPlaying: boolean) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
-  const wakeLockRef = useRef<any>(null);
 
   // Create the silent element once.
   useEffect(() => {
@@ -74,47 +75,21 @@ export const useBackgroundAudio = (isPlaying: boolean) => {
 
     let cancelled = false;
 
-    const requestWakeLock = async () => {
-      try {
-        const nav: any = navigator;
-        if (nav.wakeLock?.request && !wakeLockRef.current) {
-          wakeLockRef.current = await nav.wakeLock.request('screen');
-          wakeLockRef.current?.addEventListener?.('release', () => {
-            wakeLockRef.current = null;
-          });
-        }
-      } catch {
-        /* wake lock is best-effort */
-      }
-    };
-
-    const releaseWakeLock = () => {
-      try {
-        wakeLockRef.current?.release?.();
-      } catch {
-        /* ignore */
-      }
-      wakeLockRef.current = null;
-    };
-
     if (isPlaying) {
       audio.play().catch(() => {
         /* blocked until a user gesture — retried on the next play toggle */
       });
-      void requestWakeLock();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     } else {
       audio.pause();
-      releaseWakeLock();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     }
 
-    // Re-acquire the wake lock when the app comes back to the foreground.
+    // Restart the silent loop when the app comes back to the foreground.
     const onVisibility = () => {
       if (cancelled) return;
-      if (document.visibilityState === 'visible' && isPlaying) {
-        void requestWakeLock();
-        if (audio.paused) audio.play().catch(() => {});
+      if (document.visibilityState === 'visible' && isPlaying && audio.paused) {
+        audio.play().catch(() => {});
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -130,7 +105,6 @@ export const useBackgroundAudio = (isPlaying: boolean) => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(keepAlive);
-      releaseWakeLock();
     };
   }, [isPlaying]);
 };
