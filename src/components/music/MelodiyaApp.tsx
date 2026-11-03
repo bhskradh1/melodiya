@@ -297,7 +297,7 @@ export const MelodiyaApp: React.FC = () => {
 
   const handlePlayPause = () => {
     console.log(`${isPlaying ? 'Pausing' : 'Playing'} track: ${currentTrack?.title}`);
-    setIsPlaying(!isPlaying);
+    setIsPlaying(previous => !previous);
   };
 
   const fetchRelatedTracks = async (track: Track): Promise<Track[]> => {
@@ -333,26 +333,26 @@ export const MelodiyaApp: React.FC = () => {
     }
   };
 
-  const handleNext = async () => {
-    if (!preferences.auto_play && !(playlist.length > 0 && currentIndex + 1 < playlist.length)) {
+  // Manual Next must work even when autoplay is disabled. The autoplay
+  // preference only controls whether playback advances at the end of a song.
+  const advanceToNextTrack = async (automatic = false) => {
+    const hasQueuedNext = playlist.length > 0 && currentIndex + 1 < playlist.length;
+    if (automatic && !preferences.auto_play && !hasQueuedNext) {
       setIsPlaying(false);
       return;
     }
-    if (playlist.length > 0 && currentIndex + 1 < playlist.length) {
-      // Next track available in playlist
+
+    if (hasQueuedNext) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setCurrentTrack(playlist[nextIndex]);
       setIsPlaying(true);
     } else if (isPlaylistMode && playlist.length > 0) {
-      // Playlist mode: loop back to the start of the playlist
       setCurrentIndex(0);
       setCurrentTrack(playlist[0]);
       setIsPlaying(true);
-      console.log('Playlist ended, looping back to start.');
     } else if (currentTrack) {
-      // Non-playlist mode: auto-fetch related tracks and keep playing
-      console.log('Song ended, fetching related tracks for:', currentTrack.title);
+      // A manual skip may fetch a related track even when autoplay is off.
       const related = await fetchRelatedTracks(currentTrack);
       if (related.length > 0) {
         const nextTrack = related[0];
@@ -360,13 +360,15 @@ export const MelodiyaApp: React.FC = () => {
         setCurrentIndex(prev => prev + 1);
         setCurrentTrack(nextTrack);
         setIsPlaying(true);
-        console.log('Auto-playing related track:', nextTrack.title);
       } else {
-        console.info('No new eligible recommendations. Stopping instead of replaying previous songs.');
+        console.info('No new eligible recommendations. Stopping playback.');
         setIsPlaying(false);
       }
     }
   };
+
+  const handleNext = () => advanceToNextTrack(false);
+  const handleTrackEnded = () => advanceToNextTrack(true);
 
   const handlePrevious = () => {
     if (playlist.length > 0) {
@@ -536,6 +538,7 @@ export const MelodiyaApp: React.FC = () => {
         onPlayPause={handlePlayPause}
         onNext={handleNext}
         onPrevious={handlePrevious}
+        onTrackEnded={handleTrackEnded}
       />
 
       {/* Mobile Bottom Navigation */}
