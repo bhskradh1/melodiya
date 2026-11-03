@@ -269,12 +269,32 @@ self.addEventListener('push', (event) => {
 // Notification click handling
 self.addEventListener('notificationclick', (event) => {
   console.log('Service Worker: Notification clicked');
-  
+
+  const musicActions = ['previous', 'next', 'play', 'pause'];
+
+  // Music control buttons: tell the open app what to do, don't open a new window.
+  if (musicActions.includes(event.action)) {
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+        list.forEach((client) =>
+          client.postMessage({ type: 'MUSIC_ACTION', action: event.action })
+        );
+      })
+    );
+    return;
+  }
+
   event.notification.close();
 
-  if (event.action === 'explore') {
+  // Tapping the notification body (or 'Open App') brings the app to the front.
+  if (event.action === 'explore' || !event.action) {
     event.waitUntil(
-      clients.openWindow('/')
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+        for (const client of list) {
+          if ('focus' in client) return client.focus();
+        }
+        return clients.openWindow('/');
+      })
     );
   }
 });
