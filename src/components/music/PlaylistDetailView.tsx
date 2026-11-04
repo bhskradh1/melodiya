@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, ArrowLeft, Music, Trash2, ListMusic, Sparkles, Download, HardDrive, CheckCircle2 } from 'lucide-react';
+import { Play, ArrowLeft, Music, Trash2, ListMusic, Sparkles, Download, CheckCircle2 } from 'lucide-react';
 import { getOfflineTracks, OFFLINE_UPDATED_EVENT, removeTrackOffline, saveTrackOffline } from '@/lib/offlineLibrary';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
