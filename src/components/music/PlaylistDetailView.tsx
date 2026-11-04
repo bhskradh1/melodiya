@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, ArrowLeft, Music, Trash2, ListMusic, Sparkles } from 'lucide-react';
+import { Play, ArrowLeft, Music, Trash2, ListMusic, Sparkles, Download, CheckCircle2 } from 'lucide-react';
+import { getOfflineTracks, OFFLINE_UPDATED_EVENT, removeTrackOffline, saveTrackOffline } from '@/lib/offlineLibrary';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +49,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [songs, setSongs] = useState<PlaylistSong[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offlineVideoIds, setOfflineVideoIds] = useState<Set<string>>(() => new Set(getOfflineTracks().map((track) => track.videoId)));
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -57,7 +59,18 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
     }
   }, [playlistId]);
 
+  useEffect(() => {
+    const syncOfflineTracks = () => setOfflineVideoIds(new Set(getOfflineTracks().map((track) => track.videoId)));
+    window.addEventListener(OFFLINE_UPDATED_EVENT, syncOfflineTracks);
+    window.addEventListener('storage', syncOfflineTracks);
+    return () => {
+      window.removeEventListener(OFFLINE_UPDATED_EVENT, syncOfflineTracks);
+      window.removeEventListener('storage', syncOfflineTracks);
+    };
+  }, []);
+
   const fetchPlaylistDetails = async () => {
+    const cacheKey = `melodiya_offline_playlist_${playlistId}`;
     try {
       // Fetch playlist info
       const { data: playlistData, error: playlistError } = await supabase
@@ -77,12 +90,32 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
         .order('added_at', { ascending: true });
 
       if (songsError) throw songsError;
-      setSongs(songsData || []);
+      const safeSongs = songsData || [];
+      setSongs(safeSongs);
+      // Cache playlist structure (not audio) so the saved playlist can still be opened offline.
+      try { localStorage.setItem(cacheKey, JSON.stringify({ playlist: playlistData, songs: safeSongs })); } catch (cacheError) {
+        console.warn('Could not cache playlist metadata:', cacheError);
+      }
     } catch (error) {
       console.error('Error fetching playlist details:', error);
+      // If the network is down, reopen the last successfully loaded playlist snapshot.
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as { playlist?: Playlist; songs?: PlaylistSong[] };
+          if (parsed.playlist && Array.isArray(parsed.songs)) {
+            setPlaylist(parsed.playlist);
+            setSongs(parsed.songs);
+            toast({ title: 'Offline playlist', description: 'Showing the playlist saved on this device.' });
+            return;
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Could not read cached playlist:', cacheError);
+      }
       toast({
-        title: "Error",
-        description: "Failed to load playlist",
+        title: "Could not load playlist",
+        description: "Connect to the internet once to open and cache this playlist on this device.",
         variant: "destructive"
       });
     } finally {
@@ -101,6 +134,24 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
     }));
     const clickedTrack = tracks.find(t => t.id === song.id) || tracks[0];
     onPlayTrack(clickedTrack, tracks);
+  };
+
+  const importAudioForSong = async (song: PlaylistSong, file?: File) => {
+    if (!file || !playlist) return;
+    try {
+      await saveTrackOffline({
+        id: song.id,
+        title: song.title,
+        artist: song.artist || 'Unknown Artist',
+        thumbnail: song.thumbnail_url || '/placeholder.svg',
+        videoId: song.youtube_video_id,
+        playlistId: playlist.id,
+        playlistName: playlist.name,
+      }, file);
+      toast({ title: 'Saved for offline playback', description: `${song.title} is now stored on this device.` });
+    } catch (error) {
+      toast({ title: 'Could not save audio', description: error instanceof Error ? error.message : 'Choose a supported audio file and try again.', variant: 'destructive' });
+    }
   };
 
   const removeSongFromPlaylist = async (songId: string, songTitle: string) => {
@@ -258,9 +309,48 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                         size="sm"
                         className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary"
                         onClick={() => playSong(song)}
+                        aria-label={`Play ${song.title}`}
                       >
                         <Play className="w-4 h-4" />
                       </Button>
+
+                      {offlineVideoIds.has(song.youtube_video_id) ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-emerald-400 hover:text-destructive"
+                          onClick={async () => {
+                            try {
+                              await removeTrackOffline(song.youtube_video_id);
+                              toast({ title: 'Offline copy removed', description: song.title });
+                            } catch (error) {
+                              toast({ title: 'Could not remove offline copy', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+                            }
+                          }}
+                          aria-label={`Remove offline audio for ${song.title}`}
+                          title="Saved offline — click to remove"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <label
+                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/20 hover:text-primary"
+                          title="Import an audio file for offline playback"
+                          aria-label={`Import offline audio for ${song.title}`}
+                        >
+                          <Download className="w-4 h-4" />
+                          <input
+                            type="file"
+                            accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac"
+                            className="sr-only"
+                            onChange={(event) => {
+                              const selectedFile = event.currentTarget.files?.[0];
+                              void importAudioForSong(song, selectedFile);
+                              event.currentTarget.value = '';
+                            }}
+                          />
+                        </label>
+                      )}
                       
                       <Button
                         variant="ghost"

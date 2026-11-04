@@ -12,7 +12,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { usePreferences, GENRE_OPTIONS, type UserPreferences } from '@/contexts/PreferencesContext';
 import { useToast } from '@/hooks/use-toast';
-import { getOfflineTracks, clearOfflineLibrary } from '@/lib/offlineLibrary';
+import { getOfflineTracks, clearOfflineLibrary, OFFLINE_UPDATED_EVENT } from '@/lib/offlineLibrary';
 import {
   Mic2,
   WifiOff,
@@ -35,6 +35,16 @@ export const SettingsView: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: '', username: '' });
   const [offlineCount, setOfflineCount] = useState(() => getOfflineTracks().length);
+
+  useEffect(() => {
+    const syncOfflineCount = () => setOfflineCount(getOfflineTracks().length);
+    window.addEventListener(OFFLINE_UPDATED_EVENT, syncOfflineCount);
+    window.addEventListener('storage', syncOfflineCount);
+    return () => {
+      window.removeEventListener(OFFLINE_UPDATED_EVENT, syncOfflineCount);
+      window.removeEventListener('storage', syncOfflineCount);
+    };
+  }, []);
 
   useEffect(() => {
     if (user) fetchData();
@@ -448,7 +458,7 @@ export const SettingsView: React.FC = () => {
             <WifiOff className="w-5 h-5 text-primary" />
             Offline Library
           </CardTitle>
-          <CardDescription>{offlineCount} saved {offlineCount === 1 ? 'track' : 'tracks'} listed locally. Audio still requires an internet connection.</CardDescription>
+          <CardDescription>{offlineCount} audio {offlineCount === 1 ? 'file is' : 'files are'} stored on this device and can play offline. Import audio files from a playlist to add more.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button variant="outline" className="w-full justify-start gap-2" onClick={handleClearOffline} disabled={offlineCount === 0}>
