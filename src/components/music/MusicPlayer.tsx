@@ -146,17 +146,22 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       setDuration(0);
       setIsLoading(true);
     }
-    audio.volume = (isMuted ? 0 : volume[0]) / 100;
+    audio.volume = normalizeVolume ? 0.75 : (isMuted ? 0 : volume[0]) / 100;
     if (isPlaying) {
       void audio.play().then(() => setIsLoading(false)).catch((error) => {
         console.error('Offline audio playback failed:', error);
         setIsLoading(false);
-        toast({ title: 'Could not play saved audio', description: 'Try importing the audio file again.', variant: 'destructive' });
+        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+          onPlayPause();
+          toast({ title: 'Tap Play to start offline audio', description: 'Your browser blocked automatic playback after loading the saved file.' });
+        } else {
+          toast({ title: 'Could not play saved audio', description: 'Try importing the audio file again.', variant: 'destructive' });
+        }
       });
     } else {
       audio.pause();
     }
-  }, [useOfflineAudio, offlineAudioUrl, isPlaying, isMuted, volume, toast]);
+  }, [useOfflineAudio, offlineAudioUrl, isPlaying, isMuted, volume, normalizeVolume, toast, onPlayPause]);
 
   // Apply the saved default volume whenever the user changes it in Settings.
   useEffect(() => {
@@ -470,7 +475,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
         /* seekto is not supported by every browser */
       }
     }
-  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, useNativeAudio]);
+  }, [currentTrack, isPlaying, onPlayPause, onNext, onPrevious, useNativeAudio, useOfflineAudio]);
 
   // Keep the notification scrubber in sync
   useEffect(() => {
@@ -627,7 +632,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
           if (crossfade && crossfadeSeconds > 0 && Number.isFinite(audio.duration)) {
             const remaining = audio.duration - audio.currentTime;
             const factor = remaining <= crossfadeSeconds ? Math.max(0, Math.min(1, remaining / crossfadeSeconds)) : 1;
-            audio.volume = ((isMuted ? 0 : volume[0]) / 100) * factor;
+            audio.volume = (normalizeVolume ? 0.75 : (isMuted ? 0 : volume[0]) / 100) * factor;
           }
         }}
         onEnded={() => triggerNextTrack()}
