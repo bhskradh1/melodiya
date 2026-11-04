@@ -74,6 +74,7 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [offlineAudioUrl, setOfflineAudioUrl] = useState<string | null>(null);
+  const [offlineAudioVideoId, setOfflineAudioVideoId] = useState<string | null>(null);
   const prevTrackIdRef = useRef<string | null>(null);
   const previousNativeAudioUrlRef = useRef<string | null>(null);
   const lastNativeExternalPlayingRef = useRef<boolean | null>(null);
@@ -86,8 +87,9 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const { toast } = useToast();
   const { notifications: notificationsEnabled, normalizeVolume, autoOpenNowPlaying, defaultVolume, crossfade, crossfadeSeconds } = useSettings();
   const nativeAudioUrl = currentTrack?.audioUrl ?? currentTrack?.audio_url ?? null;
-  const useNativeAudio = Boolean(nativeAudioUrl && typeof window !== 'undefined' && window.MelodiyaNativeAudio && !offlineAudioUrl);
-  const useOfflineAudio = Boolean(offlineAudioUrl && !useNativeAudio);
+  const hasCurrentOfflineAudio = Boolean(offlineAudioUrl && offlineAudioVideoId === currentTrack?.videoId);
+  const useNativeAudio = Boolean(nativeAudioUrl && typeof window !== 'undefined' && window.MelodiyaNativeAudio && !hasCurrentOfflineAudio);
+  const useOfflineAudio = Boolean(hasCurrentOfflineAudio && !useNativeAudio);
   const sendNativeAudioCommand = useCallback((payload: Record<string, unknown>) => {
     try {
       if (!window.MelodiyaNativeAudio) return false;
@@ -103,10 +105,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
     let cancelled = false;
     const loadOfflineAudio = async () => {
       setOfflineAudioUrl(null);
+      setOfflineAudioVideoId(null);
       if (!currentTrack?.videoId) return;
       try {
-        const url = await getOfflineAudioObjectUrl(currentTrack.videoId);
-        if (!cancelled) setOfflineAudioUrl(url);
+        const videoId = currentTrack.videoId;
+        const url = await getOfflineAudioObjectUrl(videoId);
+        if (!cancelled) {
+          setOfflineAudioVideoId(url ? videoId : null);
+          setOfflineAudioUrl(url);
+        }
       } catch (error) {
         console.warn('Could not load saved offline audio:', error);
         if (!cancelled) setOfflineAudioUrl(null);
@@ -123,7 +130,15 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
   // Drive local audio from the same transport state used by the rest of the player.
   useEffect(() => {
     const audio = offlineAudioRef.current;
-    if (!audio || !useOfflineAudio || !offlineAudioUrl) return;
+    if (!audio) return;
+    if (!useOfflineAudio || !offlineAudioUrl) {
+      audio.pause();
+      if (audio.hasAttribute('src')) {
+        audio.removeAttribute('src');
+        audio.load();
+      }
+      return;
+    }
     if (audio.src !== offlineAudioUrl) {
       audio.src = offlineAudioUrl;
       audio.load();
@@ -442,7 +457,11 @@ export const MusicPlayer: React.FC<MusicPlayerProps> = ({
       }
       try {
         navigator.mediaSession.setActionHandler('seekto', (details: any) => {
-          if (details.seekTime != null && playerRef.current?.seekTo) {
+          if (details.seekTime == null) return;
+          if (useOfflineAudio && offlineAudioRef.current) {
+            offlineAudioRef.current.currentTime = details.seekTime;
+            setCurrentTime(details.seekTime);
+          } else if (playerRef.current?.seekTo) {
             playerRef.current.seekTo(details.seekTime, true);
             setCurrentTime(details.seekTime);
           }
