@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -19,6 +20,7 @@ SUPABASE_ANON_KEY = os.environ.get("MUSIC_SUPABASE_ANON_KEY", "")
 
 MAX_QUERY_LENGTH = 120
 MAX_RESULTS = 20
+MAX_CANDIDATES = 50
 USER_REQUESTS_PER_MINUTE = 30
 CACHE_TTL_SECONDS = 900
 CACHE_MAX_ENTRIES = 256
@@ -173,6 +175,65 @@ def _is_rate_limited(user_id: str) -> bool:
     return False
 
 
+def _search_tokens(value: str) -> list[str]:
+    normalized = unicodedata.normalize("NFKD", value).casefold()
+    without_marks = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.findall(r"[a-z0-9]+", without_marks)
+
+
+def _rank_search_track(query: str, track: dict[str, str]) -> float:
+    """Prefer exact title + credited artist matches over alternate recordings."""
+    explicit = re.match(r"^\s*(.+?)\s+(?:by|from)\s+(.+?)\s*$", query, re.IGNORECASE)
+    requested_title = explicit.group(1) if explicit else query
+    requested_artist = explicit.group(2) if explicit else ""
+
+    query_tokens = set(_search_tokens(query))
+    title_tokens = set(_search_tokens(track.get("title", "")))
+    artist_tokens = set(_search_tokens(track.get("artist", "")))
+    requested_title_tokens = set(_search_tokens(requested_title))
+
+    # When a user types "song artist" without the word "by", recognize
+    # credited artist words and remove them from the title comparison.
+    if not explicit:
+        inferred_artist_tokens = query_tokens & artist_tokens
+        remaining_title_tokens = requested_title_tokens - inferred_artist_tokens
+        if remaining_title_tokens:
+            requested_title_tokens = remaining_title_tokens
+
+    if not requested_title_tokens:
+        requested_title_tokens = query_tokens
+
+    title_coverage = len(requested_title_tokens & title_tokens) / max(1, len(requested_title_tokens))
+    score = title_coverage * 100
+
+    normalized_title = " ".join(_search_tokens(track.get("title", "")))
+    normalized_requested_title = " ".join(_search_tokens(requested_title))
+    if normalized_title and normalized_title == normalized_requested_title:
+        score += 38
+
+    if explicit:
+        requested_artist_tokens = set(_search_tokens(requested_artist))
+        artist_coverage = len(requested_artist_tokens & artist_tokens) / max(1, len(requested_artist_tokens))
+        score += artist_coverage * 42
+        if requested_artist_tokens and requested_artist_tokens <= artist_tokens:
+            score += 28
+        elif artist_coverage < 0.5:
+            score -= 45
+    else:
+        # Artist words supplied in the same search box are useful evidence
+        # when the listener enters both the song and performer names.
+        artist_coverage = len(query_tokens & artist_tokens) / max(1, len(artist_tokens))
+        score += artist_coverage * 24
+
+    title = track.get("title", "")
+    if re.search(r"\b(live|acoustic|demo|instrumental|karaoke|cover|tribute|nightcore|slowed|sped[ -]?up|re[ -]?recorded|alternate take)\b", title, re.IGNORECASE):
+        score -= 28
+    if re.search(r"\b(remaster(?:ed)?|anniversary edition|deluxe edition)\b", title, re.IGNORECASE):
+        score -= 4
+
+    return score
+
+
 def _search(query: str, limit: int) -> tuple[list[dict[str, str]], bool]:
     cache_key = f"{query.casefold()}:{limit}"
     now = time.monotonic()
@@ -180,10 +241,11 @@ def _search(query: str, limit: int) -> tuple[list[dict[str, str]], bool]:
     if cached and now - cached[0] < CACHE_TTL_SECONDS:
         return cached[1], True
 
-    # One small catalogue request per new query. Do not bulk-fetch hundreds
-    # of candidates; strict official-source filtering is more important than
-    # filling a large result list. Repeat queries use the cache above.
-    results = YTMusic().search(query, filter="songs", limit=min(MAX_RESULTS, limit))
+    # Search a broader candidate pool before official-source filtering.
+    # The original artist release can sit below alternate uploads in the
+    # first page, so ranking only the first 20 makes valid tracks disappear.
+    candidate_limit = min(MAX_CANDIDATES, max(40, limit * 3))
+    results = YTMusic().search(query, filter="songs", limit=candidate_limit)
     tracks = []
     for item in results:
         if not isinstance(item, dict) or item.get("resultType") != "song":
@@ -191,15 +253,17 @@ def _search(query: str, limit: int) -> tuple[list[dict[str, str]], bool]:
         track = _normalize_track(item)
         if track:
             tracks.append(track)
-            if len(tracks) >= limit:
-                break
+
+    # Keep catalogue provenance filtering strict, then rank canonical
+    # title/artist matches before clipping the results returned to the app.
+    tracks.sort(key=lambda track: _rank_search_track(query, track), reverse=True)
+    tracks = tracks[:limit]
 
     _search_cache[cache_key] = (now, tracks)
     if len(_search_cache) > CACHE_MAX_ENTRIES:
         oldest_key = min(_search_cache, key=lambda key: _search_cache[key][0])
         _search_cache.pop(oldest_key, None)
     return tracks, False
-
 
 
 def _thumbnail_url(item: dict[str, Any]) -> str:
