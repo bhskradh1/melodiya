@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 from ytmusicapi import YTMusic
 
@@ -181,20 +182,75 @@ def _search_tokens(value: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", without_marks)
 
 
-def _rank_search_track(query: str, track: dict[str, str]) -> float:
+def _itunes_canonical_track(query: str) -> tuple[str, str] | None:
+    """Resolve an unambiguous song title to its credited artist for ranking only."""
+    query = query.strip()
+    query_tokens = set(_search_tokens(query))
+    if len(query_tokens) < 2 or len(query) > 100:
+        return None
+
+    title_query = re.split(r"\s+(?:by|from)\s+", query, maxsplit=1, flags=re.IGNORECASE)[0]
+    title_query_tokens = set(_search_tokens(title_query))
+    if len(title_query_tokens) < 2:
+        return None
+
+    params = urlencode({
+        "term": query,
+        "media": "music",
+        "entity": "song",
+        "limit": 8,
+        "country": "us",
+    })
+    request = Request(
+        f"https://itunes.apple.com/search?{params}",
+        headers={"Accept": "application/json", "User-Agent": "Sonora Music Search/1.0"},
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=3) as response:
+            payload = json.loads(response.read(256 * 1024).decode("utf-8"))
+    except Exception:
+        # iTunes is a ranking hint, never a dependency for catalogue search.
+        return None
+
+    candidates = []
+    for item in payload.get("results", []) if isinstance(payload, dict) else []:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("trackName") or "").strip()
+        artist = str(item.get("artistName") or "").strip()
+        tokens = set(_search_tokens(title))
+        if not title or not artist or len(tokens) < 2:
+            continue
+        coverage = len(title_query_tokens & tokens) / max(1, len(title_query_tokens))
+        if coverage < 0.8:
+            continue
+        candidates.append((coverage, title, artist))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1], candidates[0][2]
+
+
+def _rank_search_track(
+    query: str,
+    track: dict[str, str],
+    canonical: tuple[str, str] | None = None,
+) -> float:
     """Prefer exact title + credited artist matches over alternate recordings."""
     explicit = re.match(r"^\s*(.+?)\s+(?:by|from)\s+(.+?)\s*$", query, re.IGNORECASE)
-    requested_title = explicit.group(1) if explicit else query
-    requested_artist = explicit.group(2) if explicit else ""
+    requested_title = canonical[0] if canonical else (explicit.group(1) if explicit else query)
+    requested_artist = canonical[1] if canonical else (explicit.group(2) if explicit else "")
 
     query_tokens = set(_search_tokens(query))
     title_tokens = set(_search_tokens(track.get("title", "")))
     artist_tokens = set(_search_tokens(track.get("artist", "")))
     requested_title_tokens = set(_search_tokens(requested_title))
 
-    # When a user types "song artist" without the word "by", recognize
-    # credited artist words and remove them from the title comparison.
-    if not explicit:
+    # When canonical catalogue metadata is known, use its title and artist
+    # instead of guessing which words in a free-form query are performer names.
+    if not canonical and not explicit:
         inferred_artist_tokens = query_tokens & artist_tokens
         remaining_title_tokens = requested_title_tokens - inferred_artist_tokens
         if remaining_title_tokens:
@@ -211,7 +267,7 @@ def _rank_search_track(query: str, track: dict[str, str]) -> float:
     if normalized_title and normalized_title == normalized_requested_title:
         score += 38
 
-    if explicit:
+    if requested_artist:
         requested_artist_tokens = set(_search_tokens(requested_artist))
         artist_coverage = len(requested_artist_tokens & artist_tokens) / max(1, len(requested_artist_tokens))
         score += artist_coverage * 42
@@ -254,9 +310,13 @@ def _search(query: str, limit: int) -> tuple[list[dict[str, str]], bool]:
         if track:
             tracks.append(track)
 
+    # Use a catalogue metadata lookup only as a ranking hint. If the title
+    # is not confidently resolved, fall back to the YouTube Music query itself.
+    canonical = _itunes_canonical_track(query)
+
     # Keep catalogue provenance filtering strict, then rank canonical
     # title/artist matches before clipping the results returned to the app.
-    tracks.sort(key=lambda track: _rank_search_track(query, track), reverse=True)
+    tracks.sort(key=lambda track: _rank_search_track(query, track, canonical), reverse=True)
     tracks = tracks[:limit]
 
     _search_cache[cache_key] = (now, tracks)
