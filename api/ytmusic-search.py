@@ -425,6 +425,95 @@ def _search_artists(
     return artists, False
 
 
+
+def _search_radio_artists(
+    recent_artists: list[str],
+    search_terms: list[str],
+    genres: list[str],
+    language: str,
+    limit: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Put artists from actual plays/likes/searches before genre discovery."""
+    clean_recent = list(dict.fromkeys(
+        re.sub(r"[^a-zA-Z0-9À-ÿ '&.-]", "", str(name)).strip()[:80]
+        for name in recent_artists
+        if str(name).strip()
+    ))[:12]
+    clean_terms = list(dict.fromkeys(
+        re.sub(r"[^a-zA-Z0-9À-ÿ '&.-]", "", str(term)).strip()[:100]
+        for term in search_terms
+        if str(term).strip()
+    ))[:8]
+
+    # Use a short cache window because listening and search behaviour changes.
+    cache_key = "radio:" + "|".join(clean_recent).casefold() + ":" + "|".join(clean_terms).casefold() + ":" + "|".join(genres).casefold() + ":" + language.casefold() + f":{limit}"
+    now = time.monotonic()
+    cached = _artist_cache.get(cache_key)
+    if cached and now - cached[0] < 60 * 30:
+        return cached[1], True
+
+    ytmusic = YTMusic()
+    artists: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def append_artist(item: dict[str, Any], source: str, preferred_name: str = "") -> None:
+        browse_id = str(item.get("browseId") or item.get("id") or "").strip()
+        name = str(item.get("artist") or item.get("name") or item.get("title") or preferred_name).strip()
+        if item.get("resultType") != "artist" or not browse_id.startswith("UC") or not name or browse_id in seen:
+            return
+        seen.add(browse_id)
+        artists.append({
+            "id": browse_id,
+            "browseId": browse_id,
+            "name": name,
+            "thumbnail": _thumbnail_url(item),
+            "subscribers": str(item.get("subscribers") or ""),
+            "genre": source,
+        })
+
+    # Strongest signal: artists repeatedly played or saved by this listener.
+    for name in clean_recent:
+        try:
+            results = ytmusic.search(name, filter="artists", limit=5)
+        except Exception:
+            continue
+        for item in results:
+            if isinstance(item, dict):
+                append_artist(item, "From your listening", name)
+        if len(artists) >= limit:
+            break
+
+    # Search frequency is a secondary signal. It can surface artists the
+    # listener looks up often but has not played yet.
+    if len(artists) < limit:
+        for term in clean_terms:
+            try:
+                results = ytmusic.search(term, filter="artists", limit=5)
+            except Exception:
+                continue
+            for item in results:
+                if isinstance(item, dict):
+                    append_artist(item, "From your searches")
+            if len(artists) >= limit:
+                break
+
+    # Fill the remainder from saved genres/language so the page also has
+    # discovery candidates and does not become a list of only known artists.
+    if len(artists) < limit:
+        discovered, _ = _search_artists(genres, language, min(12, limit))
+        for item in discovered:
+            if item.get("browseId") not in seen:
+                seen.add(item["browseId"])
+                artists.append(item)
+                if len(artists) >= limit:
+                    break
+
+    _artist_cache[cache_key] = (now, artists[:limit])
+    if len(_artist_cache) > ARTIST_CACHE_MAX_ENTRIES:
+        oldest_key = min(_artist_cache, key=lambda key: _artist_cache[key][0])
+        _artist_cache.pop(oldest_key, None)
+    return artists[:limit], False
+
 def _get_artist_songs(
     artist_id: str, requested_name: str, limit: int
 ) -> tuple[str, list[dict[str, Any]], bool]:
@@ -567,17 +656,28 @@ class handler(BaseHTTPRequestHandler):
                 limit = MAX_RESULTS
 
             action = str(body.get("action") or "search").strip().lower()
-            if action == "artists":
+            if action in ("artists", "radio_artists"):
                 raw_genres = body.get("genres") or []
                 genres = raw_genres if isinstance(raw_genres, list) else []
                 language = str(body.get("language") or "English").strip()
-                artists, cached = _search_artists(genres, language, min(limit, 12))
+                if action == "radio_artists":
+                    raw_recent = body.get("recentArtists") or []
+                    raw_searches = body.get("searchTerms") or []
+                    recent_artists = raw_recent if isinstance(raw_recent, list) else []
+                    search_terms = raw_searches if isinstance(raw_searches, list) else []
+                    artists, cached = _search_radio_artists(
+                        recent_artists, search_terms, genres, language, min(limit, 24)
+                    )
+                    provider = "youtube_music_personalised_radio"
+                else:
+                    artists, cached = _search_artists(genres, language, min(limit, 12))
+                    provider = "youtube_music"
                 self._send_json(
                     200,
                     {
                         "artists": artists,
                         "count": len(artists),
-                        "provider": "youtube_music",
+                        "provider": provider,
                         "cached": cached,
                     },
                 )
